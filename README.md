@@ -172,6 +172,12 @@ source env.sh && python3 astribot_simulation.py
 
 If you want to reset the robot state, press Backspace while the simulation is running.
 
+### Replay a Parquet episode through the SDK
+
+Run `scripts/replay_parquet.py` in the working ROS2 SDK Python environment while
+the simulator runs separately. See [Parquet replay setup](docs/PARQUET_REPLAY.md)
+for dependencies, matching ROS settings, frame selection and camera viewers.
+
 ### Switch to Other Simulators
 
 To switch simulators or robot setups, modify the YAML file path in `astribot_simulation.py` (line 16):
