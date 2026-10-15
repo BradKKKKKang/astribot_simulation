@@ -24,6 +24,15 @@ tests/
 
 ## Running Tests
 
+The gripper conversion regression suite uses CPU PyTorch tensors and mocked
+ROS/Isaac startup dependencies. It checks the actual Isaac control and feedback
+methods, including velocity compensation, both grippers, follower directions,
+range clamping, and feedback units. It does not start a simulator or ROS node:
+
+```bash
+python -m pytest tests/unit/test_isaaclab_gripper.py -o addopts='' -q
+```
+
 ```bash
 # Quick: Only check installations
 pytest tests/unit/ -v

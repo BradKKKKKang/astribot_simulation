@@ -150,6 +150,13 @@ class IsaacLabAppManager:
 
 class AstribotIsaacLabEnv(AstribotBaseEnv):
 
+    # ROS/dataset gripper commands use 0..100; Isaac joint targets use radians.
+    _GRIPPER_RAD_PER_PERCENT = 0.93 / 100.0
+    _GRIPPER_JOINT_DIRECTIONS = {
+        'L1': -1, 'L2': -1, 'R11': -1,
+        'R1': 1, 'R2': 1, 'L11': 1,
+    }
+
     def __init__(self, param):
         astribot_simu_log("Initializing Isaac Lab environment...")
 
@@ -343,8 +350,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                 current_pos = self.get_joint_positions([joint_name])[0]
                 vel_cmd = self.vel_compensation_ctrl(
                     [current_pos],
-                    self.joint_velocity_command_all,
-                    idx=joint_id
+                    [self.joint_velocity_command_all[joint_id]],
+                    idx=0
                 )[0]
                 joint_position_targets[robot_joint_idx] = vel_cmd
 
@@ -356,49 +363,23 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.robot.set_joint_position_target(joint_position_targets.unsqueeze(0))
 
     def _sync_gripper_joints(self, joint_position_targets):
-        left_l1_idx = self.joint_name_to_index.get('astribot_gripper_left_joint_L1')
-        if left_l1_idx is not None:
-            l1_cmd = joint_position_targets[left_l1_idx].item()
+        """Convert compensated 0..100 commands to the six signed joint angles."""
+        for side in ('left', 'right'):
+            prefix = f'astribot_gripper_{side}_joint_'
+            l1_idx = self.joint_name_to_index.get(prefix + 'L1')
+            if l1_idx is None:
+                continue
 
-            l1_cmd = max(-0.5, min(0.0, l1_cmd))
-            gripper_qpos = abs(l1_cmd)
-
-            joint_position_targets[left_l1_idx] = -gripper_qpos
-
-            for joint_name in ['astribot_gripper_left_joint_R1',
-                              'astribot_gripper_left_joint_R2',
-                              'astribot_gripper_left_joint_L11']:
-                idx = self.joint_name_to_index.get(joint_name)
+            command = joint_position_targets[l1_idx].clamp(0.0, 100.0)
+            gripper_qpos = command * self._GRIPPER_RAD_PER_PERCENT
+            for suffix, direction in self._GRIPPER_JOINT_DIRECTIONS.items():
+                idx = self.joint_name_to_index.get(prefix + suffix)
                 if idx is not None:
-                    joint_position_targets[idx] = gripper_qpos
+                    joint_position_targets[idx] = direction * gripper_qpos
 
-            for joint_name in ['astribot_gripper_left_joint_L2',
-                              'astribot_gripper_left_joint_R11']:
-                idx = self.joint_name_to_index.get(joint_name)
-                if idx is not None:
-                    joint_position_targets[idx] = -gripper_qpos
-
-        right_l1_idx = self.joint_name_to_index.get('astribot_gripper_right_joint_L1')
-        if right_l1_idx is not None:
-            l1_cmd = joint_position_targets[right_l1_idx].item()
-
-            l1_cmd = max(-0.5, min(0.0, l1_cmd))
-            gripper_qpos = abs(l1_cmd)
-
-            joint_position_targets[right_l1_idx] = -gripper_qpos
-
-            for joint_name in ['astribot_gripper_right_joint_R1',
-                              'astribot_gripper_right_joint_R2',
-                              'astribot_gripper_right_joint_L11']:
-                idx = self.joint_name_to_index.get(joint_name)
-                if idx is not None:
-                    joint_position_targets[idx] = gripper_qpos
-
-            for joint_name in ['astribot_gripper_right_joint_L2',
-                              'astribot_gripper_right_joint_R11']:
-                idx = self.joint_name_to_index.get(joint_name)
-                if idx is not None:
-                    joint_position_targets[idx] = -gripper_qpos
+    def _gripper_joint_to_percent(self, joint_name, value):
+        direction = self._GRIPPER_JOINT_DIRECTIONS[joint_name.rsplit('_', 1)[-1]]
+        return value / (direction * self._GRIPPER_RAD_PER_PERCENT)
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -452,7 +433,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         joint_pos = self.robot.data.joint_pos[0, idx].cpu().item()
 
         if 'gripper' in joint_name:
-            return abs(joint_pos / 0.93 * 100)
+            return self._gripper_joint_to_percent(joint_name, joint_pos)
 
         return joint_pos
 
@@ -467,7 +448,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         joint_vel = self.robot.data.joint_vel[0, idx].cpu().item()
 
         if 'gripper' in joint_name:
-            return joint_vel / 0.93 * 100
+            return self._gripper_joint_to_percent(joint_name, joint_vel)
 
         return joint_vel
 
@@ -480,6 +461,9 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         idx = self.joint_name_to_index[joint_name]
         joint_acc = self.robot.data.joint_acc[0, idx].cpu().item()
+
+        if 'gripper' in joint_name:
+            return self._gripper_joint_to_percent(joint_name, joint_acc)
 
         return joint_acc
 

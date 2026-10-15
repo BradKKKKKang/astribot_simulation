@@ -254,6 +254,14 @@ If you want to directly control the joints, note: The robot exposes joint-space 
 **Tip:**
 If using **Astribot SDK**, you generally do **not** need to worry about these details — refer to the Astribot SDK documentation for more information. When using joint-space commands, ensure the control mode matches the command dimension to avoid unexpected behavior.
 
+Gripper position commands and feedback use the SDK/dataset **0–100 scale**,
+not radians or a normalized 0–1 value. In Isaac Lab, the compensated command is
+clamped to this range and mapped to the model's 0–0.93 rad travel (negative for
+L1/L2/R11, positive for R1/R2/L11). Thus an L1 command of 50 produces −0.465 rad
+and reads back as 50. Velocity and acceleration feedback use scale units/s and
+scale units/s² with the same direction conversion. Feedback is not clipped, so
+small physical excursions beyond the commanded range remain visible.
+
 ---
 
 ## Sensors
