@@ -164,6 +164,9 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         self.dt = 0.01
         self.decimation = 1
+        self.torso_joint_1_control = self._validate_torso_joint_1_control(
+            param.get("torso_joint_1_control", {})
+        )
 
         headless = (self.render_mode != "human")
         self.app_launcher, self.simulation_app = IsaacLabAppManager.get_or_create_app(
@@ -252,12 +255,22 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         from isaaclab.actuators import ImplicitActuatorCfg
 
+        # Keep the historical all-joint baseline, but allow an isolated replay
+        # experiment to override the chassis/torso pitch joint without changing
+        # the gains of the other 21 joints.
         actuators_cfg = {
             "all_joints": ImplicitActuatorCfg(
-                joint_names_expr=[".*"],
+                joint_names_expr=["^(?!astribot_torso_joint_1$).*$"],
                 stiffness=800.0,
                 damping=40.0,
                 effort_limit=400.0,
+                velocity_limit=100.0,
+            ),
+            "torso_joint_1_override": ImplicitActuatorCfg(
+                joint_names_expr=["^astribot_torso_joint_1$"],
+                stiffness=self.torso_joint_1_control["stiffness"],
+                damping=self.torso_joint_1_control["damping"],
+                effort_limit_sim=self.torso_joint_1_control["effort_limit"],
                 velocity_limit=100.0,
             ),
         }
@@ -274,6 +287,36 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         )
 
         return robot_cfg
+
+    @staticmethod
+    def _validate_torso_joint_1_control(settings):
+        defaults = dict(stiffness=800.0, damping=40.0, effort_limit=400.0,
+                        gravity_compensation_scale=0.0)
+        if not isinstance(settings, dict) or set(settings) - defaults.keys():
+            raise ValueError("Unknown torso_joint_1_control settings")
+        values = {key: float(settings.get(key, value)) for key, value in defaults.items()}
+        if any(not np.isfinite(value) or value < 0 for value in values.values()):
+            raise ValueError("torso_joint_1_control values must be finite and non-negative")
+        if values["effort_limit"] == 0:
+            raise ValueError("torso_joint_1_control effort_limit must be positive")
+        return values
+
+    def configure_torso_joint_1(self, settings):
+        """Set the isolated joint gains between replay trials on the sim thread."""
+        import torch
+
+        values = self._validate_torso_joint_1_control(settings)
+        idx = self.joint_name_to_index["astribot_torso_joint_1"]
+        actuator = self.robot.actuators["torso_joint_1_override"]
+        # Update both PhysX and the implicit actuator's effort diagnostics.
+        for key, writer in (("stiffness", self.robot.write_joint_stiffness_to_sim),
+                            ("damping", self.robot.write_joint_damping_to_sim),
+                            ("effort_limit", self.robot.write_joint_effort_limit_to_sim)):
+            getattr(actuator, key).fill_(values[key])
+            writer(torch.tensor([[values[key]]], device=self.device), joint_ids=[idx])
+        actuator.effort_limit_sim.fill_(values["effort_limit"])
+        self.torso_joint_1_control = values
+        self.robot.set_joint_effort_target(torch.zeros((1, 1), device=self.device), joint_ids=[idx])
 
     def setup_joint_mapping(self):
         astribot_simu_log("Setting up joint mapping...")
@@ -360,7 +403,25 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         self._sync_gripper_joints(joint_position_targets)
 
+        # Implicit actuators accept a feed-forward effort together with a
+        # position target.  Use this only for torso_joint_1 so replay sweeps can
+        # test gravity compensation independently of the PD gains.
         self.robot.set_joint_position_target(joint_position_targets.unsqueeze(0))
+        scale = getattr(self, "torso_joint_1_control", {}).get("gravity_compensation_scale", 0.0)
+        torso_idx = self.joint_name_to_index.get("astribot_torso_joint_1")
+        if torso_idx is not None:
+            effort = torch.zeros((1, 1), device=self.device)
+            if self.gravity_compensation and scale:
+                effort[0, 0] = scale * self._torso_joint_1_gravity_effort()
+            self.robot.set_joint_effort_target(effort, joint_ids=[torso_idx])
+
+    def _torso_joint_1_gravity_effort(self):
+        """PhysX generalized effort opposing gravity; only the chosen DOF is applied."""
+        idx = self.joint_name_to_index["astribot_torso_joint_1"]
+        forces = self.robot.root_physx_view.get_gravity_compensation_forces()
+        if not self.robot.is_fixed_base:
+            idx += 6
+        return forces[0, idx]
 
     def _sync_gripper_joints(self, joint_position_targets):
         """Convert compensated 0..100 commands to the six signed joint angles."""

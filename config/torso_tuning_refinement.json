@@ -1,0 +1,6 @@
+[
+  {"label": "full_1600_160", "stiffness": 1600, "damping": 160, "gravity_compensation_scale": 1},
+  {"label": "full_3200_320", "stiffness": 3200, "damping": 320, "gravity_compensation_scale": 1},
+  {"label": "full_3200_640", "stiffness": 3200, "damping": 640, "gravity_compensation_scale": 1},
+  {"label": "extra_3200_320", "stiffness": 3200, "damping": 320, "gravity_compensation_scale": 1.1}
+]

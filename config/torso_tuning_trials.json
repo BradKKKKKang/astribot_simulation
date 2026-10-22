@@ -1,0 +1,10 @@
+[
+  {"label": "baseline", "stiffness": 800, "damping": 40, "gravity_compensation_scale": 0},
+  {"label": "damping_only", "stiffness": 800, "damping": 160, "gravity_compensation_scale": 0},
+  {"label": "pd_3200_80", "stiffness": 3200, "damping": 80, "gravity_compensation_scale": 0},
+  {"label": "pd_10000_320", "stiffness": 10000, "damping": 320, "gravity_compensation_scale": 0},
+  {"label": "mujoco_pd", "stiffness": 10000, "damping": 1000, "gravity_compensation_scale": 0},
+  {"label": "gravity_only", "stiffness": 800, "damping": 40, "gravity_compensation_scale": 1},
+  {"label": "pd_gravity_half", "stiffness": 3200, "damping": 160, "gravity_compensation_scale": 0.5},
+  {"label": "pd_gravity_full", "stiffness": 3200, "damping": 160, "gravity_compensation_scale": 1}
+]

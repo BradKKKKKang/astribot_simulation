@@ -63,3 +63,31 @@
   warnings. They did not prevent the simulator or observer receiving commands;
   this change does not modify the external SDK. Only this Isaac Lab/ROS2 setup
   was exercised, with no real hardware or other backend validation.
+
+## 2026-10-22: Isolated torso joint 1 PD and gravity tuning
+
+- Added optional Isaac `torso_joint_1_control` settings and a separate implicit
+  actuator for this DOF; only its gains and PhysX gravity feedforward change.
+  Default YAML now selects Kp=3200, Kd=320, effort limit=400 N m, gravity scale=1.1.
+  Other joint gains remain 800/40. See `docs/TORSO_JOINT_TUNING.md` for semantics,
+  reproduction commands, curves and coupled-joint limitations.
+- Ran 8 initial candidates on pour/guess, 4 local refinements, and baseline plus
+  two candidates on the held-out 20261020_213902 trajectory: 27 complete physics
+  replays. Every command advances one 10 ms step; recorded initial q/v are
+  restored before every trial. Position RMSE for the selected joint decreased
+  from 1.050/1.768/3.529 degrees to 0.174/0.157/0.185 degrees.
+- Used the existing SDK 100 Hz runner for a new baseline and selected-parameter
+  replay of all three trajectories in localhost-only ROS domain 198. Position
+  RMSE decreased from 1.353/2.189/3.552 degrees to 0.180/0.292/0.183 degrees;
+  selected-run state observation was 96.31–97.55 Hz. Both owned simulator
+  processes shut down with exit code zero. No hardware was controlled.
+- Evidence: `results/torso_joint_1_tuning/`, raw trial directories referenced
+  there, and `results/torso_tuning_sdk_{baseline,selected}/`. Incomplete debug
+  directories are not counted. Implicit actuator torque is diagnostic only.
+- Limits: the other 19 angular joints' combined position RMSE rises slightly
+  through coupling; torso joint 2 on pour worsens by 0.01078 rad RMSE. SDK guess
+  retains an early 1.588-degree peak with nonzero preposition residual. Joint 1
+  velocity RMSE on the held-out physics trajectory remains 0.05244 rad/s.
+- Focused control tests: 22 passed (existing gripper plus new torso cases).
+  Python syntax checks, shell syntax and whitespace checks passed. This does
+  not establish whole-robot calibration or hard-real-time SDK feedback.

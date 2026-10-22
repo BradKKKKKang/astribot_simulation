@@ -36,6 +36,13 @@
         ['astribot_gripper_right_joint_L1'],
     ]
     gravity_compensation: True
+    # Torso pitch: fitted against three 100 Hz replay feedback streams.
+    # Other joints retain the historical 800/40 gains.
+    torso_joint_1_control:
+        stiffness: 3200.0
+        damping: 320.0
+        effort_limit: 400.0
+        gravity_compensation_scale: 1.1
     mode: "human"
     width: 1920
     height: 1080
