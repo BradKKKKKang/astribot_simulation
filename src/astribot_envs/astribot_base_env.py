@@ -65,7 +65,13 @@ class AstribotBaseEnv(gym.Env, ABC):
         self.setup_ros_node()
 
         self.reset_flag=False
-        self.frame_skip = 3
+        # Allow benchmark/replay runners to select the environment cadence
+        # without changing the project default.  The default remains three
+        # physics steps per environment step for existing users.
+        try:
+            self.frame_skip = max(1, int(os.getenv("ASTRIBOT_FRAME_SKIP", "3")))
+        except ValueError:
+            self.frame_skip = 3
         self.vel_compensation_map = dict()
         self.robot_joint_map = dict()
         self.cv_bridge = CvBridge()

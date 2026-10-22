@@ -1,3 +1,9 @@
+## 2026-10-22：Headless GPU 基准与 100 Hz 完整轨迹对齐
+
+- **性能边界**：RTX 3090、4 ms 物理步长的 headless 长测中，完整 `env.step`（含 ROS executor、无相机）约 118.6 Hz，三相机约 29.9 Hz；physics-only 约 283.0 Hz，不能据此宣称完整回放稳定达到 250 Hz。
+- **重采样与回放**：新增 `resample_replay_commands.py` 与 `replay_artifacts_100hz.py`；三组记录各生成 1,584 /2,314 /3,597 个 22 关节共用 100 Hz 指令帧，保留全部原始反馈与来源元数据。完整 `env.step` 采用 dt=0.01 s、frame_skip=1、headless、关闭相机，保存 N+1 状态及实际物理时间；共同覆盖区间裁边与最终网格取整记录在 manifest。
+- **结果与验证**：三轨迹全部完成（进程退出码均 0），10 ms 完成期限超时分别 5 /34 /20 次；首组采用独占 GPU 重跑，原并发 GPU 诊断结果保留但排除。仅建立同进程 position-only 物理基线，未验证 SDK/ROS 传输，未调整 800/40/400 PD；力矩仅作诊断。汇总与哈希/状态/误差复算审计见 `results/alignment_100hz/`，离线测试 4 项通过。
+
 ## 2026-10-15: Isaac Lab gripper dataset units
 
 - Reference: `cognition_press_three_buttons`, episode 000000 (326 frames).
