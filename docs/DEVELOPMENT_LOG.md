@@ -91,3 +91,43 @@
 - Focused control tests: 22 passed (existing gripper plus new torso cases).
   Python syntax checks, shell syntax and whitespace checks passed. This does
   not establish whole-robot calibration or hard-real-time SDK feedback.
+
+## 2026-10-22: Per-joint SDK replay alignment audit, including grippers
+
+- Audited the selected torso-joint-1 configuration against all three saved SDK
+  replay recordings: 22 joints per episode, 66 joint/episode comparisons.
+  Used simulator header timestamps and interpolated real feedback, retaining
+  startup transients without fitting a time offset. Angular position errors
+  are reported in degrees; gripper errors use percentage points on the SDK
+  0–100 scale. Velocity errors retain rad/s or percentage points/s. Torque
+  equivalence remains unverified and was not included in the comparison.
+- Confirmed substantial remaining misalignment. In episode order
+  20261020_213902 / guess / pour, torso joint 2 position RMSE is
+  5.008 / 4.925 / 4.027 degrees, with signed simulation-minus-real mean errors
+  of −4.910 / −4.837 / −3.883 degrees. Torso joint 3 position RMSE is
+  1.650 / 1.114 / 1.728 degrees. These are sustained offsets, not only isolated
+  peaks; tuning joint 1 does not establish whole-body alignment.
+- Left gripper position RMSE is 16.084 / 8.284 / 4.322 percentage points, with
+  a worst instantaneous error of 75.664 points. Right gripper RMSE is
+  0.131 / 1.502 / 6.947 points, with a worst instantaneous error of 51.155 points.
+  Curves show substantial disagreement during opening/closing transitions,
+  including slower simulated left-gripper response in 20261020_213902.
+  These discrepancies already existed before joint 1 tuning; the audit does
+  not identify a unique cause or change the gripper controller.
+- Also identified remaining position offsets in head joint 2, left-arm joints
+  1/4, and right-arm joint 4. Suggested follow-up order is torso joint 2,
+  torso joint 3, and gripper transient response; no additional tuning was
+  performed in this audit.
+- Saved the complete per-joint table, all per-episode position/velocity errors,
+  signed bias, p95, peak time, sample counts, and baseline differences in
+  [the audit report](../results/torso_joint_1_tuning/joint_alignment/report.md),
+  [CSV](../results/torso_joint_1_tuning/joint_alignment/per_joint.csv), and
+  [JSON](../results/torso_joint_1_tuning/joint_alignment/per_joint.json).
+  [Comparison curves](../results/torso_joint_1_tuning/joint_alignment/largest_mismatches.png)
+  cover torso joint 2 and both grippers across all three episodes.
+- Validation: recomputed all 66 position RMSE values and matched their sample
+  counts against the saved SDK tracking-error files; visually inspected the
+  generated curves. The preceding tuning change's final focused regression
+  included 30 passing tests (gripper, torso control, SDK replay, and simulation
+  timing). This audit only analyzed existing recordings; no new simulation,
+  SDK control, real-hardware operation, or runtime-code change was performed.
