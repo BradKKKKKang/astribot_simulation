@@ -62,7 +62,7 @@ def env(monkeypatch):
         num_joints=len(names),
         data=SimpleNamespace(**{
             key: torch.zeros(1, len(names))
-            for key in ('joint_pos', 'joint_vel', 'joint_acc')
+            for key in ('joint_pos', 'joint_vel', 'joint_acc', 'applied_torque')
         }),
     )
     instance.robot.set_joint_position_target = lambda value: setattr(
@@ -105,6 +105,30 @@ def test_velocity_mode_uses_each_grippers_feedback_in_dataset_units(env):
     env.robot.data.joint_pos = env.robot.targets.clone()
     assert env.get_joint_position(env.joint_names_all[1]) == pytest.approx(52)
     assert env.get_joint_position(env.joint_names_all[2]) == pytest.approx(72)
+
+
+def test_sdk_derived_velocity_does_not_shift_gripper_targets_when_compensation_disabled(env):
+    env.robot_list = ['astribot_arm_left', 'astribot_gripper_left', 'astribot_gripper_right']
+    env.robot_joint_map = {part: [joint] for part, joint in zip(env.robot_list, env.joint_names_all)}
+    env.vel_compensation_map = dict(zip(env.robot_list, (True, False, False)))
+    env.get_ft_sensor_data = lambda part: None
+    env.robot_dict = {}
+    for part, position, velocity in zip(env.robot_list, (0.37, 50, 75), (0.2, 750, -320)):
+        env.robot_dict[part] = SimpleNamespace(
+            publish_joint_states=lambda *args: None,
+            get_joint_position_command=lambda position=position: [position],
+            get_joint_velocity_command=lambda velocity=velocity: [velocity],
+            get_joint_torque_command=lambda: [0.0],
+            get_controller_mode=lambda: 1,
+        )
+    (env.joint_names_all, env.controller_mode, env.joint_position_command_all,
+     env.joint_velocity_command_all, env.joint_torque_command_all) = env.update_joint_states()
+    assert env.joint_velocity_command_all == [0.2, 0, 0]
+    env._apply_control()
+    env.robot.data.joint_pos = env.robot.targets.clone()
+    assert env.get_joint_position(env.joint_names_all[0]) == pytest.approx(0.39)
+    assert env.get_joint_position(env.joint_names_all[1]) == pytest.approx(50)
+    assert env.get_joint_position(env.joint_names_all[2]) == pytest.approx(75)
 
 
 @pytest.mark.parametrize('value', [-0.2, 0, 30, 100.2])

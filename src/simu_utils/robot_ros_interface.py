@@ -21,7 +21,7 @@ from astribot_msgs.srv import RawRequest
 
 from astribot_msgs.msg import RobotJointState, RobotJointController, DoubleArray, RobotVisualStates, RobotCartesianState
 from geometry_msgs.msg import Pose, WrenchStamped, TransformStamped
-from sensor_msgs.msg import Image, Imu, PointCloud2
+from sensor_msgs.msg import Image, CompressedImage, Imu, PointCloud2
 
 from src.simu_utils.chassis_kinematics import ChassisKinematics
 from src.simu_utils.simu_common_tools import astribot_simu_log
@@ -35,7 +35,7 @@ elif ros_version=='2':
     from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
     from rclpy.duration import Duration   
     from tf2_ros import TransformBroadcaster
-    from std_srvs.srv import Empty
+    from std_srvs.srv import Empty, SetBool
 
 class MultiRobotRosInterface(object):
     def __init__(self, node=None):
@@ -44,6 +44,8 @@ class MultiRobotRosInterface(object):
         self.pose_tuple = ()
         self.pose_tuple_list = []
         self.camera_raw_ros_pub = {}
+        self.camera_compressed_ros_pub = {}
+        self.sdk_camera_streaming = True
         self.trajectory_pose_dict=dict()
         self.qos_list=[]
          
@@ -54,6 +56,12 @@ class MultiRobotRosInterface(object):
             rospy.Service('/simulation/reset_object_pose', RawRequest, self.handle_object_pose_command)
         elif ros_version=='2':
             self.node=node
+            self.safe_mode_service = self.node.create_service(
+                RawRequest, '/astribot_safe_mode/state', self.handle_safe_mode)
+            # This fixed feedback completes the S1 25-DOF SDK contract.
+            # No chassis command subscription and no control-rights service.
+            self.fixed_chassis_pub = None
+
             self.tf_broadcaster = TransformBroadcaster(self.node)
             self.reset_service = self.node.create_service(Empty, '/simulation/reset', self.reset_ros_server)
             self.reset_object_pose_service = self.node.create_service(RawRequest, '/simulation/reset_object_pose', self.handle_object_pose_command)
@@ -63,7 +71,25 @@ class MultiRobotRosInterface(object):
 
             self.qos_list=[qos_profile_pub, qos_profile_sub]
 
+    def handle_safe_mode(self, request, response):
+        response.response = 'simulation'
+        return response
+
+    def publish_fixed_chassis(self):
+        msg = RobotJointState()
+        msg.header.stamp = self.node.get_clock().now().to_msg()
+        msg.name = ['astribot_chassis_x', 'astribot_chassis_y', 'astribot_chassis_z_rot']
+        msg.position = [0.0, 0.0, 0.0]
+        msg.velocity = [0.0, 0.0, 0.0]
+        msg.acceleration = [0.0, 0.0, 0.0]
+        msg.torque = [0.0, 0.0, 0.0]
+        self.fixed_chassis_pub.publish(msg)
+
     def setup_robot_joint_interface(self, robot_joint_map):
+        if ros_version == '2' and 'astribot_chassis' not in robot_joint_map:
+            self.fixed_chassis_pub = self.node.create_publisher(
+                RobotJointState, '/astribot_chassis/joint_space_states', 10)
+            self.fixed_chassis_timer = self.node.create_timer(0.01, self.publish_fixed_chassis)
         robot_dict = dict()
         for robot_name, joint_names in robot_joint_map.items():
             if 'gripper' in robot_name and len(joint_names) > 1:
@@ -83,10 +109,56 @@ class MultiRobotRosInterface(object):
                 self.camera_depth_ros_pub[camera_name] = rospy.Publisher('astribot_whole_body/camera/' + camera_name + '/depth', Image, queue_size=1)
                 self.camera_point_cloud_ros_pub[camera_name] = rospy.Publisher('astribot_whole_body/camera/' + camera_name + '/point_cloud', PointCloud2, queue_size=1)
         elif ros_version=='2':
+            camera_qos = QoSProfile(
+                reliability=QoSReliabilityPolicy.BEST_EFFORT,
+                durability=QoSDurabilityPolicy.VOLATILE,
+                depth=1,
+            )
             for camera_name in camera_names:
                 self.camera_raw_ros_pub[camera_name] = self.node.create_publisher(Image, 'astribot_whole_body/camera/' + camera_name + '/image_raw', self.qos_list[0])
                 self.camera_depth_ros_pub[camera_name] = self.node.create_publisher(Image, 'astribot_whole_body/camera/' + camera_name + '/depth', self.qos_list[0])
                 self.camera_point_cloud_ros_pub[camera_name] = self.node.create_publisher(PointCloud2, 'astribot_whole_body/camera/' + camera_name + '/point_cloud', self.qos_list[0])
+                self.camera_compressed_ros_pub[camera_name] = self.node.create_publisher(
+                    CompressedImage,
+                    f'/astribot_camera/{camera_name}/color_compress/compressed',
+                    camera_qos,
+                )
+            self.camera_control_service = self.node.create_service(
+                SetBool, '/astribot_camera_control', self.handle_camera_control,
+            )
+
+    def handle_camera_control(self, request, response):
+        if request.data and not self.camera_compressed_ros_pub:
+            response.success = False
+            response.message = 'No RGB cameras configured in this simulation'
+            return response
+        self.sdk_camera_streaming = bool(request.data)
+        response.success = True
+        response.message = (
+            'SDK RGB streams enabled: ' + ', '.join(self.camera_compressed_ros_pub)
+            if self.sdk_camera_streaming else 'SDK RGB streams disabled'
+        )
+        return response
+
+    def publish_sdk_camera_image(self, camera_name, rgb, header):
+        publisher = self.camera_compressed_ros_pub.get(camera_name)
+        if (not self.sdk_camera_streaming or publisher is None
+                or publisher.get_subscription_count() == 0):
+            return
+        # SDK callbacks decode JPEG to BGR. Convert RGB before OpenCV encoding.
+        import cv2
+        success, jpeg = cv2.imencode(
+            '.jpg', cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR),
+            [cv2.IMWRITE_JPEG_QUALITY, 90],
+        )
+        if not success:
+            astribot_simu_log(f'JPEG encoding failed for {camera_name}', 'ERROR')
+            return
+        # A deactivate request may arrive while this frame is being encoded.
+        if self.sdk_camera_streaming:
+            publisher.publish(CompressedImage(
+                header=header, format='jpeg', data=jpeg.tobytes(),
+            ))
            
     def setup_sensor_interface(self, sensor_names):
         self.sensor_ros_pub = dict()

@@ -24,6 +24,15 @@ tests/
 
 ## Running Tests
 
+Placement publication tests run without ROS or USD:
+`python -m pytest tests/unit/test_placement_web_publish.py -o addopts='' -q`.
+In `web/placement-viewer`, run `npm test` for data/filter tests and
+`npx playwright test` with the dev server running on port 5173 for browser tests.
+Browser tests require at least one task subdirectory under `public/data` with
+`placement.json` and `robot.glb`;
+they use its matching robot GLB with synthetic events served only through test routes.
+Chrome uses CPU SwiftShader; the longer interaction test allows three minutes.
+
 The gripper conversion regression suite uses CPU PyTorch tensors and mocked
 ROS/Isaac startup dependencies. It checks the actual Isaac control and feedback
 methods, including velocity compensation, both grippers, follower directions,

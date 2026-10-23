@@ -53,3 +53,14 @@ packages.xml
 *.xz
 *.7z
 .tmp
+
+# Placement viewer
+node_modules/
+web/placement-viewer/dist/
+web/placement-viewer/public/data/
+web/placement-viewer/test-results/
+web/placement-viewer/playwright-report/
+
+# 测试文件
+results/
+artifacts/

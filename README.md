@@ -34,6 +34,7 @@ It is designed as a **research tool** for users of Astribot.
 - **Plug-and-play robot models**: Full support for **URDF**, **MJCF** and **USD** formats.
 - **Config-driven setup**: Easily manage each simulator and robot variant via structured **YAML** configurations.
 - **Research-friendly utilities**: Includes logging, common analysis tools, and a unified environment factory.
+- **Placement analysis**: Extract grasp/release TCP events from Isaac Lab replay and inspect metric robot geometry and 3D density in a read-only Three.js viewer. See [placement analysis](docs/PLACEMENT_ANALYSIS.md).
 
 ---
 
@@ -172,11 +173,42 @@ source env.sh && python3 astribot_simulation.py
 
 If you want to reset the robot state, press Backspace while the simulation is running.
 
-### Replay a Parquet episode through the SDK
+### Replay a Parquet dataset and extract events
 
-Run `scripts/replay_parquet.py` in the working ROS2 SDK Python environment while
-the simulator runs separately. See [Parquet replay setup](docs/PARQUET_REPLAY.md)
-for dependencies, matching ROS settings, frame selection and camera viewers.
+Run `scripts/replay_extract_event.py` with a raw episode or dataset directory
+while Isaac Lab runs separately. The command replays through the ROS2 SDK,
+records simulation feedback, then automatically exports the event data and S1
+model for the Web viewer. `--output-root` selects the capture directory;
+`--output` selects the Web bundle. `--resume` reuses completed captures,
+`--extract-only` reprocesses captures, and `--export-robot-only` regenerates the
+default S1 model. CPU extraction uses the current Python or `--extract-python`.
+
+Place each task in `web/placement-viewer/public/data/<task-directory>/`, containing
+`placement.json` and its matching `robot.glb`. The task selector reads immediate
+subdirectory names directly: `public/data/press_cube_olddemo` appears as
+`press_cube_olddemo`. No index JSON is required. Hidden directories, symbolic
+links and directories missing either file are excluded.
+
+Both `npm run dev` and `npm run preview` scan this directory at runtime through
+the read-only `/api/tasks` endpoint and serve data directly from `public/data`.
+The page checks every five seconds, discovering additions, renames, removals and
+file updates without a build or server restart. A manually selected task stays
+selected while it exists; removal selects an available task or clears the scene.
+Updates reset the episode interval to the full range. Explicit `?dataset=...`
+URLs and manual imports retain their selection.
+
+Normal replay and `--extract-only` automatically copy completed output bundles
+into `public/data/<output-directory-name>/`. `--task-name` optionally chooses that
+directory name; it is not a separate display label. A bundle already at that path
+needs no copy. The extraction output must still be a new/empty directory.
+`--no-web-publish` disables copying; `--dry-run` validates without extracting or
+publishing points (a requested validation report is still written).
+
+Run `npm run build` once after frontend code changes. The build contains frontend
+assets only; keep `public/data` alongside the project and use Vite dev/preview
+for directory discovery. A generic server hosting only `dist` does not provide
+the directory API. Detection settings can be supplied explicitly, for example
+`--detector-config config/placement/placement_press_buttons.json` for press tasks.
 
 ### Switch to Other Simulators
 

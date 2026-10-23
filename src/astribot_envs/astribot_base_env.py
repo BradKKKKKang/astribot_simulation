@@ -257,6 +257,9 @@ class AstribotBaseEnv(gym.Env, ABC):
             rgb_msg.header.stamp = self.multi_robot_ros_interface.get_timestamp()
             rgb_msg.header.frame_id = 'simulation'
             self.multi_robot_ros_interface.camera_raw_ros_pub[camera_name].publish(rgb_msg)
+            self.multi_robot_ros_interface.publish_sdk_camera_image(
+                camera_name, rgb, rgb_msg.header,
+            )
 
         depth = camera_data.get('depth_img')
         if isinstance(depth, np.ndarray) and depth.size > 0:

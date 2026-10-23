@@ -12,6 +12,9 @@ from __future__ import annotations
 import os
 import sys
 import time
+import json
+import re
+import threading
 import numpy as np
 from typing import Optional, Dict, List, TYPE_CHECKING
 
@@ -50,6 +53,8 @@ class IsaacLabAppManager:
     def _suppress_output():
         class SuppressOutput:
             def __enter__(self):
+                sys.stdout.flush()
+                sys.stderr.flush()
                 self.original_stdout_fd = sys.stdout.fileno()
                 self.original_stderr_fd = sys.stderr.fileno()
 
@@ -61,18 +66,13 @@ class IsaacLabAppManager:
                 os.dup2(self.devnull_fd, self.original_stdout_fd)
                 os.dup2(self.devnull_fd, self.original_stderr_fd)
 
-                self.original_stdout = sys.stdout
-                self.original_stderr = sys.stderr
-                sys.stdout = open(os.devnull, 'w')
-                sys.stderr = open(os.devnull, 'w')
-
                 return self
 
             def __exit__(self, *args):
-                sys.stdout.close()
-                sys.stderr.close()
-                sys.stdout = self.original_stdout
-                sys.stderr = self.original_stderr
+                # Kit retains Python stream references during startup. Redirect only
+                # their file descriptors; closing replacement streams breaks later logs.
+                sys.stdout.flush()
+                sys.stderr.flush()
 
                 os.dup2(self.saved_stdout_fd, self.original_stdout_fd)
                 os.dup2(self.saved_stderr_fd, self.original_stderr_fd)
@@ -84,11 +84,19 @@ class IsaacLabAppManager:
         return SuppressOutput()
 
     @classmethod
-    def get_or_create_app(cls, headless: bool = False, width: int = 1920, height: int = 1080):
+    def get_or_create_app(
+        cls, headless: bool = False, width: int = 1920, height: int = 1080,
+        enable_cameras: bool = False,
+    ):
         if cls._instance is None:
             cls._instance = cls()
 
         if cls._app_launcher is None:
+            if enable_cameras:
+                # Load Pillow's Python and binary modules together before Kit
+                # adds its bundled Pillow version to the import paths.
+                from PIL import Image  # noqa: F401
+
             with cls._suppress_output():
                 import argparse
                 parser = argparse.ArgumentParser()
@@ -97,8 +105,17 @@ class IsaacLabAppManager:
                 args_list = []
                 if headless:
                     args_list.append("--headless")
+                if enable_cameras:
+                    args_list.append("--enable_cameras")
 
                 args = parser.parse_args(args_list)
+                # Isaac Sim 4.5: use synchronized rendering and let the Hydra
+                # scene delegate consume PhysX's Fabric transforms.
+                args.kit_args = (
+                    "--/app/asyncRendering=false "
+                    "--/rtx/hydra/readTransformsFromFabricInRenderDelegate=false "
+                    "--/persistent/rtx/hydra/readTransformsFromFabricInRenderDelegate=false"
+                )
                 cls._app_launcher = AppLauncher(args)
                 cls._simulation_app = cls._app_launcher.app
 
@@ -156,6 +173,11 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         'L1': -1, 'L2': -1, 'R11': -1,
         'R1': 1, 'R2': 1, 'L11': 1,
     }
+    _CONTROL_PATTERNS = {
+        **{f'torso_joint_{i}_control': f'astribot_torso_joint_{i}' for i in (1, 2, 3)},
+        **{f'gripper_{side}_control': f'astribot_gripper_{side}_joint_(L1|L2|L11|R1|R2|R11)'
+           for side in ('left', 'right')},
+    }
 
     def __init__(self, param):
         astribot_simu_log("Initializing Isaac Lab environment...")
@@ -164,15 +186,44 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         self.dt = 0.01
         self.decimation = 1
-        self.torso_joint_1_control = self._validate_torso_joint_1_control(
-            param.get("torso_joint_1_control", {})
-        )
+        self.physics_device = param.get("physics_device")
+        self.use_fabric = param.get("use_fabric", True)
+        for name in self._CONTROL_PATTERNS:
+            setattr(self, name, self._validate_joint_control(name, param.get(name, {})))
+        self.camera_resolutions = {
+            name: (
+                param.get("camera_resolutions", {}).get(name, {}).get("width", self.width),
+                param.get("camera_resolutions", {}).get(name, {}).get("height", self.height),
+            )
+            for name in self.camera_names
+        }
+        self._camera_output_logged = False
+        self.third_person_camera_cfg = param.get("third_person_camera")
+        self._video_lock = threading.Lock()
+        self._video_start_requested = False
+        self._video_stop_requested = False
+        self._video_started = threading.Event()
+        self._video_stopped = threading.Event()
+        self._video_writer = None
+        self._video_error = None
+        self._video_frame_count = 0
+        self._video_start_sim_time = None
+        self._video_end_sim_time = None
+        self._video_next_capture_time = None
+        self._video_record_service = None
+        if self.third_person_camera_cfg:
+            from std_srvs.srv import SetBool
+
+            self._video_record_service = self.node.create_service(
+                SetBool, "/simulation/video_recording", self._handle_video_recording,
+            )
 
         headless = (self.render_mode != "human")
         self.app_launcher, self.simulation_app = IsaacLabAppManager.get_or_create_app(
             headless=headless,
             width=self.width,
-            height=self.height
+            height=self.height,
+            enable_cameras=bool(self.camera_names or self.third_person_camera_cfg),
         )
 
         self.setup_simulation_and_scene()
@@ -186,17 +237,20 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
     def setup_simulation_and_scene(self):
         import torch
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.device = self.physics_device or ("cuda:0" if torch.cuda.is_available() else "cpu")
 
         sim_cfg = SimulationCfg(
             dt=self.dt,
             render_interval=self.decimation,
             device=self.device,
+            use_fabric=self.use_fabric,
             gravity=(0.0, 0.0, -9.81),
             physics_prim_path="/physicsScene",
         )
 
         self.sim = SimulationContext(sim_cfg)
+
+        astribot_simu_log(f"Physics device: {self.device}, Fabric: {self.use_fabric}")
 
         ground_cfg = sim_utils.GroundPlaneCfg()
         ground_cfg.func("/World/ground", ground_cfg)
@@ -215,11 +269,203 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         robot_cfg = self._create_robot_config()
         scene_cfg.robot = robot_cfg
 
+        if self.camera_names:
+            if not self.model_path.endswith(('.usd', '.usda')):
+                raise ValueError("Isaac Lab cameras require the USD robot model")
+            from isaaclab.sensors import CameraCfg
+
+            camera_links = {
+                "head_rgbd": "astribot_head_link_2",
+                "left_wrist_rgbd": "astribot_arm_left_link_7",
+                "right_wrist_rgbd": "astribot_arm_right_link_7",
+            }
+            for camera_name in self.camera_names:
+                if camera_name not in camera_links:
+                    raise ValueError(f"Unknown Isaac Lab camera: {camera_name}")
+                width, height = self.camera_resolutions[camera_name]
+                # Existing USD cameras already use the OpenGL convention.
+                # spawn=None preserves their link-relative poses and optics.
+                setattr(scene_cfg, camera_name, CameraCfg(
+                    prim_path=(
+                        f"/World/envs/env_0/Robot/astribot_whole_body/"
+                        f"{camera_links[camera_name]}/{camera_name}"
+                    ),
+                    spawn=None,
+                    data_types=["rgb"],
+                    width=width,
+                    height=height,
+                ))
+
+        if self.third_person_camera_cfg:
+            if not self.model_path.endswith((".usd", ".usda")):
+                raise ValueError("Third-person recording requires the USD robot model")
+            from isaaclab.sensors import CameraCfg
+
+            width = int(self.third_person_camera_cfg.get("width", 1280))
+            height = int(self.third_person_camera_cfg.get("height", 720))
+            fps = float(self.third_person_camera_cfg.get("fps", 30.0))
+            eye = tuple(float(value) for value in self.third_person_camera_cfg["eye"])
+            if len(eye) != 3 or width <= 0 or height <= 0 or fps <= 0:
+                raise ValueError("Invalid third_person_camera dimensions, fps, or eye")
+            setattr(scene_cfg, "third_person_camera", CameraCfg(
+                prim_path="{ENV_REGEX_NS}/third_person_camera",
+                offset=CameraCfg.OffsetCfg(pos=eye, convention="world"),
+                spawn=sim_utils.PinholeCameraCfg(
+                    focal_length=float(self.third_person_camera_cfg.get("focal_length", 24.0)),
+                    focus_distance=10.0,
+                    clipping_range=(0.1, 30.0),
+                ),
+                data_types=["rgb"],
+                width=width,
+                height=height,
+                update_period=1.0 / fps,
+            ))
+
         self.scene = InteractiveScene(scene_cfg)
 
         self.robot: Articulation = self.scene["robot"]
 
         self.sim.reset()
+        if self.third_person_camera_cfg:
+            eye = torch.tensor(
+                [self.third_person_camera_cfg["eye"]], device=self.device, dtype=torch.float32,
+            )
+            target = torch.tensor(
+                [self.third_person_camera_cfg.get("target", (0.0, 0.0, 0.9))],
+                device=self.device,
+                dtype=torch.float32,
+            )
+            self.scene["third_person_camera"].set_world_poses_from_view(eye, target)
+
+    def _handle_video_recording(self, request, response):
+        if not self.third_person_camera_cfg:
+            response.success = False
+            response.message = "Third-person camera is not configured"
+            return response
+
+        timeout_s = float(self.third_person_camera_cfg.get("control_timeout_s", 10.0))
+        if request.data:
+            with self._video_lock:
+                if self._video_writer is not None or self._video_start_requested:
+                    response.success = False
+                    response.message = "Video recording is already active"
+                    return response
+                self._video_error = None
+                self._video_started.clear()
+                self._video_stopped.clear()
+                self._video_start_requested = True
+            if not self._video_started.wait(timeout_s):
+                response.success = False
+                response.message = "Timed out waiting for the first recorded frame"
+                return response
+            if self._video_error:
+                response.success = False
+                response.message = self._video_error
+                return response
+            response.success = True
+            response.message = json.dumps(self._video_metadata(), allow_nan=False)
+            return response
+
+        with self._video_lock:
+            if self._video_writer is None and not self._video_start_requested:
+                response.success = False
+                response.message = "Video recording is not active"
+                return response
+            self._video_stop_requested = True
+        if not self._video_stopped.wait(timeout_s):
+            response.success = False
+            response.message = "Timed out waiting for video encoder shutdown"
+            return response
+        if self._video_error:
+            response.success = False
+            response.message = self._video_error
+            return response
+        response.success = True
+        response.message = json.dumps(self._video_metadata(), allow_nan=False)
+        return response
+
+    def _video_metadata(self):
+        fps = float(self.third_person_camera_cfg["fps"])
+        return {
+            "path": str(self.third_person_camera_cfg["output_path"]),
+            "fps": fps,
+            "width": int(self.third_person_camera_cfg["width"]),
+            "height": int(self.third_person_camera_cfg["height"]),
+            "frame_count": self._video_frame_count,
+            "sim_time_start_s": self._video_start_sim_time,
+            "sim_time_end_s": self._video_end_sim_time,
+            "sim_duration_s": (
+                self._video_end_sim_time - self._video_start_sim_time
+                if self._video_start_sim_time is not None and self._video_end_sim_time is not None
+                else 0.0
+            ),
+        }
+
+    def _capture_video_frame(self):
+        if not self.third_person_camera_cfg:
+            return
+
+        import cv2
+
+        current_sim_time = float(self.sim.current_time)
+        with self._video_lock:
+            if self._video_start_requested and self._video_writer is None:
+                output_path = os.path.abspath(self.third_person_camera_cfg["output_path"])
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                fps = float(self.third_person_camera_cfg["fps"])
+                size = (
+                    int(self.third_person_camera_cfg["width"]),
+                    int(self.third_person_camera_cfg["height"]),
+                )
+                writer = cv2.VideoWriter(
+                    output_path,
+                    cv2.VideoWriter_fourcc(*"mp4v"),
+                    fps,
+                    size,
+                )
+                if not writer.isOpened():
+                    self._video_error = f"Could not open MP4 writer: {output_path}"
+                    self._video_start_requested = False
+                    self._video_started.set()
+                    self._video_stopped.set()
+                    return
+                self._video_writer = writer
+                self._video_frame_count = 0
+                self._video_start_sim_time = current_sim_time
+                self._video_end_sim_time = current_sim_time
+                self._video_next_capture_time = current_sim_time
+                self._video_start_requested = False
+
+            if self._video_stop_requested and self._video_writer is not None:
+                self._video_writer.release()
+                self._video_writer = None
+                self._video_stop_requested = False
+                self._video_stopped.set()
+                return
+
+            writer = self._video_writer
+            next_capture = self._video_next_capture_time
+            if writer is None or next_capture is None or current_sim_time + 1e-8 < next_capture:
+                return
+
+            rgb = self.scene["third_person_camera"].data.output["rgb"][0]
+            frame = np.ascontiguousarray(rgb.detach().cpu().numpy())
+            if frame.shape != (int(self.third_person_camera_cfg["height"]),
+                               int(self.third_person_camera_cfg["width"]), 3):
+                self._video_error = f"Unexpected third-person frame shape: {frame.shape}"
+                writer.release()
+                self._video_writer = None
+                self._video_stopped.set()
+                self._video_started.set()
+                return
+            writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            self._video_frame_count += 1
+            self._video_end_sim_time = current_sim_time
+            period = 1.0 / float(self.third_person_camera_cfg["fps"])
+            while self._video_next_capture_time <= current_sim_time + 1e-8:
+                self._video_next_capture_time += period
+            if self._video_frame_count == 1:
+                self._video_started.set()
 
     def _create_robot_config(self) -> ArticulationCfg:
         is_usd = self.model_path.endswith(('.usd', '.usda'))
@@ -255,25 +501,26 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         from isaaclab.actuators import ImplicitActuatorCfg
 
-        # Keep the historical all-joint baseline, but allow an isolated replay
-        # experiment to override the chassis/torso pitch joint without changing
-        # the gains of the other 21 joints.
+        # Disjoint actuator groups allow isolated torso and gripper tuning.
+        excluded = '|'.join(self._CONTROL_PATTERNS.values())
         actuators_cfg = {
             "all_joints": ImplicitActuatorCfg(
-                joint_names_expr=["^(?!astribot_torso_joint_1$).*$"],
+                joint_names_expr=[f"^(?!(?:{excluded})$).*$"],
                 stiffness=800.0,
                 damping=40.0,
-                effort_limit=400.0,
-                velocity_limit=100.0,
-            ),
-            "torso_joint_1_override": ImplicitActuatorCfg(
-                joint_names_expr=["^astribot_torso_joint_1$"],
-                stiffness=self.torso_joint_1_control["stiffness"],
-                damping=self.torso_joint_1_control["damping"],
-                effort_limit_sim=self.torso_joint_1_control["effort_limit"],
-                velocity_limit=100.0,
+                effort_limit_sim=400.0,
             ),
         }
+        for name, pattern in self._CONTROL_PATTERNS.items():
+            settings = getattr(self, name)
+            actuators_cfg[name.replace('_control', '_override')] = ImplicitActuatorCfg(
+                joint_names_expr=[f'^{pattern}$'],
+                stiffness=settings['stiffness'], damping=settings['damping'],
+                effort_limit_sim=settings['effort_limit'],
+                # In Isaac Lab 2.1, velocity_limit is ignored by implicit drives.
+                # None preserves authored USD limits for angular joints.
+                velocity_limit_sim=settings.get('velocity_limit_sim'),
+            )
 
         robot_cfg = ArticulationCfg(
             prim_path="/World/envs/env_0/Robot",
@@ -288,35 +535,53 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         return robot_cfg
 
-    @staticmethod
-    def _validate_torso_joint_1_control(settings):
-        defaults = dict(stiffness=800.0, damping=40.0, effort_limit=400.0,
-                        gravity_compensation_scale=0.0)
+    @classmethod
+    def _validate_joint_control(cls, name, settings):
+        if name not in cls._CONTROL_PATTERNS:
+            raise ValueError(f'Unknown joint control group: {name}')
+        defaults = dict(stiffness=800.0, damping=40.0, effort_limit=400.0)
+        if name.startswith('torso'):
+            defaults['gravity_compensation_scale'] = 0.0
+        else:
+            defaults['velocity_limit_sim'] = 1.0  # Historical USD gripper limit, rad/s.
         if not isinstance(settings, dict) or set(settings) - defaults.keys():
-            raise ValueError("Unknown torso_joint_1_control settings")
+            raise ValueError(f"Unknown {name} settings")
         values = {key: float(settings.get(key, value)) for key, value in defaults.items()}
         if any(not np.isfinite(value) or value < 0 for value in values.values()):
-            raise ValueError("torso_joint_1_control values must be finite and non-negative")
-        if values["effort_limit"] == 0:
-            raise ValueError("torso_joint_1_control effort_limit must be positive")
+            raise ValueError(f"{name} values must be finite and non-negative")
+        if any(values.get(key) == 0 for key in ('effort_limit', 'velocity_limit_sim')):
+            raise ValueError(f"{name} effort and velocity limits must be positive")
         return values
 
+    @classmethod
+    def _validate_torso_joint_1_control(cls, settings):
+        return cls._validate_joint_control('torso_joint_1_control', settings)
+
     def configure_torso_joint_1(self, settings):
-        """Set the isolated joint gains between replay trials on the sim thread."""
+        self.configure_joint_control('torso_joint_1_control', settings)
+
+    def configure_joint_control(self, name, settings):
+        """Update one actuator group between replay trials on the sim thread."""
         import torch
 
-        values = self._validate_torso_joint_1_control(settings)
-        idx = self.joint_name_to_index["astribot_torso_joint_1"]
-        actuator = self.robot.actuators["torso_joint_1_override"]
-        # Update both PhysX and the implicit actuator's effort diagnostics.
+        values = self._validate_joint_control(name, settings)
+        ids = [idx for joint, idx in self.joint_name_to_index.items()
+               if re.fullmatch(self._CONTROL_PATTERNS[name], joint)]
+        actuator = self.robot.actuators[name.replace('_control', '_override')]
         for key, writer in (("stiffness", self.robot.write_joint_stiffness_to_sim),
                             ("damping", self.robot.write_joint_damping_to_sim),
                             ("effort_limit", self.robot.write_joint_effort_limit_to_sim)):
             getattr(actuator, key).fill_(values[key])
-            writer(torch.tensor([[values[key]]], device=self.device), joint_ids=[idx])
+            writer(torch.full((1, len(ids)), values[key], device=self.device), joint_ids=ids)
         actuator.effort_limit_sim.fill_(values["effort_limit"])
-        self.torso_joint_1_control = values
-        self.robot.set_joint_effort_target(torch.zeros((1, 1), device=self.device), joint_ids=[idx])
+        if 'velocity_limit_sim' in values:
+            limit = values['velocity_limit_sim']
+            actuator.velocity_limit.fill_(limit)
+            actuator.velocity_limit_sim.fill_(limit)
+            self.robot.write_joint_velocity_limit_to_sim(
+                torch.full((1, len(ids)), limit, device=self.device), joint_ids=ids)
+        setattr(self, name, values)
+        self.robot.set_joint_effort_target(torch.zeros((1, len(ids)), device=self.device), joint_ids=ids)
 
     def setup_joint_mapping(self):
         astribot_simu_log("Setting up joint mapping...")
@@ -351,6 +616,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                 self.sim.step(render=True)
                 self.scene.update(dt=self.dt)
 
+            self._capture_video_frame()
             self.render()
 
             step_end_time = time.time()
@@ -403,16 +669,21 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         self._sync_gripper_joints(joint_position_targets)
 
-        # Implicit actuators accept a feed-forward effort together with a
-        # position target.  Use this only for torso_joint_1 so replay sweeps can
-        # test gravity compensation independently of the PD gains.
+        # Each torso DOF has independent gravity feedforward. Fetch the current
+        # generalized forces once, and never compensate unselected joints.
         self.robot.set_joint_position_target(joint_position_targets.unsqueeze(0))
-        scale = getattr(self, "torso_joint_1_control", {}).get("gravity_compensation_scale", 0.0)
-        torso_idx = self.joint_name_to_index.get("astribot_torso_joint_1")
-        if torso_idx is not None:
+        forces = None
+        for i in (1, 2, 3):
+            torso_idx = self.joint_name_to_index.get(f'astribot_torso_joint_{i}')
+            if torso_idx is None:
+                continue
+            scale = getattr(self, f'torso_joint_{i}_control', {}).get('gravity_compensation_scale', 0.0)
             effort = torch.zeros((1, 1), device=self.device)
             if self.gravity_compensation and scale:
-                effort[0, 0] = scale * self._torso_joint_1_gravity_effort()
+                if forces is None:
+                    forces = self.robot.root_physx_view.get_gravity_compensation_forces()
+                force_idx = torso_idx + (0 if self.robot.is_fixed_base else 6)
+                effort[0, 0] = scale * forces[0, force_idx]
             self.robot.set_joint_effort_target(effort, joint_ids=[torso_idx])
 
     def _torso_joint_1_gravity_effort(self):
@@ -477,13 +748,38 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         return robot_info
 
     def render(self):
-        if self.render_mode == "human":
-            pass
-        elif self.render_mode == "rgb_array":
-            self.trigger_async_camera_update()
+        if self.render_mode in ("human", "rgb_array"):
+            for camera_name in self.camera_names:
+                camera_data = self.render_single_camera(camera_name)
+                if camera_data is not None:
+                    self._publish_camera_data(camera_name, camera_data)
+            if self.camera_names and not self._camera_output_logged:
+                streams = ', '.join(
+                    f"{name} ({width}x{height})"
+                    for name, (width, height) in self.camera_resolutions.items()
+                )
+                astribot_simu_log(
+                    f"RGB output started: {streams} "
+                    f"(rgb8, mode={self.render_mode})"
+                )
+                self._camera_output_logged = True
+
+    def setup_async_camera_rendering(self):
+        # Isaac Sim render products must be read on the simulation thread.
+        self.camera_rendering_active = False
 
     def close(self):
         astribot_simu_log("Closing Isaac Lab environment...")
+        with self._video_lock:
+            if self._video_writer is not None:
+                self._video_writer.release()
+                self._video_writer = None
+                self._video_stopped.set()
+        self.shutdown_async_camera_rendering()
+        # Disconnect Lab's timeline-stop callback before Kit closes the stage;
+        # otherwise it enters the paused render loop during application shutdown.
+        self.sim.clear_all_callbacks()
+        self.sim.clear_instance()
         IsaacLabAppManager.release_app()
 
     def get_joint_position(self, joint_name: str) -> float:
@@ -571,17 +867,21 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             return not self.simulation_app.is_running()
         return False
 
-    def get_camera_image(self, camera_name: str = 'head') -> Dict:
-        data = {
-            'rgb_img': None,
-            'depth_img': None,
-            'point_cloud': None
-        }
-        return data
+    def get_camera_image(self, camera_name: str = 'head_rgbd') -> Dict:
+        return self.render_single_camera(camera_name)
 
     def render_single_camera(self, camera_name):
+        if camera_name == 'head':
+            camera_name = 'head_rgbd'
+        if camera_name not in self.camera_names:
+            return None
+
+        rgb = self.scene[camera_name].data.output['rgb'][0]
+        rgb = rgb.detach().cpu().numpy()
+        # USD camera poses define image orientation; preserve sensor pixels.
+        rgb = np.ascontiguousarray(rgb)
         return {
-            'rgb_img': None,
+            'rgb_img': rgb,
             'depth_img': None,
             'point_cloud': None
         }

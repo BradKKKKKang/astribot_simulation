@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101923" />
+    <title>Simulation · Astribot</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./"><span class="brand-icon">✳</span><span>ASTRIBOT <b>SIMULATION</b></span></a>
+      <span class="readonly"><i></i>只读空间分析</span>
+      <label class="button primary" for="bundle-file">导入数据 <span>↗</span></label>
+      <input type="file" id="bundle-file" accept="application/json,.json" hidden />
+      <input type="file" id="model-file" accept=".glb" hidden />
+    </header>
+    <main class="workspace">
+      <aside class="sidebar">
+        <div class="intro"><span class="eyebrow">DATASET EXPLORER / 01</span><h1>操作位置分布</h1><p>按任务选择夹爪开合、末端停留或按压候选点。</p></div>
+        <label class="field task-select">任务<select id="task-select"><option value="">暂无已发布任务</option></select></label>
+        <div class="metrics"><div><strong id="count-total">0</strong><span>计入统计</span></div><div><strong id="count-episodes">0</strong><span>Episodes</span></div></div>
+        <section class="control-section">
+          <h2>数据范围</h2>
+          <div class="field episode-range" role="group" aria-label="Episode 区间">
+            <span>Episode 区间</span><output id="episode-range-label">—</output>
+            <div class="dual-range" id="episode-slider">
+              <div class="range-track"><i id="episode-range-fill"></i></div>
+              <input id="episode-start-range" aria-label="Episode 起点滑条" type="range" min="1" max="1" value="1" step="1" />
+              <input id="episode-end-range" aria-label="Episode 终点滑条" type="range" min="1" max="1" value="1" step="1" />
+            </div>
+            <div class="number-pair"><input id="episode-start" aria-label="Episode 起点" type="number" min="1" step="1" value="1" /><span>—</span><input id="episode-end" aria-label="Episode 终点" type="number" min="1" step="1" value="1" /></div>
+            <p id="episode-names" class="episode-names"></p>
+          </div>
+          <div class="field">机械臂<div class="toggle-group" id="side-filter"><button data-value="all" class="active">全部</button><button data-value="left">左手</button><button data-value="right">右手</button></div></div>
+          <label class="field">候选点依据<select id="candidate-mode"><option value="gripper">夹爪开合 · 抓取任务</option><option value="motion">运动候选 · 停留 / 按压</option><option value="union">任一满足 · 复杂操作</option></select></label>
+          <p id="candidate-help" class="filter-help">使用夹爪开合变化定位抓取与释放。</p>
+          <div id="candidate-legend" class="candidate-legend" aria-label="候选点类型图例"></div>
+        </section>
+        <section class="control-section">
+          <h2>初始位姿行为排除</h2>
+          <label class="checkbox"><input id="exclude-initial" type="checkbox" checked />排除初始位姿附近候选点</label>
+          <label class="field">忽略开头时长 / s<input id="ignore-seconds" type="number" min="0" step="0.1" value="1" /></label>
+          <label class="checkbox"><input id="include-excluded" type="checkbox" />显示被排除的候选（检查用）</label>
+          <p id="exclusion-summary" class="filter-help">候选保留在文件中，默认不参与密度统计。</p>
+        </section>
+        <section class="control-section">
+          <h2>空间显示</h2>
+          <label class="field">坐标系<select id="coordinate-frame"><option value="base">机器人底座坐标</option><option value="world">世界坐标</option></select></label>
+          <label class="field">显示方式<select id="display-mode"><option value="field-points">点位 + 3D 热力场</option><option value="field">仅 3D 热力场</option><option value="points">仅点位</option></select></label>
+          <label id="field-control" class="field range-field">热力场平滑尺度 <output id="bandwidth-label">5 cm</output><input id="bandwidth" type="range" min="2" max="20" step="1" value="5" /></label>
+          <p id="field-help" class="filter-help">颜色表示平滑后的局部点位密度，红色最密集；沿视线显示最大密度。每次筛选单独归一化，平滑尺度不是物体大小。</p>
+          <div class="field">高度范围 / m<div class="number-pair"><input id="z-min" aria-label="最低高度" type="number" step="0.05" value="-2" /><span>—</span><input id="z-max" aria-label="最高高度" type="number" step="0.05" value="3" /></div></div>
+          <label class="field range-field">机器人不透明度 <output id="opacity-label">65%</output><input id="robot-opacity" type="range" min="10" max="100" step="5" value="65" /></label>
+          <label class="checkbox"><input id="show-grid" type="checkbox" checked />显示 10 cm 网格</label>
+        </section>
+        <div class="sidebar-footer"><span class="status-dot"></span>本地文件 · 离线分析<span class="footer-note">抓取中心估计，不代表物体实际中心或最终落点。</span></div>
+      </aside>
+      <section class="viewport-panel">
+        <div class="scene-heading"><div><span class="eyebrow">SPATIAL VIEW</span><h2>机器人工作空间 <span id="frame-badge">BASE FRAME</span></h2></div><div class="view-buttons"><button data-view="perspective" class="active">透视</button><button data-view="top">俯视</button><button data-view="front">正视</button><button data-view="side">侧视</button><button id="fit-view" title="适配机器人及全部可见点">适配 ↗</button></div></div>
+        <div id="viewport" tabindex="0" aria-label="机器人与操作点分布三维场景">
+          <div id="scene-message" role="status">正在准备三维场景…</div>
+          <div class="scene-corner"><span class="live-dot"></span>METRIC SPACE <span>1 unit = 1 m</span></div>
+          <figure id="task-reference" class="task-reference" aria-label="任务示意图">
+            <figcaption>任务示意图</figcaption>
+            <div class="task-image-placeholder"><span aria-hidden="true">▧</span><span>待补充图片</span></div>
+          </figure>
+          <div class="orientation-label"><span class="axis-x">X</span> 前 <span class="axis-y">Y</span> 左 <span class="axis-z">Z</span> 上</div>
+        </div>
+        <div class="scene-bottom"><span>拖动旋转 · 滚轮缩放 · 右键平移 · 点击点位查看姿态</span><div class="density-legend"><span id="density-title">相对点位密度</span><i></i><span id="density-min">0%</span><b id="density-max">100%</b></div></div>
+        <div id="notice" role="status" hidden></div>
+        <div class="details-panel"><div class="details-title"><span class="eyebrow">EVENT INSPECTOR</span><h2 id="detail-title">选择一个操作候选点</h2><p id="detail-summary">点位与机器人共享相同坐标和米制尺度。</p><p id="detail-evidence"></p></div><dl id="event-detail"><div><dt>位置 X / Y / Z</dt><dd>—</dd></div><div><dt>事件时间</dt><dd>—</dd></div><div><dt>末端速度</dt><dd>—</dd></div><div><dt>末端加速度</dt><dd>—</dd></div></dl></div>
+        <section class="event-section"><div class="event-list-heading"><h2>事件记录 <span id="list-count">0</span></h2><button id="export-events" class="quiet">导出当前筛选 JSON ↓</button></div><div id="event-list" aria-label="操作候选事件列表"></div><button id="more-events" class="quiet" hidden>显示更多</button></section>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

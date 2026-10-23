@@ -3,6 +3,7 @@
 """
 Simple camera image viewer for testing camera topics.
 Compatible with MuJoCo, ManiSkill, and other simulators.
+Displays each camera at its received image resolution (one image pixel per display pixel).
 
 Usage:
     # Show all cameras (default)
@@ -90,11 +91,19 @@ class CameraViewer:
         print("Camera Viewer Started")
         print("Press 'q' to quit")
         print(f"Listening to topics: {self.camera_names}")
+        window_sizes = {}
 
         while True:
             with self.update_lock:
                 for camera_name, image in self.camera_images.items():
                     if image is not None:
+                        height, width = image.shape[:2]
+                        if camera_name not in window_sizes:
+                            # Keep the image area at native size, without Qt toolbars.
+                            cv2.namedWindow(camera_name, cv2.WINDOW_AUTOSIZE | cv2.WINDOW_GUI_NORMAL)
+                        if window_sizes.get(camera_name) != (width, height):
+                            window_sizes[camera_name] = (width, height)
+                            print(f"{camera_name}: {width}x{height} (native resolution)")
                         cv2.imshow(camera_name, image)
 
             key = cv2.waitKey(30) & 0xFF

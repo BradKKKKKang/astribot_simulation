@@ -13,11 +13,13 @@ Brief: Factory for simulation env
 """
 
 import os
+import time
 import yaml
 import importlib
 
 import threading
 import gymnasium
+from src.astribot_envs.simulation_timing import advance_periodic_deadline
 
 ros_version = os.getenv('ROS_VERSION')
 
@@ -29,6 +31,7 @@ elif ros_version=='2':
 class AstribotEnvsFactory:
     def __init__(self):
         self.astribot_simu_env=None
+        self.stop_event = threading.Event()
 
     def create_simulation_env(self,data):
         module_name = f"src.astribot_envs.astribot_{data['simulator_type'].lower()}_env"
@@ -39,6 +42,10 @@ class AstribotEnvsFactory:
             _ = getattr(module, class_name)  # Trigger module registration
             gym_env_name=f"astribot_envs/{class_name}-v0"
             self.astribot_simu_env=gymnasium.make(gym_env_name,param=data)
+
+            # Isaac/rclpy may install their own handlers while constructing the app.
+            if hasattr(self, 'install_stop_handlers'):
+                self.install_stop_handlers()
 
             # Check if this is Isaac Lab - it must run in main thread
             is_isaaclab = hasattr(self.astribot_simu_env.unwrapped, 'simulation_app')
@@ -107,16 +114,33 @@ class AstribotEnvsFactory:
                     astribot_simu_log("ROS2 executor started in background thread")
 
             app = self.astribot_simu_env.unwrapped.simulation_app
-            while app.is_running():
+            control_hz = float(os.getenv("ASTRIBOT_ISAAC_CONTROL_HZ", "0"))
+            if control_hz < 0:
+                raise ValueError("ASTRIBOT_ISAAC_CONTROL_HZ must be non-negative")
+            period_s = 1.0 / control_hz if control_hz else 0.0
+            next_step = time.monotonic_ns()
+            period_ns = int(period_s * 1e9) if period_s else 0
+            while app.is_running() and not self.stop_event.is_set():
+                if period_s:
+                    remaining_ns = next_step - time.monotonic_ns()
+                    if remaining_ns > 0:
+                        self.stop_event.wait(remaining_ns / 1e9)
+                    if self.stop_event.is_set():
+                        break
                 action = self.astribot_simu_env.action_space.sample()
                 observation, reward, terminated, truncated, info = self.astribot_simu_env.step(action)
-                # No sleep - Isaac Lab's sim.step() internally handles timing
+                if period_s:
+                    # Keep absolute deadlines; skip missed periods after overruns.
+                    next_step = advance_periodic_deadline(
+                        next_step, time.monotonic_ns(), period_ns,
+                    )
+                # Physics dt stays fixed; this optional pacing affects wall time only.
         else:
             # Normal loop for MuJoCo, Genesis, ManiSkill
-            while self.running():
+            while not self.stop_event.is_set() and self.running():
                 action = self.astribot_simu_env.action_space.sample()
                 observation, reward, terminated, truncated, info = self.astribot_simu_env.step(action)
                 self.rate.sleep()
 
-        self.astribot_simu_env.close()
+        # The entrypoint owns cleanup after stopping the ROS executor.
 
