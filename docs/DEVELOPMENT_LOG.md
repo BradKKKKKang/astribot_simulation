@@ -283,3 +283,9 @@ python tests/unit/test_camera_viewer.py \
 - **导出行为**：完整提取后复制 JSON／GLB 到 `public/data/<输出目录名>`，`--task-name` 仅覆盖实际目标目录名，不再写显示名称索引；输出已经在该目录时无需复制。替换已有任务时保留其它文件，并在目录切换失败时恢复原目录。build 只构建前端资产；数据新增／改名／更新无需 build 或服务重启，首次采用服务插件需要重启现有 preview。
 - **测试**：Node 数据／目录扫描／HTTP 动态读取与版本校验共 13 passed；Python 发布及 CLI 接线聚焦测试 17 passed。检查覆盖目录改名／删除、不读取伪索引、排除符号链接、目录名限制、配套模型缺失、原目录输出不自复制和同目录其它文件保留。未运行 SDK、ROS、仿真或硬件。
 - **浏览器与上线**：任务切换／改名／删除／空场景及本地导入回归 2 passed；构建与语法／空白检查通过。已重启原有 `astribot-placement-viewer` 用户服务。在线 API 只返回 `press_cube_olddemo`，旧索引地址返回 404，dist 无数据副本；页面直接加载 public 原目录，显示 319 episodes／949 有效候选，无页面脚本错误。测试 dev 服务已停止。
+
+## 2026-10-26: Decision 3.0 image recognition CLI
+
+- Filled the existing empty `scripts/jev_test.py` with a standard-library client for `POST https://decision.vllm-sr.ai/v1/systemone`, using `vllm-sr/d3-turbo` by default. The original PNG/JPEG/WebP image is sent as a base64 data URL with the requested Chinese question and red/blue/yellow block choices. No expected answer is included in the request.
+- Usage: set `DECISION_API_KEY`, then run `python3 scripts/jev_test.py --image /path/to/photo.png`. The script prints the original JSON response, selected label, available option probabilities and request duration. `--dry-run` validates local input and previews the request with image data omitted, without requiring a key or making a network request. `--timeout` defaults to 60 seconds.
+- Validation: Python syntax, actual supplied-image dry-run, base64 round-trip, mocked request/response handling, HTTP/network errors and missing credentials passed. No live inference, ROS, simulator or hardware calls were made; model accuracy remains for the user to evaluate.
