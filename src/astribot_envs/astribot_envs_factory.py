@@ -41,7 +41,8 @@ class AstribotEnvsFactory:
             module = importlib.import_module(module_name)
             _ = getattr(module, class_name)  # Trigger module registration
             gym_env_name=f"astribot_envs/{class_name}-v0"
-            self.astribot_simu_env=gymnasium.make(gym_env_name,param=data)
+            # Interactive loops have no Gym time limit; evaluator budgets remain explicit.
+            self.astribot_simu_env=gymnasium.make(gym_env_name,param=data,max_episode_steps=-1)
 
             # Isaac/rclpy may install their own handlers while constructing the app.
             if hasattr(self, 'install_stop_handlers'):

@@ -424,3 +424,18 @@ python tests/unit/test_camera_viewer.py \
   replay or a robot movement policy. No SDK control-right request, remote JEV
   call or physical hardware operation was performed. Optional-backend skips
   do not establish runtime coverage for those backends.
+
+## 2026-10-27 — Remove the factory's implicit Gym episode limit
+
+- The GUI shutdown at exactly 300 steps came from Gymnasium's registered
+  `TimeLimit`, independently of the already removed integrated evaluation budget.
+  The simulation factory now passes `max_episode_steps=-1` to `gymnasium.make`,
+  disabling that wrapper for its interactive loops across backends. Explicit
+  evaluator budgets and actual environment termination still stop the loop.
+- Added a regression using real Gymnasium registration, wrappers and factory
+  methods with a fake Isaac backend. It runs 1,001 steps before a simulated window
+  close or stop event, and separately verifies genuine termination still stops.
+- Validation: all 20 focused factory, online evaluation and integrated launcher
+  tests passed in `astribot_simu_il`; the three factory cases passed again after
+  tightening the stop-event assertion. `git diff --check` passed. No ROS, Isaac
+  GUI, GPU or hardware runtime was started by these tests.
