@@ -2,6 +2,18 @@
   "ref": "astribot_lab.json",
   "overrides": {
     "name": "penholder",
+    "simulation": {
+      "ground": {
+        "enabled": true,
+        "color": [0, 0, 0]
+      },
+      "light": {
+        "enabled": false
+      },
+      "background": {
+        "usd_path": "config/scenes/backgrounds/penholder_enclosure.usda"
+      }
+    },
     "objects": {
       "pen": {
         "label": "笔",

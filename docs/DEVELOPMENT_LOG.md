@@ -439,3 +439,20 @@ python tests/unit/test_camera_viewer.py \
   tests passed in `astribot_simu_il`; the three factory cases passed again after
   tightening the stop-event assertion. `git diff --check` passed. No ROS, Isaac
   GUI, GPU or hardware runtime was started by these tests.
+
+## 2026-10-27 — Penholder black enclosure and ceiling strip
+
+- Added a scene-local USD background with four matte black walls and a ceiling:
+  2 m × 2 m clear interior centered at world XY (0, 0), with 2.2 m headroom.
+  Panels are visual only; the existing ground plane retains floor collision and
+  is now black. Existing robot placement and task objects are preserved.
+- Disabled the inherited dome light. A single downward white RectLight measures
+  1 m × 0.12 m at Z = 2.165 m, intensity 300 and exposure 0, with a visible white
+  diffuser and black housing. Brightness can be adjusted in the USD asset.
+- Validation: the integrated launcher --check-config passed; 27 existing scene
+  profile and integrated launcher tests passed using the Isaac environment's
+  Python and USD 22.11 bindings. A CPU USD composition check verified referenced
+  material bindings, clear wall dimensions, ceiling height, light count, size,
+  color and downward orientation. git diff --check passed.
+- No ROS, GPU rendering or hardware run was performed. Visual brightness under
+  the live camera exposure remains to be checked after restarting the scene.
