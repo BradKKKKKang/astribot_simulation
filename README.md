@@ -269,7 +269,7 @@ provide a movement policy. Missing object/contact evidence remains `unknown`.
 
 The penholder scene has a matte black enclosure with a 2 m × 2 m clear interior,
 a 2.2 m ceiling and a black ground plane. Its only enabled scene light is a
-downward white 1 m × 0.12 m ceiling strip above the robot at world XY (0, 0).
+downward white 0.5 m × 0.12 m ceiling strip above the robot at world XY (0, 0).
 The background asset is `config/scenes/backgrounds/penholder_enclosure.usda`;
 adjust `CeilingStripLight.inputs:intensity` (default 300, exposure 0) to tune
 brightness for the camera exposure, then restart the simulation. The enclosure

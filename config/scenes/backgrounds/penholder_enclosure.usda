@@ -113,7 +113,7 @@ def Xform "Enclosure" (
         rel material:binding = </Enclosure/Looks/MatteBlack>
         color3f[] primvars:displayColor = [(0, 0, 0)]
         double size = 1
-        float3 xformOp:scale = (1.04, 0.16, 0.03)
+        float3 xformOp:scale = (0.54, 0.16, 0.03)
         double3 xformOp:translate = (0, 0, 2.185)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
     }
@@ -125,13 +125,13 @@ def Xform "Enclosure" (
         rel material:binding = </Enclosure/Looks/WhiteDiffuser>
         color3f[] primvars:displayColor = [(1, 1, 1)]
         double size = 1
-        float3 xformOp:scale = (1, 0.12, 0.002)
+        float3 xformOp:scale = (0.5, 0.12, 0.002)
         double3 xformOp:translate = (0, 0, 2.169)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
     }
 
     def RectLight "CeilingStripLight" (
-        doc = "Single 1 m x 0.12 m white area light above the robot, emitting downward (-Z). Moderate starting intensity 300, exposure 0; tune inputs:intensity for the active renderer/camera exposure."
+        doc = "Single 0.5 m x 0.12 m white area light above the robot, emitting downward (-Z). Moderate starting intensity 300, exposure 0; tune inputs:intensity for the active renderer/camera exposure."
     )
     {
         color3f inputs:color = (1, 1, 1)
@@ -140,7 +140,7 @@ def Xform "Enclosure" (
         float inputs:height = 0.12
         float inputs:intensity = 300
         bool inputs:normalize = 0
-        float inputs:width = 1
+        float inputs:width = 0.5
         double3 xformOp:translate = (0, 0, 2.165)
         uniform token[] xformOpOrder = ["xformOp:translate"]
     }

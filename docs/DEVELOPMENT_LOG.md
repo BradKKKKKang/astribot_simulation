@@ -456,3 +456,12 @@ python tests/unit/test_camera_viewer.py \
   color and downward orientation. git diff --check passed.
 - No ROS, GPU rendering or hardware run was performed. Visual brightness under
   the live camera exposure remains to be checked after restarting the scene.
+
+## 2026-10-27 — Shorter penholder ceiling strip
+
+- Shortened the white ceiling light and visible diffuser to 0.5 m, with a
+  matching 0.54 m housing. Width remains 0.12 m; position, intensity and exposure
+  are unchanged.
+- Validation: CPU USD inspection verified the light width, diffuser/housing
+  world bounds and center, and retained intensity. git diff --check passed.
+  No renderer or ROS runtime was started.
