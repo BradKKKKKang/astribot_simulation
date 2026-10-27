@@ -28,24 +28,27 @@ flowchart TB
 
 ## Configuration composition
 
-Experiments use `schema_version: 2` and explicit `kind`:
+Experiments use `schema_version: 3` and explicit `kind`:
 
 - `placement_test`: `name`, optional `status` (default `ready`), `robot`,
-  `candidates`, `jev`, `source`, optional `runtime` and `output`.
-- `evaluation`: `name`, `robot`, `scene`, `task`, optional `output`.
-  This version supports scene composition and explicit offline evidence evaluation;
-  policy rollout, episode budgets and task object spawning are not implemented yet.
+  `candidates`, `jev`, `source`, optional `robot_placement`, `runtime` and `output`.
+- `evaluation`: `name`, `robot`, `scene`, `task`, `success`, optional
+  `robot_placement`, `runtime` and `output`. Runtime supports physics `dt` and
+  `decimation` under `simulation`, and `max_steps` under `evaluation`.
 
+The three placement entries are `config/placement_distribution/{press_cube,
+penholder,cap_pen}.json`, with `candidates/` and `jev/` in the same directory.
+Evaluation entries live under `config/experiments/evaluation/` and reference shared
+`config/robots/`, `assets/`, `scenes/`, `tasks/`, `success/` and `runtime/` profiles.
 Placement rejects `scene`, `task` and `success`; evaluation rejects placement
-candidate/JEV/source settings. Profiles live under `config/robots`, `scenes`,
-`tasks`, `candidates` and `jev`, outside the workflow directories. Experiments live
-under `config/experiments/placement_test` and `config/experiments/evaluation`.
-`task.success` owns evaluation predicates. The shipped predicates are empty and
-therefore produce `unknown`; they do not define a completed benchmark.
+candidate/JEV/source settings. Success is independent of the task's event selectors
+and stages. The three migrated task criteria remain unconfigured (`unknown`);
+`table_penholder` demonstrates a measured object-region criterion.
 
 Each section is inline or uses `{ "ref": "relative/profile.json", "overrides":
 { ... } }`. References resolve relative to the declaring file. Object overrides
-merge recursively; arrays and scalar values replace their predecessor. Cycles,
+merge recursively; arrays, scalar values and new reference descriptors replace
+their predecessor. Cycles,
 duplicate JSON keys, unknown schema fields and invalid cross-references are rejected.
 Simulation overrides may change only keys declared in the selected simulator YAML.
 Robot model and simulation-config paths retain repository-root-relative semantics;
@@ -54,21 +57,24 @@ absolute paths are also supported. Existing backend YAML files remain in
 
 `src/simulation_config/` owns CPU-only resolution, robot mapping, scene adapters
 and configuration validation. It does not import placement runtime modules.
-Legacy flat and modular v1 inputs remain explicit read adapters. The normalized
+Legacy flat and modular v1/v2 inputs remain explicit read adapters. V2 evaluation
+`task.success` is adapted into the same independent resolved success section. The normalized
 internal `settings.task` record retains name/dataset/readiness for existing capture
-and bundle readers; it is not a reference to an evaluation task. Authored v2 and
+and bundle readers; it is not a reference to an evaluation task. Authored v2/v3 placement experiments and their
 `_resolved_sections` do not contain that legacy task section.
 
 | Section | Ownership |
 | --- | --- |
 | robot | Model, SDK/feedback joint mapping, grippers, TCP and simulation configuration |
+| robot_placement | Optional experiment world XY/yaw and geometry-minimum grounding; absent on historical inputs |
 | candidates | Detector thresholds and `selection.exclude_initial` (default true) |
 | jev | Original-video request, choice order, decision thresholds and transport |
 | source | Dataset name, optional root, command column and metadata policy |
-| runtime | Feedback alignment and replay cadence |
+| runtime | Placement alignment/replay cadence, or evaluation physics settings and step budget |
 | output | Placement capture/bundle paths and publication; evaluation reserves `root` |
 | scene (evaluation) | Object labels/roles, calibrated frames/regions and supported physical scene settings |
-| task (evaluation) | Event selectors, ordered stages and success predicates |
+| task (evaluation) | Event selectors and ordered stages |
+| success (evaluation) | Independent predicates over events and explicit measured evidence |
 
 A placement config may omit `source.dataset_root`: replay then requires an explicit
 input path or `--data-root`. Identification requires a root only when the original
@@ -77,8 +83,24 @@ belongs to the placement experiment and does not gate independent evaluation.
 
 `RobotProfile` is shared by replay, capture, synchronization, FK and export.
 `build_simulation_config` constructs a simulator mapping without starting it.
-The separate simulator process is not automatically reconfigured or verified
-by replay: recorded control provenance describes declared inputs.
+The separate simulator process is not automatically reconfigured by replay. For
+explicit geometry-grounded experiments, capture requires a matching fresh runtime
+placement attestation before sending SDK commands. Historical captures retain their
+original coordinates and source metadata. A path-only move leaves effective
+settings and cache identities unchanged; changing actual robot placement enters
+capture, extraction and geometry identities.
+Legacy replay observes placement feedback when available and rejects an
+explicitly grounded simulator. An older simulator without that topic remains
+compatible under the original authored-world fixed-base assumption; its actual
+placement is not attested. New declarations require valid recorded placement
+evidence during both extraction preflight and capture resume.
+
+`robot.initial_joint_positions` optionally maps model joint names to radians;
+unlisted joints start at zero. Geometry grounding uses this initial posture and
+the complete robot solid geometry to place its minimum height at world Z=0,
+with an upright base and the experiment's world XY/yaw. Creation and reset use
+the same resolved root and joint state. Whole-robot placement leaves local TCP
+and camera calibrations unchanged.
 
 `build_experiment_simulation_config` in
 [`scene_profile.py`](../src/simulation_config/scene_profile.py) composes that robot
@@ -89,7 +111,7 @@ to resolve on CPU before importing the factory, ROS or Isaac. Existing `--config
 YAML launches remain available. Launching from an experiment currently requires
 the supported S1 USD root `/World/astribot_whole_body`.
 
-Scene simulation fields are deliberately limited to existing backend capabilities:
+Scene simulation fields cover:
 ground enable/color, dome-light enable/intensity/color, an optional background USD
 and its pose, and the three authored cameras' enable/resolution/body-path mapping.
 Camera optics and link-relative extrinsics remain authored in USD (`spawn=None`);
@@ -127,7 +149,7 @@ calibration; the shipped profiles make no additional calibration assumptions.
    Verified archived frames can be reused without the original videos when
    source selection is unchanged. An explicit `--data-root` always requests
    source revalidation. Decisions are recomputed from cached probabilities.
-6. Explicit `scripts/evaluate_placement.py --experiment <evaluation.json>` consumes existing evidence and never requests JEV or
+6. Explicit `python -m src.evaluation.placement --experiment <evaluation.json>` consumes existing evidence and never requests JEV or
    controls the robot. Results are `passed`, `failed` or `unknown`; explicit
    contact evidence is required for contact predicates.
 
@@ -140,10 +162,30 @@ The separate evaluation command accepts `--observations` with strict JSON such a
 The `evidence` field of a success predicate names `button_contact`. Unknown
 episode IDs and caller-supplied `events_complete` are rejected; completeness is
 owned by the pipeline. Observation content is retained with evaluation evidence.
-Missing observations produce `unknown`, not inferred contact. Evaluation runs only
-through its separate explicit entrypoint. Background incremental CPU subprocesses
+Missing observations produce `unknown`, not inferred contact. Offline evaluation runs through its separate explicit entrypoint. Online evaluation
+uses the same predicates and `env.evaluation_state()` after actual reset/step;
+the step budget never claims that an unobserved event stream is complete. Background incremental CPU subprocesses
 use `--extract-timeout` (3600 seconds by default) and are cancelled as owned
 process groups when replay is interrupted.
+
+An `object_in_region` predicate names a scene `object` and `region`. Offline
+object evidence uses `episodes.<id>.objects.<name>` with a nonempty `source` and
+`pose_world` or `pose_base` in `[x,y,z,qw,qx,qy,qz]` order. Online evidence reads
+current rigid body state and derives `pose_base` from the actual robot base pose,
+including its translation and yaw. Configured spawn poses are not evidence.
+Missing state remains `unknown`; an observed body origin outside the region is `failed`. These predicates
+measure object body origins and do not imply contact, stability or completed insertion.
+The report retains the measured snapshot, success configuration and fingerprints.
+
+Asset profiles define the source GLB digest, Z-up conversion, explicit scale,
+static/dynamic collision and support surfaces. `scene.objects` references assets
+and initial `placement.frame` (for example `table.tabletop`). Geometry minimum
+height is computed after the object's rotation and scaling. The tabletop frame
+is centered on the actual white panel's top surface. Object bodies become
+independent after spawning, and reset restores their initial states. Regions may
+use world/base or static calibrated frames; frames attached to dynamic objects
+represent initial placement only and are rejected as region anchors. See the
+`table_penholder` scene and evaluation entry for the complete composition.
 
 Extraction uses bounded process workers and one manifest coordinator. Each
 completed episode writes a shard/checkpoint; a failed run can resume without

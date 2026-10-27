@@ -1,0 +1,32 @@
+{
+  "schema_version": 3,
+  "kind": "evaluation",
+  "name": "table_penholder",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "robot_placement": {
+    "frame": "world",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "yaw": 0.0,
+    "grounding": "geometry_min"
+  },
+  "scene": {
+    "ref": "../../scenes/table_penholder.json"
+  },
+  "task": {
+    "ref": "../../tasks/table_penholder.json"
+  },
+  "success": {
+    "ref": "../../success/table_penholder.json"
+  },
+  "runtime": {
+    "ref": "../../runtime/evaluation.json"
+  },
+  "output": {
+    "root": "outputs/evaluation/table_penholder"
+  }
+}

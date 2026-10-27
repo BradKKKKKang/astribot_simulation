@@ -12,7 +12,7 @@ from src.placement_analysis.task_config import DEFAULT_DETECTOR_CONFIG, load_tas
 
 def expanded():
     result = resolve_experiment(DEFAULT_DETECTOR_CONFIG)
-    return {'schema_version': 2, 'kind': 'placement_test', **copy.deepcopy(result['sections'])}
+    return {'schema_version': 3, 'kind': 'placement_test', **copy.deepcopy(result['sections'])}
 
 
 def resolve(tmp_path, value):
@@ -223,7 +223,7 @@ def test_resolver_preflight_rejects_unknown_simulator_overrides(tmp_path):
     assert resolve(tmp_path, value)['settings']['type'] == 'press'
 
 
-def test_v2_placement_has_no_evaluation_dependency(tmp_path, monkeypatch):
+def test_v3_placement_has_no_evaluation_dependency(tmp_path, monkeypatch):
     import builtins
     from src.simulation_config.scene_profile import build_experiment_simulation_config
     original = builtins.__import__
@@ -242,7 +242,10 @@ def test_v2_placement_has_no_evaluation_dependency(tmp_path, monkeypatch):
 
 
 def test_v1_v2_preserve_replay_extraction_and_request_identity(tmp_path):
-    new = resolve_experiment(DEFAULT_DETECTOR_CONFIG)
+    value = expanded()
+    value.pop('robot_placement')
+    value['schema_version'] = 2
+    new = resolve(tmp_path, value)
     sections = new['sections']
     legacy = {key: copy.deepcopy(sections[key]) for key in ('robot', 'candidates', 'jev', 'source', 'runtime', 'output')}
     rules = legacy['candidates'].pop('selection')
@@ -262,12 +265,12 @@ def test_evaluation_and_placement_reject_each_others_fields(tmp_path):
         value = expanded(); value[field] = {}
         with pytest.raises(ValueError, match='unknown fields'):
             resolve(tmp_path, value)
-    evaluation = DEFAULT_DETECTOR_CONFIG.parent.parent / 'evaluation/press_cube.json'
+    evaluation = DEFAULT_DETECTOR_CONFIG.parent.parent / 'experiments/evaluation/press_cube.json'
     resolved = resolve_experiment(evaluation)
     assert 'candidates' not in resolved['sections'] and 'settings' not in resolved
     with pytest.raises(ValueError, match='placement_test'):
         load_task_config(evaluation)
-    value = {'schema_version': 2, 'kind': 'evaluation', **resolved['sections'], 'jev': {}}
+    value = {'schema_version': 3, 'kind': 'evaluation', **resolved['sections'], 'jev': {}}
     with pytest.raises(ValueError, match='unknown fields'):
         resolve(tmp_path, value)
 
@@ -280,3 +283,92 @@ def test_source_root_is_optional_until_source_resolution(tmp_path):
     from scripts import replay_extract_event as replay
     path = tmp_path / 'experiment.json'
     assert replay.main(['--experiment', str(path), '--dry-run']) == 1
+
+
+def test_v3_path_only_relocation_keeps_resolved_identity(tmp_path):
+    original = resolve_experiment(DEFAULT_DETECTOR_CONFIG)
+    # Inline copies remove reference paths entirely while preserving effective inputs.
+    relocated = resolve(tmp_path, expanded())
+    assert relocated['settings'] == original['settings']
+    assert relocated['fingerprints'] == original['fingerprints']
+    value = expanded()
+    value['robot_placement']['xy'] = [1., 2.]
+    changed = resolve(tmp_path, value)
+    assert changed['fingerprints']['extraction'] != original['fingerprints']['extraction']
+    for key in ('robot_control', 'robot_tcp', 'jev_request', 'jev_decision'):
+        assert changed['fingerprints'][key] == original['fingerprints'][key]
+
+
+def test_v3_without_placement_preserves_v2_identity_and_pose(tmp_path):
+    from src.simulation_config.scene_profile import build_experiment_simulation_config
+    value = expanded(); value.pop('robot_placement')
+    current = resolve(tmp_path, value)
+    value['schema_version'] = 2
+    old = resolve(tmp_path, value)
+    assert current['settings'] == old['settings']
+    assert current['fingerprints'] == old['fingerprints']
+    assert 'robot_placement' not in old['sections']
+    config = build_experiment_simulation_config(old)
+    assert config.get('robot_placement') is None
+
+
+def test_v2_evaluation_success_adapts_without_changing_criteria(tmp_path):
+    profile = default_robot_profile().as_dict()
+    success = {'predicates': [{'id': 'touch', 'kind': 'contact', 'evidence': 'touch'}]}
+    value = {'schema_version': 2, 'kind': 'evaluation', 'name': 'legacy', 'robot': profile,
+             'scene': {'objects': {}, 'regions': {}},
+             'task': {'name': 'legacy', 'events': {}, 'success': success}, 'output': {}}
+    old = resolve(tmp_path, value)
+    assert old['sections']['success'] == success
+    assert 'success' not in old['sections']['task']
+    assert 'robot_placement' not in old['sections']
+    value['schema_version'] = 3
+    value['success'] = value['task'].pop('success')
+    current = resolve(tmp_path, value)
+    assert current['sections']['task'] == old['sections']['task']
+    assert current['sections']['success'] == old['sections']['success']
+    value['success'] = {'predicates': []}
+    changed = resolve(tmp_path, value)
+    assert changed['fingerprints']['task'] == current['fingerprints']['task']
+    assert changed['fingerprints']['success'] != current['fingerprints']['success']
+    value.pop('success')
+    with pytest.raises(ValueError, match='missing experiment sections'):
+        resolve(tmp_path, value)
+
+
+@pytest.mark.parametrize('placement', [
+    {'frame': 'base', 'xy': [0, 0], 'yaw': 0, 'grounding': 'geometry_min'},
+    {'frame': 'world', 'xy': [0], 'yaw': 0, 'grounding': 'geometry_min'},
+    {'frame': 'world', 'xy': [0, 0], 'yaw': True, 'grounding': 'geometry_min'},
+])
+def test_invalid_explicit_robot_placement_is_rejected(tmp_path, placement):
+    value = expanded(); value['robot_placement'] = placement
+    with pytest.raises(ValueError):
+        resolve(tmp_path, value)
+
+
+@pytest.mark.parametrize('runtime', [
+    {'simulation': {'dt': 0}}, {'simulation': {'decimation': 1.5}},
+    {'evaluation': {'max_steps': True}}, {'evaluation': {'max_steps': 0}},
+    {'replay': {'speed_scale': 1}},
+])
+def test_evaluation_runtime_has_distinct_validated_contract(tmp_path, runtime):
+    path = DEFAULT_DETECTOR_CONFIG.parent.parent / 'experiments/evaluation/press_cube.json'
+    resolved = resolve_experiment(path)
+    value = {'schema_version': 3, 'kind': 'evaluation', **resolved['sections'], 'runtime': runtime}
+    with pytest.raises(ValueError):
+        resolve(tmp_path, value)
+
+
+@pytest.mark.parametrize('frame', ['pen', 'pen.tip', 'relative'])
+def test_region_cannot_treat_dynamic_initial_frame_as_runtime_pose(monkeypatch, frame):
+    from src.simulation_config import scene_assets
+    from src.simulation_config.experiment_config import validate_scene
+    # The asset validator has its own geometry fixtures; isolate the frame dependency.
+    monkeypatch.setattr(scene_assets, 'validate_scene_objects', lambda scene: None)
+    scene = {'objects': {'pen': {'asset': {'physics': {'body_type': 'dynamic'}}}},
+             'frames': {'pen': {'parent': 'world'}, 'pen.tip': {'parent': 'pen'},
+                        'relative': {'parent': 'pen.tip'}},
+             'regions': {'target': {'frame': frame, 'min': [0, 0, 0], 'max': [1, 1, 1]}}}
+    with pytest.raises(ValueError, match='dynamic object initial frame'):
+        validate_scene(scene)

@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "kind": "evaluation",
   "name": "penholder",
   "robot": {
@@ -11,5 +11,18 @@
   "task": {
     "ref": "../../tasks/penholder.json"
   },
-  "output": {}
+  "output": {},
+  "robot_placement": {
+    "frame": "world",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "yaw": 0.0,
+    "grounding": "geometry_min"
+  },
+  "success": {
+    "ref": "../../success/penholder.json"
+  },
+  "runtime": {}
 }

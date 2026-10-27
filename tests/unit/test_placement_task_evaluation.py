@@ -91,3 +91,15 @@ def test_dwell_selector_matches_actual_event_type():
     assert result['status'] == 'passed'
     with pytest.raises(ValueError, match='event_type'):
         evaluate_success([], SCENE, {'events': {'pause': {'event_type': 'stop'}}}, success)
+
+
+def test_measured_object_region_and_missing_state_evidence():
+    success = {'predicates': [{'id': 'placed', 'kind': 'object_in_region', 'object': 'pen', 'region': 'holder'}]}
+    objects = {'pen': {'pose_base': [.5, .5, .5, 1, 0, 0, 0], 'source': 'rigid_body_state'}}
+    evaluate_state = lambda evidence: evaluate_success([], SCENE, TASK, success, evidence)
+    assert evaluate_state({'objects': objects})['status'] == 'passed'
+    objects['pen']['pose_base'][0] = 2
+    assert evaluate_state({'objects': objects})['status'] == 'failed'
+    assert evaluate_state({})['status'] == 'unknown'
+    objects['pen'].pop('source')
+    assert evaluate_state({'objects': objects})['status'] == 'unknown'

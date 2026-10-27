@@ -32,11 +32,13 @@ def state_rows(msg, part, profile=None):
 class ReplayCapture:
     """Subscribe on the SDK's existing executor; keep at most one episode."""
 
-    def __init__(self, robot, profile=None):
+    def __init__(self, robot, profile=None, robot_placement=None):
         from astribot_msgs.msg import RobotJointState
         from rclpy.qos import qos_profile_sensor_data
 
         self.profile = profile or DEFAULT_PROFILE
+        self.robot_placement = robot_placement
+        self.placement_samples = []
         self.node = robot.astribot_interface.node
         self.lock = threading.Lock()
         self.latest, self.rows, self.calls, self.errors = {}, [], [], []
@@ -45,6 +47,9 @@ class ReplayCapture:
         self.dataset_end_monotonic_ns = None
         self.subscriptions = []
         try:
+            from std_msgs.msg import String
+            self.subscriptions.append(self.node.create_subscription(
+                String, '/simulation/robot_placement', self.on_placement, 10))
             for part, _ in self.profile.part_configs:
                 self.subscriptions.append(self.node.create_subscription(
                     RobotJointState, f'/{part}/joint_space_states',
@@ -52,6 +57,23 @@ class ReplayCapture:
         except BaseException:
             self.close()
             raise
+
+    def on_placement(self, msg):
+        from src.simulation_config.robot_placement import validate_placement_attestation
+        try:
+            if self.robot_placement is None:
+                raise ValueError('legacy capture cannot use explicit grounded simulator coordinates')
+            value = validate_placement_attestation(json.loads(msg.data), self.robot_placement, self.profile)
+            with self.lock:
+                if self.placement_samples:
+                    previous = self.placement_samples[-1]
+                    if (value['resolved']['placement_sha256'] != previous['resolved']['placement_sha256']
+                            or value['observed_system_ns'] <= previous['observed_system_ns']):
+                        raise ValueError('simulator placement changed during capture')
+                self.placement_samples.append(value)
+        except Exception as error:
+            with self.lock:
+                self.errors.append(str(error))
 
     def on_state(self, msg, part):
         try:
@@ -69,6 +91,11 @@ class ReplayCapture:
 
     def begin(self):
         with self.lock:
+            if getattr(self, 'robot_placement', None) is not None:
+                from src.simulation_config.robot_placement import validate_placement_attestation
+                if not self.placement_samples:
+                    raise ValueError('no actual simulator robot placement feedback before capture')
+                validate_placement_attestation(self.placement_samples[-1], self.robot_placement, self.profile)
             self.epoch_mono = time.monotonic_ns()
             self.epoch_wall = time.time_ns()
             self.window = [self.epoch_mono, None]
@@ -99,6 +126,9 @@ class ReplayCapture:
             if self.errors:
                 return True  # save() persists and reports the callback error.
             end_stamp = self.epoch_wall + self.window[1] - self.epoch_mono
+            if getattr(self, 'robot_placement', None) is not None and (
+                    not self.placement_samples or self.placement_samples[-1]['observed_system_ns'] < end_stamp):
+                return False
             return all(self.latest.get(part)
                        and self.latest[part][0]['header_stamp_ns'] >= end_stamp
                        for part, _ in getattr(self, "profile", DEFAULT_PROFILE).part_configs)
@@ -133,6 +163,10 @@ class ReplayCapture:
         try:
             if errors:
                 raise RuntimeError(errors[-1])
+            if getattr(self, 'robot_placement', None) is not None:
+                from src.simulation_config.robot_placement import validate_capture_placement
+                metadata['robot_placement_attestations'] = list(self.placement_samples)
+                validate_capture_placement(metadata, self.robot_placement, self.profile)
             profile = getattr(self, 'profile', DEFAULT_PROFILE)
             _, _, metadata['feedback_quality'] = synchronize_feedback(
                 rows, self.calls, metadata, profile.joint_names, settings.get('alignment_max_gap_s', .1),

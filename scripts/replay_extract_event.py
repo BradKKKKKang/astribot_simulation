@@ -55,6 +55,7 @@ def apply_experiment_settings(args, task, explicit_options=()):
     """Apply profile defaults; explicit CLI options retain precedence."""
     args.robot_profile = profile_for_settings(task or {})
     sections = (task or {}).get('_resolved_sections', {})
+    args.robot_placement = sections.get('robot_placement')
     source, runtime, output = (sections.get(key, {}) for key in ('source', 'runtime', 'output'))
     args.replay_runtime = dict(runtime.get('replay', {}))
     args.metadata_policy = source.get('metadata_policy', 'assume_canonical')
@@ -78,6 +79,17 @@ def positive_float(value):
     if not math.isfinite(number) or number <= 0:
         raise argparse.ArgumentTypeError("must be finite and greater than zero")
     return number
+
+
+def pipeline_robot_settings(args, task=None):
+    """Replay and CPU extraction must select the identical placement contract."""
+    if task is not None or args.export_robot_only or args.identify_only:
+        return task
+    path = args.detector_config or DEFAULT_DETECTOR_CONFIG
+    value = json.loads(Path(path).expanduser().read_text())
+    if 'schema_version' in value or 'task' in value:
+        return load_task_config(path, require_ready=not args.dry_run, validate_identification=False)
+    return value
 
 
 class TqdmProgress:
@@ -159,7 +171,7 @@ def parser():
                         help="do not register the resulting manifest with the Web viewer")
     result.add_argument("--usd", type=Path, default=DEFAULT_USD, help="same fixed-base S1 USD used by Isaac")
     configs = result.add_mutually_exclusive_group()
-    configs.add_argument("--detector-config", type=Path, help="position-only detector settings (default: config/experiments/placement_test/press_cube.json)")
+    configs.add_argument("--detector-config", type=Path, help="position-only detector settings (default: config/placement_distribution/press_cube.json)")
     configs.add_argument("--task-config", "--experiment", dest="task_config", type=Path,
                          help="placement_test experiment or legacy placement settings")
     result.add_argument("--data-root", type=Path, help="relocate verified source datasets under this root")
@@ -206,6 +218,9 @@ def replay_settings(args):
                     robot_control=declared, robot_control_sha256=fingerprint(declared),
                     runtime=runtime, runtime_sha256=fingerprint(runtime),
                     alignment_max_gap_s=getattr(args, 'alignment_max_gap_s', .1))
+    if getattr(args, 'robot_placement', None) is not None:
+        settings['robot_placement'] = args.robot_placement
+        settings['robot_placement_sha256'] = fingerprint(args.robot_placement)
     return settings
 
 
@@ -238,7 +253,7 @@ def validate_dataset(args, paths):
     return report
 
 
-def completed_capture(output, source, settings, resume):
+def completed_capture(output, source, settings, resume, profile=None):
     if not output.exists() or not any(output.iterdir()):
         return False
     metadata_path = output / "run_metadata.json"
@@ -255,6 +270,9 @@ def completed_capture(output, source, settings, resume):
                         metadata.get("capture_sha256", {}).get(name)
                         == hashlib.sha256((output / name).read_bytes()).hexdigest()
                         for name in ("sim_states.parquet", "api_commands.parquet"))):
+            if settings.get('robot_placement') is not None:
+                from src.simulation_config.robot_placement import validate_capture_placement
+                validate_capture_placement(metadata, settings['robot_placement'], profile or DEFAULT_PROFILE)
             return True
     raise FileExistsError(f"refusing to overwrite incomplete or mismatched capture: {output}; "
                           "use a new output root or move this episode directory before retrying")
@@ -346,7 +364,7 @@ def load_sdk():
     return Astribot, middleware
 
 
-def wait_for_simulation(timeout, cameras=True, profile=None):
+def wait_for_simulation(timeout, cameras=True, profile=None, robot_placement=None):
     """Read-only check before constructing the SDK (which acquires control)."""
     import rclpy
     from astribot_msgs.msg import RobotJointState
@@ -364,6 +382,17 @@ def wait_for_simulation(timeout, cameras=True, profile=None):
     required = {name for name, _, _ in profile.sdk_parts} | {profile.chassis_part}
     if cameras:
         required.update(CAMERAS)
+    attestation = None
+    if robot_placement is not None:
+        required.add('robot_placement')
+
+    def placement_feedback(msg):
+        nonlocal attestation
+        if robot_placement is None:
+            raise ValueError('legacy replay cannot use a simulator with explicit grounded robot placement')
+        from src.simulation_config.robot_placement import validate_placement_attestation
+        attestation = validate_placement_attestation(json.loads(msg.data), robot_placement, profile)
+        seen.add('robot_placement')
 
     def state(msg, name):
         # The simulator's synthetic fixed-chassis publisher leaves frame_id empty.
@@ -376,10 +405,12 @@ def wait_for_simulation(timeout, cameras=True, profile=None):
         node = rclpy.create_node(f"parquet_replay_probe_{os.getpid()}", context=context)
         executor = SingleThreadedExecutor(context=context)
         executor.add_node(node)
-        for name in required - set(CAMERAS):
+        for name in required - set(CAMERAS) - {'robot_placement'}:
             node.create_subscription(
                 RobotJointState, f"/{name}/joint_space_states",
                 lambda msg, name=name: state(msg, name), qos_profile_sensor_data)
+        from std_msgs.msg import String
+        node.create_subscription(String, '/simulation/robot_placement', placement_feedback, 10)
         for name in (CAMERAS if cameras else ()):
             node.create_subscription(
                 Image, f"/astribot_whole_body/camera/{name}/image_raw",
@@ -398,6 +429,7 @@ def wait_for_simulation(timeout, cameras=True, profile=None):
                     )
                 raise RuntimeError(message)
             executor.spin_once(timeout_sec=0.1)
+        return attestation
     finally:
         try:
             if executor is not None:
@@ -560,7 +592,12 @@ def run(args, commands=None, times=None, report=None, *, on_capture=None):
     print(f"Waiting for simulator on ROS_DOMAIN_ID="
           f"{os.environ.get('ROS_DOMAIN_ID', '0')}...", flush=True)
     profile, runtime = robot_profile(args), runtime_settings(args)
-    wait_for_simulation(args.timeout, cameras=not args.no_viewer, profile=profile)
+    declaration = getattr(args, 'robot_placement', None)
+    if declaration is None:
+        wait_for_simulation(args.timeout, cameras=not args.no_viewer, profile=profile)
+    else:
+        wait_for_simulation(args.timeout, cameras=not args.no_viewer, profile=profile,
+                            robot_placement=declaration)
 
     viewer = None
     robot = None
@@ -581,7 +618,7 @@ def run(args, commands=None, times=None, report=None, *, on_capture=None):
             # IDs on resumed/interleaved batches, before notifying extraction.
             complete_ids = {source["episode_id"] for source in sources
                             if completed_capture(args.output_root / source["episode_id"],
-                                                 source, settings, args.resume)}
+                                                 source, settings, args.resume, profile=profile)}
             completed = [source["episode_id"] for source in sources if source["episode_id"] in complete_ids]
             batch = {"status": "complete" if len(completed) == len(sources) else "partial",
                      "episodes": sources, "completed": completed, "replay_settings": settings}
@@ -591,7 +628,7 @@ def run(args, commands=None, times=None, report=None, *, on_capture=None):
                 on_capture()
         for number, source in enumerate(sources, 1):
             output = args.output_root / source["episode_id"] if args.output_root else None
-            if output and completed_capture(output, source, settings, args.resume):
+            if output and completed_capture(output, source, settings, args.resume, profile=profile):
                 print(f'[{number}/{len(sources)}] Already complete: {source["episode_id"]}', flush=True)
                 progress.finish_episode()
             else:
@@ -620,7 +657,7 @@ def run(args, commands=None, times=None, report=None, *, on_capture=None):
                     if root not in sys.path:
                         sys.path.insert(0, root)
                     from src.placement_analysis.replay_capture import ReplayCapture
-                    capture = ReplayCapture(robot, profile=profile)
+                    capture = ReplayCapture(robot, profile=profile, robot_placement=declaration)
                 progress_started = False
 
                 def update_progress(frame):
@@ -826,7 +863,7 @@ def main(argv=None):
     try:
         task = load_task_config(args.task_config, require_ready=not args.dry_run,
                                 validate_identification=False) if args.task_config else None
-        apply_experiment_settings(args, task, explicit_options)
+        apply_experiment_settings(args, pipeline_robot_settings(args, task), explicit_options)
         if task and task['task']['status'] != 'ready':
             print(f"{task['task']['name']}: 待标注; configuration valid, execution disabled")
             return 0
@@ -894,7 +931,7 @@ def main(argv=None):
             args.output_root = args.output_root.expanduser().resolve()
             for source in report["episodes"]:
                 if completed_capture(args.output_root / source["episode_id"], source,
-                                     report["replay_settings"], args.resume):
+                                     report["replay_settings"], args.resume, profile=robot_profile(args)):
                     completed.append(source["episode_id"])
         print(f'{report["episode_count"]} episodes, {report["frames"]} frames, '
               f'{report["duration_s"]:.3f}s at {args.speed:g}x. '

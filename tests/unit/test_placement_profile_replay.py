@@ -71,3 +71,43 @@ def test_capture_only_dry_run_uses_config_without_loading_sdk_or_usd(tmp_path,mo
                         '--output-root',str(tmp_path/'capture')]) == 0
     sdk.assert_not_called()
     assert not (tmp_path/'capture').exists()
+
+
+def test_default_detector_replay_and_extraction_share_placement():
+    from scripts import replay_extract_event as replay
+    args = replay.parser().parse_args(['fixture.parquet'])
+    settings = replay.pipeline_robot_settings(args)
+    replay.apply_experiment_settings(args, settings)
+    assert replay.replay_settings(args)['robot_placement'] == settings['_resolved_sections']['robot_placement']
+
+
+def test_v3_resume_and_dryrun_require_actual_placement_evidence(tmp_path):
+    import hashlib
+    from src.placement_analysis.extraction import extract_events
+    from tests.unit.test_placement_extraction_stages import write_capture
+    settings = load_task_config(DEFAULT_DETECTOR_CONFIG)
+    args = replay.parser().parse_args(['fixture.parquet'])
+    replay.apply_experiment_settings(args, settings)
+    capture = write_capture(tmp_path / 'episode')
+    # Dry-run checks capture evidence even though it does not load USD.
+    with pytest.raises(ValueError, match='legacy coordinates'):
+        extract_events([capture], tmp_path / 'out', detector_config=DEFAULT_DETECTOR_CONFIG, dry_run=True)
+    metadata_path = capture / 'run_metadata.json'
+    metadata = json.loads(metadata_path.read_text())
+    source = {'input_sha256': metadata['input_sha256'], 'metadata_sha256': None}
+    metadata.update(capture_schema='replay_parquet_v1', source=source,
+                    replay_settings=replay.replay_settings(args),
+                    capture_sha256={name: hashlib.sha256((capture/name).read_bytes()).hexdigest()
+                                    for name in ('sim_states.parquet', 'api_commands.parquet')})
+    metadata_path.write_text(json.dumps(metadata))
+    with pytest.raises(ValueError, match='legacy coordinates'):
+        replay.completed_capture(capture, source, replay.replay_settings(args), True, profile=args.robot_profile)
+
+
+def test_legacy_capture_rejects_grounded_feedback_received_after_probe():
+    from threading import Lock
+    capture = ReplayCapture.__new__(ReplayCapture)
+    capture.robot_placement = None
+    capture.lock, capture.errors = Lock(), []
+    capture.on_placement(SimpleNamespace(data='{}'))
+    assert capture.errors == ['legacy capture cannot use explicit grounded simulator coordinates']

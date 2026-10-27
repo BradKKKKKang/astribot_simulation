@@ -26,10 +26,12 @@ def main(argv=None):
     parser.add_argument('--no-cameras', action='store_true',
                         help='disable configured camera sensors for state-only replay')
     args = parser.parse_args(argv)
+    resolved = None
     if args.experiment:
         from src.simulation_config.experiment_config import resolve_experiment
         from src.simulation_config.scene_profile import build_experiment_simulation_config
-        data = build_experiment_simulation_config(resolve_experiment(args.experiment, require_ready=False))
+        resolved = resolve_experiment(args.experiment, require_ready=False)
+        data = build_experiment_simulation_config(resolved)
     else:
         # Keep the existing YAML behavior while keeping --help/check-config free
         # of factory, ROS, gymnasium and simulator imports.
@@ -53,6 +55,9 @@ def main(argv=None):
     from src.astribot_envs.astribot_envs_factory import AstribotEnvsFactory
     factory = AstribotEnvsFactory()
     factory.stop_event = threading.Event()
+    if resolved is not None and resolved['kind'] == 'evaluation':
+        from src.evaluation.online import OnlineEvaluator
+        factory.evaluator = OnlineEvaluator(resolved)
     def install_stop_handlers():
         for signum in (signal.SIGINT, signal.SIGTERM):
             signal.signal(signum, lambda *_: factory.stop_event.set())
@@ -91,6 +96,11 @@ def main(argv=None):
                 cleanup(rclpy.shutdown)
         if errors:
             raise RuntimeError('; '.join(errors))
+        evaluator = getattr(factory, 'evaluator', None)
+        if evaluator is not None and evaluator.result is not None:
+            report_path = evaluator.write_report()
+            print('Evaluation: ' + evaluator.result['status']
+                  + (f'; report: {report_path}' if report_path is not None else ''))
 
 
 if __name__ == '__main__':

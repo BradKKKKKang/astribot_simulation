@@ -18,10 +18,25 @@ DEFAULT_POSE_CONFIG = None  # The old reference-pose file was removed; require a
 DEFAULT_DEMO_OUTPUT = ROOT / 'web/placement-viewer/public/data/demo'
 
 
+def validate_usd_composition(stage):
+    """Reject missing geometry composition, including USD 22's layer-only errors."""
+    from pxr import Sdf
+    if stage is None:
+        raise ValueError('USD geometry has unresolved composition dependencies')
+    errors = getattr(stage, 'GetCompositionErrors', lambda: [])()
+    if errors or any(prim.GetPrimIndex().localErrors for prim in stage.Traverse()):
+        raise ValueError('USD geometry has unresolved composition dependencies')
+    for layer in stage.GetUsedLayers():
+        for path in layer.subLayerPaths:
+            if Sdf.Layer.FindOrOpenRelativeToLayer(layer, path) is None:
+                raise ValueError('USD geometry has unresolved composition sublayers')
+
+
 def open_robot_stage(usd, *, root_path='/World/astribot_whole_body'):
     """Open the same fixed-base S1 USD for both geometry and event extraction."""
     from pxr import Usd, UsdGeom, UsdPhysics
     stage = Usd.Stage.Open(str(Path(usd).expanduser().resolve(strict=True)))
+    validate_usd_composition(stage)
     if UsdGeom.GetStageUpAxis(stage) != 'Z' or not np.isclose(UsdGeom.GetStageMetersPerUnit(stage), 1):
         raise ValueError('S1 export requires a Z-up, meter stage')
     root = stage.GetPrimAtPath(root_path)
@@ -67,8 +82,7 @@ def geometry_cache_key(usd, body_names, *, root_path=None, stage=None):
 
     usd = Path(usd).expanduser().resolve(strict=True)
     stage = stage or Usd.Stage.Open(str(usd))
-    if stage is None or stage.GetCompositionErrors():
-        raise ValueError('USD geometry has unresolved composition dependencies')
+    validate_usd_composition(stage)
     if stage.GetRootLayer().realPath and Path(stage.GetRootLayer().realPath).resolve() != usd:
         raise ValueError('geometry stage and USD source differ')
     dependencies = []

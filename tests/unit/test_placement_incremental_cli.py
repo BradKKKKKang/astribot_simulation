@@ -86,7 +86,7 @@ def test_resumed_batch_callback_always_includes_later_completed_captures(tmp_pat
     monkeypatch.setenv('ROS_DOMAIN_ID', '197')
     monkeypatch.setattr(cli, 'load_sdk', lambda: (Mock(return_value=robot), middleware))
     monkeypatch.setattr(cli, 'wait_for_simulation', Mock())
-    monkeypatch.setattr(cli, 'completed_capture', lambda path, *_: path.name in ('episode0', 'episode2'))
+    monkeypatch.setattr(cli, 'completed_capture', lambda path, *_, **kwargs: path.name in ('episode0', 'episode2'))
     monkeypatch.setattr(cli, 'load_segment', lambda *a, **k: (np.zeros((2, 25)), np.array([0, .01])))
     monkeypatch.setattr(cli, 'replay', Mock())
     capture = Mock()
@@ -143,12 +143,11 @@ def test_owned_cpu_timeout_escalates_cleanup_for_its_child_only(monkeypatch):
 
 
 def test_evaluation_is_an_explicit_separate_entrypoint(monkeypatch):
-    from scripts import evaluate_placement
     from src.evaluation import placement
     calls = []
     monkeypatch.setattr(placement, 'evaluate_bundle',
                         lambda *a, **kw: calls.append((a, kw)) or {'summary': {'unknown': 1}})
-    assert evaluate_placement.main(['bundle', '--experiment', 'evaluation.json', '--dry-run']) == 0
+    assert placement.main(['bundle', '--experiment', 'evaluation.json', '--dry-run']) == 0
     assert calls == [((Path('bundle'),), {'task_config': Path('evaluation.json'),
                                          'observations': None, 'dry_run': True})]
     with pytest.raises(SystemExit):

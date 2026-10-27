@@ -27,10 +27,11 @@ class UsdKinematics:
     * parent_frame * parent_world. The authored fixed base is retained.
     """
 
-    def __init__(self, stage, robot_path, body_names):
+    def __init__(self, stage, robot_path, body_names, *, world_transform=None):
         from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
         self.Gf = Gf
+        self.world_transform = Gf.Matrix4d(world_transform) if world_transform is not None else None
         root = stage.GetPrimAtPath(robot_path)
         if not root:
             raise ValueError(f'missing USD robot: {robot_path}')
@@ -87,6 +88,8 @@ class UsdKinematics:
                                 list(axis) if axis is not None else None]
                          for path, (parent, second, first, name, axis) in self.incoming.items()},
         }
+        if self.world_transform is not None:
+            value['world_transform'] = matrix(self.world_transform)
         return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
     def snapshot(self, joint_positions, *, body_names=None):
@@ -118,6 +121,8 @@ class UsdKinematics:
         poses = []
         for name in self.body_names if body_names is None else body_names:
             matrix = solve(self.bodies[name])
+            if self.world_transform is not None:
+                matrix = matrix * self.world_transform
             rotation = Gf.Transform(matrix).GetRotation().GetQuat().GetNormalized()
             poses.append([*matrix.ExtractTranslation(), rotation.GetReal(), *rotation.GetImaginary()])
         if not np.isfinite(poses).all():

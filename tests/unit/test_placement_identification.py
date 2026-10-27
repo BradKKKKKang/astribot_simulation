@@ -442,17 +442,3 @@ def test_cached_responses_are_reselected_by_probability_without_api(sample, monk
         assert event['identification']['selection_policy'] == row['identification']['selection_policy'] == jev.SELECTION_POLICY
         saved = json.loads((sample['output'] / 'identification/events' / f"{ident.fingerprint(event['event_id'])}.json").read_text())
         assert saved['object'] == '黄色方块'
-
-
-def test_jev_cli_uses_same_probability_selection(monkeypatch, capsys):
-    from scripts import jev_test
-    monkeypatch.setenv('DECISION_API_KEY', 'test-key')
-    monkeypatch.setattr(jev_test.sys, 'argv', ['jev_test.py', '--image', 'unused.png'])
-    monkeypatch.setattr(jev_test, 'build_payload', Mock(return_value={}))
-    monkeypatch.setattr(jev_test, 'ask_model', Mock(return_value={'answers': {jev_test.QUESTION_ID: {
-        'choice': 'red', 'probabilities': {'red': .0028, 'blue': .0012, 'yellow': .9960},
-    }}}))
-    assert jev_test.main() == 0
-    output = capsys.readouterr().out
-    assert '模型选择（最高概率）: 黄色方块' in output
-    assert '红色方块: 0.28%' in output and '黄色方块: 99.60%' in output

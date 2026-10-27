@@ -317,7 +317,7 @@ def test_viewer_quit_stops_replay():
         replay.wait_until(0, viewer, Mock())
 
 
-@pytest.mark.parametrize('outcome', ['ready', 'timeout', 'not_simulation', 'no_cameras'])
+@pytest.mark.parametrize('outcome', ['ready', 'timeout', 'not_simulation', 'no_cameras', 'grounded_simulation'])
 @pytest.mark.parametrize('cameras', [True, False])
 def test_probe_context_and_cleanup(monkeypatch, outcome, cameras):
     import sys
@@ -346,10 +346,15 @@ def test_probe_context_and_cleanup(monkeypatch, outcome, cameras):
     module('astribot_msgs.msg', RobotJointState=object())
     module('sensor_msgs')
     module('sensor_msgs.msg', Image=object())
+    module('std_msgs')
+    module('std_msgs.msg', String=object())
 
     def deliver(**kwargs):
         for topic, callback in subscriptions.items():
-            if topic.endswith('/image_raw'):
+            if topic == '/simulation/robot_placement':
+                if outcome == 'grounded_simulation':
+                    callback(SimpleNamespace(data='{}'))
+            elif topic.endswith('/image_raw'):
                 if outcome != 'no_cameras':
                     callback(SimpleNamespace(width=640, height=480))
             else:
@@ -368,6 +373,9 @@ def test_probe_context_and_cleanup(monkeypatch, outcome, cameras):
     elif outcome == 'not_simulation':
         with pytest.raises(RuntimeError, match='not from simulation'):
             replay.wait_for_simulation(1, cameras=cameras)
+    elif outcome == 'grounded_simulation':
+        with pytest.raises(ValueError, match='legacy replay'):
+            replay.wait_for_simulation(1, cameras=cameras)
     elif outcome == 'no_cameras' and cameras:
         ticks = iter([0, 0, 2])
         monkeypatch.setattr(replay.time, 'monotonic', lambda: next(ticks))
@@ -376,7 +384,7 @@ def test_probe_context_and_cleanup(monkeypatch, outcome, cameras):
         assert f'missing: {sorted(replay.CAMERAS)}' in str(error.value)
     else:
         replay.wait_for_simulation(1, cameras=cameras)
-        assert len(subscriptions) == (10 if cameras else 7)
+        assert len(subscriptions) == (11 if cameras else 8)
     ros.init.assert_called_once_with(context=context)
     ros.create_node.assert_called_once_with(
         f'parquet_replay_probe_{replay.os.getpid()}', context=context)
@@ -564,7 +572,7 @@ def test_resume_retries_matching_failed_capture_in_place(tmp_path):
 
 def test_completed_resume_does_not_connect_sdk(tmp_path, monkeypatch):
     path = dataset(tmp_path, times=[0, .1, .2, .3])
-    monkeypatch.setattr(replay, 'completed_capture', lambda *args: True)
+    monkeypatch.setattr(replay, 'completed_capture', lambda *args, **kwargs: True)
     run = Mock()
     monkeypatch.setattr(replay, 'run', run)
     output = tmp_path / 'capture'

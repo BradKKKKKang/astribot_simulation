@@ -58,6 +58,9 @@ def scene_simulation_provenance(scene):
         path = Path(result['background']['usd_path']).expanduser()
         path = path if path.is_absolute() else ROOT / path
         result['background']['usd_sha256'] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+    if any('asset' in obj for obj in scene.get('objects', {}).values()):
+        from .scene_assets import resolve_scene_objects
+        result['objects'], _ = resolve_scene_objects(scene)
     return result
 
 
@@ -94,8 +97,16 @@ def build_experiment_simulation_config(resolved):
         bodies[name] = values['body']
     config.update(camera_names=names, camera_resolutions=resolutions, camera_bodies=bodies,
                   robot_root_path=profile.root_path, scene_simulation=simulation)
+    from .scene_assets import resolve_scene_objects, validate_scene_objects
+    validate_scene_objects(scene)
+    objects, frames = resolve_scene_objects(scene)
+    config['scene_objects'] = objects
+    config['robot_profile'] = copy.deepcopy(sections['robot'])
+    if 'robot_placement' in sections:
+        config['robot_placement'] = copy.deepcopy(sections['robot_placement'])
+    config.update(copy.deepcopy(sections.get('runtime', {}).get('simulation', {})))
     config['experiment_provenance'] = {'robot_control': profile.control_provenance(),
         'scene_simulation': scene_simulation_provenance(scene),
-        'scene_frames': copy.deepcopy(scene.get('frames', {})),
+        'scene_frames': frames,
         'identity_basis': 'resolved launch inputs; not a runtime state attestation'}
     return config

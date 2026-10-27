@@ -357,3 +357,70 @@ python tests/unit/test_camera_viewer.py \
 - Coverage limits: no live SDK/ROS/Isaac replay or external JEV request was run.
   Existing dirty model/message submodules were used read-only and excluded from
   the change. No installation, asset conversion or deployment was performed.
+
+
+## 2026-10-27 — V3 configuration assembly and measured-state evaluation
+
+- Moved the three placement entrances to `config/placement_distribution/`, with
+  their candidate and JEV components below the same directory. Removed the
+  override example; recursive reference overrides remain supported. Candidate
+  settings, JEV choice order and the pending `cap_pen` status retain their prior
+  business meaning. Flat/v1/v2 read adapters and historical placement semantics
+  remain available; only explicit new robot placement changes extraction identity.
+- Added v3 independent `success` and evaluation `runtime` sections. V2
+  `task.success` resolves to the same success contract. Offline evaluation is
+  available through `python -m src.evaluation.placement`; the already deleted
+  standalone scripts were not restored.
+- Connected online evaluation to actual reset/step state through the factory.
+  Object-region predicates consume measured body poses with source metadata.
+  Missing object/contact evidence remains unknown, and a step budget does not
+  fabricate event completeness. The table/pen/penholder composition demonstrates
+  a region criterion and writes an explicit evaluation report; it supplies no
+  movement policy or contact/insertion claim.
+- Final Python regression: 367 passed and 1 skipped in 62.87 seconds using the
+  existing `astribot_simu_il/bin/python`, with
+  `PYTHONPATH=/tmp/astribot-identification-deps:.` and
+  `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. The test arguments were
+  `-m pytest -o addopts='' tests/unit --ignore=tests/unit/test_camera_viewer.py
+  --ignore=tests/unit/test_simulator_imports.py -q --tb=short`. The sole skip was
+  the `PhysxSchema` authoring case; the separate Kit asset suite passed 11/11,
+  including that case. Earlier focused runs are included in this regression
+  count rather than added to it. Separate checks passed 23 Web unit tests and
+  5 simulator-import tests, with 3 absent optional backends skipped.
+  Both placement and table/penholder `--check-config` commands and the offline
+  module's `--help` passed without ROS or Isaac imports.
+- V3 extraction acceptance cases passed using explicitly marked
+  synthetic capture evidence with real CPU USD FK, GLB export and schema-5
+  publication. They preserved nonzero translation/yaw and a 2 micrometer measured
+  offset, rejected historical-coordinate reinterpretation, and verified that
+  changed actual placement invalidates FK/cache identity while body-local GLB
+  geometry remains reusable. These are mock captures, not actual ROS recordings;
+  their counts overlap subsequent suite runs and are not an additional total.
+- A separate headless Isaac scene smoke run completed 480 finite CPU-physics
+  steps with the actual white table, red pen and yellow penholder. The bodies
+  settled, a repositioned pen dropped into the open holder collision geometry,
+  and dynamic reset restored initial poses. This run created no ROS nodes and
+  did not test robot policy control; output was recorded in a task-owned `/tmp`
+  log.
+- The actual Isaac backend also passed a finite GPU-physics smoke run in the
+  existing `astribot_simu_il` environment, with ROS2 discovery restricted to
+  localhost and `ROS_DOMAIN_ID=137`. The robot used XY `[-0.4, -0.3]` m,
+  yaw `0.4` rad and torso joints `[0.29, -0.58, 0.29]` rad. Its measured base
+  pose matched the resolved placement before and after three simulation steps;
+  reset restored the root, initial joints and dynamic objects after deliberate
+  state perturbations. An actual `/simulation/robot_placement` subscription
+  accepted the matching declaration and rejected a mismatched XY declaration.
+  Online evaluation consumed the measured pen pose outside the tabletop target
+  and correctly returned `failed`. The process exited successfully; evidence is
+  in `/tmp/astribot_grounding_smoke_result.json` and its companion log.
+  The launch used Bash without login startup, sourced `/opt/ros/humble/setup.bash`
+  and `./env.sh`, then exported `ROS_DOMAIN_ID=137`, `ROS_LOCALHOST_ONLY=1` and
+  `OMNI_KIT_ACCEPT_EULA=YES`. It ran `timeout 180s` with the existing
+  `astribot_simu_il/bin/python` interpreter and `/tmp/astribot_grounding_smoke.py`,
+  redirecting both output streams to `/tmp/astribot_grounding_smoke.log`.
+  The project script supplied the message overlay and repository Python path;
+  no extra `PYTHONPATH` or library-path override was added for this run.
+- Coverage limits: these finite checks do not exercise a complete SDK dataset
+  replay or a robot movement policy. No SDK control-right request, remote JEV
+  call or physical hardware operation was performed. Optional-backend skips
+  do not establish runtime coverage for those backends.

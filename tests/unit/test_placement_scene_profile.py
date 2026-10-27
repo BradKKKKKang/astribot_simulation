@@ -23,7 +23,7 @@ def experiment(tmp_path, change=None):
     if change:
         change(resolved['sections'])
     path = tmp_path / 'experiment.json'
-    path.write_text(json.dumps({'schema_version': 2, 'kind': 'evaluation', **resolved['sections']}))
+    path.write_text(json.dumps({'schema_version': 3, 'kind': 'evaluation', **resolved['sections']}))
     return resolve_experiment(path), path
 
 
@@ -49,15 +49,15 @@ def test_nested_calibrated_frames_are_consumed_by_region_evaluation(tmp_path):
         sections['scene']['regions'] = {'destination': {'frame':'target','min':[-.1,-.1,-.1],'max':[.1,.1,.1]}}
         sections['task']['events'] = {'press':{'event_type':'press'}}
         sections['task']['stages'] = {}
-        sections['task']['success'] = {'predicates':[{'id':'region','kind':'in_region','event':'press','region':'destination'}]}
+        sections['success'] = {'predicates':[{'id':'region','kind':'in_region','event':'press','region':'destination'}]}
     resolved, _ = experiment(tmp_path, configure)
     sections = resolved['sections']
     event = {'event_id':'event', 'event_type':'press', 'tcp_pose_base':[1,2,0,1,0,0,0]}
-    result = evaluate_success([event],sections['scene'],sections['task'],sections['task']['success'],{'events_complete':True})
+    result = evaluate_success([event],sections['scene'],sections['task'],sections['success'],{'events_complete':True})
     assert result['status'] == 'passed'
     assert result['predicates'][0]['evidence']['positions'] == [[0.,0.,0.]]
     event['tcp_pose_base'][0] = 2
-    assert evaluate_success([event],sections['scene'],sections['task'],sections['task']['success'],{'events_complete':True})['status'] == 'failed'
+    assert evaluate_success([event],sections['scene'],sections['task'],sections['success'],{'events_complete':True})['status'] == 'failed'
     original = resolve_experiment(ROOT / 'config/experiments/evaluation/press_cube.json')
     assert resolved['fingerprints']['scene_simulation'] == original['fingerprints']['scene_simulation']
     assert 'extraction' not in resolved['fingerprints']
@@ -133,6 +133,8 @@ def test_backend_scene_method_consumes_config_without_importing_isaac(monkeypatc
                'camera_prim_path':camera_prim_path}
     exec(compile(ast.Module(body=[method],type_ignores=[]),'<scene-method>','exec'),namespace)
     env=SimpleNamespace(physics_device='cpu',dt=.01,decimation=1,use_fabric=True,
+        robot_placement_declaration=None, resolved_robot_placement=None, scene_object_specs=[],
+        _restore_initial_state=lambda:calls.append(('restore',)),
         scene_simulation=normalize_scene_simulation({'ground':{'enabled':False},'light':{'intensity':123}}),
         _create_robot_config=lambda:object(),camera_names=['head_rgbd'],model_path='/robot.usda',
         camera_bodies={'head_rgbd':'custom_head'},camera_resolutions={'head_rgbd':(320,240)},
@@ -143,6 +145,7 @@ def test_backend_scene_method_consumes_config_without_importing_isaac(monkeypatc
     assert scene.head_rgbd.width == 320 and scene.head_rgbd.height == 240
     assert scene.head_rgbd.spawn is None
     assert not any(item[0]=='GroundPlaneCfg' for item in calls)
+    assert ('restore',) in calls
 
 
 def test_entrypoint_help_and_check_config_import_no_runtime(tmp_path, monkeypatch):

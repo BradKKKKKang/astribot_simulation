@@ -179,39 +179,47 @@ Placement analysis has capture, candidate extraction and identification stages.
 `scripts/replay_extract_event.py` runs this workflow, with `--experiment` (alias
 `--task-config`) selecting a modular experiment. Offline success evaluation has
 a separate explicit entrypoint.
-Placement experiments live under `config/experiments/placement_test/` and reference
-`config/robots/`, `config/candidates/` and `config/jev/`. They do not require
+Placement experiments live under `config/placement_distribution/` and reference
+`config/robots/`, `config/placement_distribution/candidates/` and
+`config/placement_distribution/jev/`. They do not require
 scene, evaluation task or success profiles. Dataset identity lives in `source`;
 startup filtering lives in `candidates.selection`. Evaluation experiments are
-separate under `config/experiments/evaluation/`, with success owned by `task`.
+separate under `config/experiments/evaluation/`, with independently replaceable
+`config/success/` profiles.
 See [the placement architecture](docs/PLACEMENT_ARCHITECTURE.md) for configuration
 composition, cache dependencies, result schemas and extension points.
 
 Isaac Lab runs separately. Replay uses the existing SDK → ROS2 → Isaac Lab →
 ROS2 feedback path. `--capture-only` records feedback without requiring CPU
-extraction assets; `--resume` reuses matching completed captures. Capture
-provenance records declared robot/runtime inputs, not a verified identity of a
-separately launched simulator.
+extraction assets; `--resume` reuses matching completed captures. New experiments
+declare world XY/yaw and geometry-based grounding through
+`robot_placement`. Capture checks the separately launched simulator's actual
+placement before replay; launch simulation with the same experiment. Robot TCP
+and camera calibration remain local to the robot.
 
 Launch the minimal replay environment from the same experiment:
 
 ```bash
 python astribot_simulation.py \
-  --experiment config/experiments/placement_test/press_cube.json --check-config
+  --experiment config/placement_distribution/press_cube.json --check-config
 # Remove --check-config to launch; add --headless --no-cameras for state-only replay.
 ```
 
 Replay/extraction no longer runs success evaluation automatically. The old
 `--evaluate-only`, `--observations` and `--no-evaluate` placement options are removed;
-use `scripts/evaluate_placement.py` for explicit offline evaluation. This entry does
-not implement policy rollout. Existing flat and modular v1 input files remain
-readable, but checked-in profiles use `schema_version: 2` and an explicit `kind`.
+use `python -m src.evaluation.placement` for explicit offline evaluation. This entry does
+not implement policy rollout. Existing flat and modular v1/v2 input files remain
+readable, but checked-in experiments use `schema_version: 3` and an explicit `kind`.
+Legacy inputs preserve their original robot placement; only an explicit
+`robot_placement` enables geometry-based grounding. Process historical captures
+with their original configuration; new grounded declarations require matching
+recorded runtime placement and cannot reinterpret an old capture.
 
 For offline processing of existing captures:
 
 ```bash
 python scripts/replay_extract_event.py /path/to/capture-batch \
-  --extract-only --experiment config/experiments/placement_test/press_cube.json \
+  --extract-only --experiment config/placement_distribution/press_cube.json \
   --output /path/to/analysis/press_cube \
   --artifact-root /path/to/shared-artifacts --workers 2 --no-identify
 ```
@@ -224,9 +232,9 @@ candidate rules; compatible synchronization/FK caches remain reusable.
 
 ```bash
 python scripts/replay_extract_event.py /path/to/analysis/press_cube \
-  --identify-only --experiment config/experiments/placement_test/press_cube.json \
+  --identify-only --experiment config/placement_distribution/press_cube.json \
   --identify-workers 2
-python scripts/evaluate_placement.py /path/to/analysis/press_cube \
+python -m src.evaluation.placement /path/to/analysis/press_cube \
   --experiment config/experiments/evaluation/press_cube.json
 ```
 
@@ -236,12 +244,28 @@ timeout does not invalidate model results, and changing confidence thresholds
 recomputes decisions from saved raw probabilities. Omit `--data-root` to reuse
 verified archived frames without reopening the dataset; an explicit `--data-root`
 always revalidates the requested source. `penholder.json` assigns the known object without a
-model call. `cap_pen.json` remains `needs_annotation`. The shipped evaluation
-tasks have deliberately unconfigured success predicates, so task success remains
-`unknown` until
-explicit predicates are supplied; motion candidates are not contact evidence.
-`scripts/evaluate_placement.py --observations /path/to/evidence.json` supplies explicit per-episode observations
+model call. `cap_pen.json` remains `needs_annotation`. The three migrated evaluation
+success profiles have deliberately unconfigured predicates, so task success remains
+`unknown` until explicit predicates are supplied; motion candidates are not contact evidence.
+`python -m src.evaluation.placement --observations /path/to/evidence.json` supplies explicit per-episode observations
 to evaluation; its format is documented in the architecture guide.
+
+The `table_penholder` evaluation example combines a white table, red pen and
+yellow penholder with the shared S1 robot. Asset profiles under `config/assets/`
+record source files, axis conversion, scale, collision and the tabletop frame.
+Update those source paths for your asset installation. Validate the composition
+without starting ROS or Isaac:
+
+```bash
+python astribot_simulation.py \
+  --experiment config/experiments/evaluation/table_penholder.json --check-config
+```
+
+Launching this evaluation consumes measured object poses after reset and each
+simulation step. Its success criterion checks the pen body origin in a tabletop target
+region; it does not assert contact or insertion. The sample stops after 1,000
+steps and writes `outputs/evaluation/table_penholder/evaluation.json`. It does not
+provide a movement policy. Missing object/contact evidence remains `unknown`.
 
 Schema 5 `placement.json` is a manifest referencing shared immutable episode
 shards, event snapshots and robot geometry. New extraction does not duplicate a

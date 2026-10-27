@@ -73,19 +73,45 @@ pytest -v
 ## Placement configuration migration checks
 
 Use a CPU Python with NumPy, PyArrow, PyYAML, OpenCV, pytest and a compatible
-`pxr` build (the geometry exporter uses `Usd.Stage.GetCompositionErrors`).
+`pxr` build; CPU USD 25 is used for the complete FK/export checks. PyTorch is
+needed for the mocked backend reset and base-coordinate tests.
 Run:
 
 ```bash
 python -m pytest -o addopts='' tests/unit/test_placement*.py \
   tests/unit/test_identification*.py tests/unit/test_parquet_replay.py \
-  tests/unit/test_replay_artifacts_sdk_100hz.py
+  tests/unit/test_replay_artifacts_sdk_100hz.py tests/unit/test_online_evaluation.py \
+  tests/unit/test_robot_placement.py tests/unit/test_scene_assets.py \
+  tests/unit/test_grounded_capture_extraction.py
 ```
 
-The v2 tests cover independent experiment schemas, v1/v2 replay/extraction/request
-identity, simulator config resolution without placement imports, and CLI replay
+The v3 tests cover independent experiment schemas, flat/v1/v2 compatibility,
+path-only relocation identity and explicit placement changes, simulator config
+resolution without placement imports, and CLI replay
 orchestration through actual CPU preflight/extraction subprocesses. That last test
 mocks SDK feedback acquisition only, using explicit recorded-feedback fixtures;
 it exercises real USD FK and artifact export. These tests do not start Isaac or
 prove a live SDK/ROS/Isaac episode. Run the simulator import check separately;
 missing optional backends are skips, not successful backend execution.
+
+The geometry and runtime-state coverage is split by dependency:
+
+- `test_robot_placement.py` checks complete-geometry grounding at nonzero initial
+  joints, world-fixed USD anchors, local TCP/camera invariance, placement evidence
+  and capture-window validity. CPU PyTorch mocks exercise the actual backend reset
+  and measured world-to-base conversion methods without starting ROS or Isaac.
+- `test_scene_assets.py` uses synthetic GLBs for axis/scale/support geometry,
+  nested references and usable tabletop bounds. Actual asset checks skip when the
+  configured source GLBs are absent. The USD authoring case additionally requires
+  Isaac Kit's `pxr.PhysxSchema`; run it separately in that environment to verify
+  independent rigid bodies and the holder's SDF collision. A CPU-only skip of
+  this case is not evidence that PhysX authoring or simulation passed.
+- `test_grounded_capture_extraction.py` runs synthetic, explicitly marked mock
+  captures through real CPU USD FK, GLB export and schema-5 publication. It checks
+  nonzero translation/yaw, preservation of a measured pose offset, rejection of
+  legacy-coordinate reinterpretation and changed FK/cache identity while reusing
+  body-local geometry. It does not record actual ROS feedback or replay an SDK
+  dataset.
+
+Headless scene physics and isolated ROS backend smoke runs are separate runtime
+checks, with their environment and evidence recorded in the development log.

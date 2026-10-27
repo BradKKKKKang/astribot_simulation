@@ -94,6 +94,7 @@ class AstribotEnvsFactory:
         
     def simu_env_loop(self):
         observation, info = self.astribot_simu_env.reset()
+        self._evaluate_state(reset=True)
 
         # Check if this is Isaac Lab environment
         is_isaaclab = hasattr(self.astribot_simu_env.unwrapped, 'simulation_app')
@@ -129,6 +130,9 @@ class AstribotEnvsFactory:
                         break
                 action = self.astribot_simu_env.action_space.sample()
                 observation, reward, terminated, truncated, info = self.astribot_simu_env.step(action)
+                self._evaluate_state()
+                if (terminated or truncated) and getattr(self, 'evaluator', None) is not None:
+                    self.stop_event.set()
                 if period_s:
                     # Keep absolute deadlines; skip missed periods after overruns.
                     next_step = advance_periodic_deadline(
@@ -140,7 +144,15 @@ class AstribotEnvsFactory:
             while not self.stop_event.is_set() and self.running():
                 action = self.astribot_simu_env.action_space.sample()
                 observation, reward, terminated, truncated, info = self.astribot_simu_env.step(action)
+                self._evaluate_state()
+                if (terminated or truncated) and getattr(self, 'evaluator', None) is not None:
+                    self.stop_event.set()
                 self.rate.sleep()
 
         # The entrypoint owns cleanup after stopping the ROS executor.
+
+    def _evaluate_state(self, *, reset=False):
+        evaluator = getattr(self, 'evaluator', None)
+        if evaluator is not None and evaluator.observe(self.astribot_simu_env.unwrapped, reset=reset):
+            self.stop_event.set()
 

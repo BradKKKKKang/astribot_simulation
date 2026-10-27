@@ -19,7 +19,6 @@ def _evaluate_bundle(path, *, task_config=None, dry_run=False, observations=None
         if resolved['kind'] != 'evaluation':
             raise ValueError('offline evaluation requires an evaluation experiment')
         sections = resolved['sections']
-        sections = {**sections, 'success': sections['task']['success']}
     else:
         sections = metadata.get('task_config', {}).get('_resolved_sections', {})
         if not {'scene', 'task', 'success'} <= sections.keys():
@@ -78,3 +77,23 @@ def evaluate_bundle(path, *, task_config=None, dry_run=False, observations=None)
         except BlockingIOError as error:
             raise RuntimeError('another pipeline stage owns this bundle') from error
         return _evaluate_bundle(path, task_config=task_config, observations=observations)
+
+
+def main(argv=None):
+    """Evaluate existing placement evidence with an explicit evaluation experiment."""
+    import argparse
+    import json
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('bundle', type=Path)
+    parser.add_argument('--experiment', type=Path, required=True)
+    parser.add_argument('--observations', type=Path, help='explicit per-episode contact and object state evidence')
+    parser.add_argument('--dry-run', action='store_true', help='evaluate without writing bundle revisions')
+    args = parser.parse_args(argv)
+    report = evaluate_bundle(args.bundle, task_config=args.experiment,
+                             observations=args.observations, dry_run=args.dry_run)
+    print(json.dumps(report['summary'], ensure_ascii=False, sort_keys=True))
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -14,6 +14,16 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 from src.placement_analysis.ros_feedback import JOINTS, feedback_joint_positions, synchronize_feedback
 
 
+def legacy_configuration(tmp_path, name='press_cube'):
+    """These recorded feedback fixtures predate explicit grounding attestations."""
+    from src.simulation_config.experiment_config import resolve_experiment
+    sections = resolve_experiment(ROOT / 'config/placement_distribution' / f'{name}.json')['sections']
+    sections.pop('robot_placement')
+    path = tmp_path / f'{name}_v2.json'
+    path.write_text(json.dumps({'schema_version': 2, 'kind': 'placement_test', **sections}))
+    return path
+
+
 def capture_fixture(count=80):
     epoch, wall = 10_000_000_000, 1_000_000_000_000
     meta = {'status': 'complete', 'command_frames': count,
@@ -125,7 +135,8 @@ def test_dry_run_capture_validation_has_no_runtime_imports_or_output(tmp_path, m
     write_fixture(capture)
     monkeypatch.setattr(builtins, '__import__', guard)
     output = tmp_path / 'output'
-    assert load_extractor().extract_events([capture], output, dry_run=True) is None
+    assert load_extractor().extract_events([capture], output, dry_run=True,
+                                          task_config=legacy_configuration(tmp_path)) is None
     assert not output.exists()
 
 
@@ -140,7 +151,7 @@ def test_gripper_task_dry_run_does_not_require_source_video(tmp_path, monkeypatc
     monkeypatch.setattr(identification, 'EpisodeSource', forbidden)
     output = tmp_path / 'output'
     assert load_extractor().extract_events(
-        [capture], output, task_config=ROOT / 'config/experiments/placement_test/penholder.json', dry_run=True) is None
+        [capture], output, task_config=legacy_configuration(tmp_path, 'penholder'), dry_run=True) is None
     assert not output.exists()
 
 
@@ -180,7 +191,8 @@ def test_completed_batch_expands_all_episodes_and_rejects_partial(tmp_path):
                 'completed': [first.name, second.name]}
     (tmp_path / 'batch_manifest.json').write_text(json.dumps(manifest))
     assert module.discover_captures([tmp_path]) == [first, second]
-    assert module.extract_events([tmp_path], tmp_path / 'output', dry_run=True) is None
+    assert module.extract_events([tmp_path], tmp_path / 'output', dry_run=True,
+                                 task_config=legacy_configuration(tmp_path)) is None
     manifest['completed'].pop()
     manifest['status'] = 'partial'
     (tmp_path / 'batch_manifest.json').write_text(json.dumps(manifest))
@@ -209,7 +221,8 @@ def test_raw_replay_capture_saves_extractable_feedback_and_hashes(tmp_path):
     for name, digest in saved['capture_sha256'].items():
         assert hashlib.sha256((output / name).read_bytes()).hexdigest() == digest
     assert capture.rows == []  # release the previous episode's feedback
-    assert load_extractor().extract_events([output], tmp_path / 'bundle', dry_run=True) is None
+    assert load_extractor().extract_events([output], tmp_path / 'bundle', dry_run=True,
+                                          task_config=legacy_configuration(tmp_path)) is None
 
 
 def test_capture_window_uses_last_dataset_command_endpoint(monkeypatch):
@@ -307,7 +320,7 @@ def test_full_capture_to_viewer_bundle_on_cpu(tmp_path, monkeypatch, raw_capture
         return store.put_bytes(b'geometry fixture', 'glb')
     monkeypatch.setattr(robot_export, 'cached_robot_geometry', geometry)
     output = tmp_path / 'output'
-    detector_config = ROOT / 'config/experiments/placement_test/penholder.json'
+    detector_config = legacy_configuration(tmp_path, 'penholder')
     assert module.extract_events([capture], output, usd=usd, detector_config=detector_config) == output / 'placement.json'
     bundle = load_bundle(output)
     assert bundle['schema_version'] == 5
@@ -339,7 +352,8 @@ def test_unified_extract_only_dry_run_never_connects_sdk_or_loads_usd(tmp_path, 
     capture, output = tmp_path / 'episode', tmp_path / 'bundle'
     write_fixture(capture)
     monkeypatch.setattr(builtins, '__import__', guard)
-    assert main([str(capture), '--extract-only', '--dry-run', '--output', str(output)]) == 0
+    assert main([str(capture), '--extract-only', '--dry-run', '--output', str(output),
+                 '--experiment', str(legacy_configuration(tmp_path))]) == 0
     assert not output.exists()
 
 

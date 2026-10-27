@@ -1,10 +1,5 @@
 {
   "name": "cap_pen",
   "events": {},
-  "stages": {},
-  "success": {
-    "name": "Unconfigured task success; candidate detection is not contact evidence",
-    "mode": "all",
-    "predicates": []
-  }
+  "stages": {}
 }

@@ -1,4 +1,4 @@
-"""Offline, three-valued task predicates over explicit observations.
+"""Three-valued task predicates over explicit offline or runtime observations.
 
 Detected motion candidates and visual labels are not contact observations.
 Missing evidence yields unknown; only an explicit contact observation can
@@ -46,19 +46,21 @@ def validate_evaluation_config(scene, task, success):
         raise ValueError('success.predicates must be a list')
     ids = []
     for predicate in predicates:
-        _fields(predicate, {'id', 'kind', 'event', 'stage', 'min_count', 'max_count', 'region', 'evidence', 'expected'}, 'success predicate')
+        _fields(predicate, {'id', 'kind', 'event', 'stage', 'min_count', 'max_count', 'region', 'object', 'evidence', 'expected'}, 'success predicate')
         if not isinstance(predicate.get('id'), str) or not predicate['id']:
             raise ValueError('success predicate id is required')
         ids.append(predicate['id'])
         kind = predicate.get('kind')
-        if kind not in ('event_count', 'stage', 'in_region', 'evidence', 'contact'):
+        if kind not in ('event_count', 'stage', 'in_region', 'object_in_region', 'evidence', 'contact'):
             raise ValueError('unknown success predicate kind')
         if kind in ('event_count', 'in_region') and predicate.get('event') not in events:
             raise ValueError('success predicate requires a declared task event')
         if kind == 'stage' and predicate.get('stage') not in stages:
             raise ValueError('success predicate requires a declared task stage')
-        if kind == 'in_region' and predicate.get('region') not in scene.get('regions', {}):
+        if kind in ('in_region', 'object_in_region') and predicate.get('region') not in scene.get('regions', {}):
             raise ValueError('success predicate references unknown region')
+        if kind == 'object_in_region' and predicate.get('object') not in scene.get('objects', {}):
+            raise ValueError('success predicate references unknown scene object')
         if kind in ('contact', 'evidence') and (not isinstance(predicate.get('evidence'), str) or not predicate['evidence']):
             raise ValueError('contact/evidence predicates require an explicit observation key')
         for bound in ('min_count', 'max_count'):
@@ -109,6 +111,8 @@ def evaluate_success(events, scene, task, success, observations=None):
     boolean ``value`` and nonempty ``source``. Contact also requires
     ``kind: contact``. ``events_complete`` (boolean, default False) declares
     whether absence can be treated as failure instead of missing evidence.
+    ``objects`` maps scene object IDs to measured ``pose_world`` / ``pose_base``
+    and a nonempty ``source``; configured spawn poses are never evidence.
     """
     validate_evaluation_config(scene, task, success)
     observations = {} if observations is None else observations
@@ -175,6 +179,19 @@ def evaluate_success(events, scene, task, success, observations=None):
             unknown = any(match is None for _, match in matches[predicate['event']])
             status = ('failed' if outside else 'passed' if selected and complete and not missing and not unknown
                       else 'failed' if not selected and complete and not unknown else 'unknown')
+        elif kind == 'object_in_region':
+            region = scene['regions'][predicate['region']]
+            objects = observations.get('objects', {})
+            state = objects.get(predicate['object']) if isinstance(objects, dict) else None
+            evidence = {'object': predicate['object'], 'region': predicate['region'], 'frame': region['frame']}
+            if isinstance(state, dict) and isinstance(state.get('source'), str) and state['source']:
+                from src.simulation_config.scene_profile import frame_coordinates
+                position = frame_coordinates({'tcp_pose_' + frame: state.get('pose_' + frame)
+                                              for frame in ('world', 'base')}, scene, region['frame'])
+                if position is not None:
+                    inside = all(lo <= value <= hi for value, lo, hi in zip(position, region['min'], region['max']))
+                    status = 'passed' if inside == predicate.get('expected', True) else 'failed'
+                    evidence.update(position=position, source=state['source'])
         else:
             key = predicate['evidence']
             observation = observations.get(key)

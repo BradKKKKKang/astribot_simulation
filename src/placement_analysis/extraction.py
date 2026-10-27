@@ -74,6 +74,12 @@ def prepare_extraction(usd=DEFAULT_USD, detector_config=DEFAULT_DETECTOR_CONFIG,
     profile = profile_for_settings(settings)
     stage, root, names = open_robot_stage(usd, root_path=profile.root_path)
     model = UsdKinematics(stage, root.GetPath(), names)
+    declaration = settings.get('_resolved_sections', {}).get('robot_placement')
+    if declaration is not None:
+        from src.simulation_config.robot_placement import resolve_robot_placement
+        placement = resolve_robot_placement(profile, declaration, stage=stage)
+        model.world_transform = model.Gf.Matrix4d(placement['world_transform'])
+        model.placement = placement
     if set(profile.feedback_joint_positions(profile.joint_names, [0.] * len(profile.joint_names))[0]) != set(model.joint_names):
         raise ValueError('USD joints do not match the SDK feedback mapping')
     PlacementRecorder(None, settings, 'preflight', body_names=names, joint_names=model.joint_names)
@@ -102,6 +108,9 @@ def _metadata(settings, detector, model_path, model, names, geometry, task):
     }
     if task:
         result['task_config'] = task
+    if hasattr(model, 'placement'):
+        result['robot_placement'] = model.placement
+        result['base_assumption'] = 'fixed base verified from actual Isaac body pose feedback; per-episode provenance retained'
     return result
 
 
@@ -136,7 +145,12 @@ def extract_events(inputs, output, *, usd=DEFAULT_USD, detector_config=None, tas
                            for value in inputs if (Path(value).expanduser() / 'batch_manifest.json').is_file())
     if dry_run:
         for path in captures:
-            _, times, _, quality, _, _ = normalized_capture(path, profile, alignment)
+            capture_metadata, times, _, quality, _, _ = normalized_capture(path, profile, alignment)
+            if sections.get('robot_placement') is not None:
+                from src.simulation_config.robot_placement import validate_capture_placement
+                validate_capture_placement(capture_metadata, sections['robot_placement'], profile)
+            elif capture_metadata.get('robot_placement_attestations'):
+                raise ValueError('grounded capture requires its original explicit robot_placement configuration')
             print(f'Validated {path.name}: {len(times)} feedback samples; {quality["gap_count"]} gaps', flush=True)
         print('Captures valid. No simulation, ROS, SDK, USD loading or output writes.')
         return None

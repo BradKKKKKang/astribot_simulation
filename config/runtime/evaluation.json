@@ -1,0 +1,9 @@
+{
+  "simulation": {
+    "dt": 0.01,
+    "decimation": 1
+  },
+  "evaluation": {
+    "max_steps": 1000
+  }
+}

@@ -30,3 +30,22 @@ def test_zero_event_episode_survives_identification_and_evaluation(artifact_samp
     assert [item['episode_id'] for item in evaluated['episodes']] == expected_order
     assert evaluated['episodes'][0] == empty
     assert evaluated['events'] == identified['events']
+
+
+def test_offline_v3_independent_success_consumes_explicit_observation(artifact_sample, tmp_path):
+    import json
+    from src.simulation_config.experiment_config import resolve_experiment
+    fixture = artifact_sample
+    resolved = resolve_experiment(fixture['evaluation_config'])
+    value = {'schema_version': 3, 'kind': 'evaluation', **resolved['sections']}
+    value['success'] = {'predicates': [{'id': 'contact', 'kind': 'contact', 'evidence': 'contact'}]}
+    path = tmp_path / 'evaluation.json'; path.write_text(json.dumps(value))
+    missing = evaluate_bundle(fixture['output'], task_config=path, dry_run=True)
+    assert missing['summary']['unknown'] == len(missing['episodes'])
+    evidence = {'episodes': {episode['episode_id']: {
+        'contact': {'kind': 'contact', 'source': 'recorded_sensor', 'value': True}}
+        for episode in missing['episodes']}}
+    observed = evaluate_bundle(fixture['output'], task_config=path, dry_run=True, observations=evidence)
+    assert observed['summary']['passed'] == len(missing['episodes'])
+    assert observed['config']['success'] == value['success']
+    assert 'success' not in observed['config']['task']

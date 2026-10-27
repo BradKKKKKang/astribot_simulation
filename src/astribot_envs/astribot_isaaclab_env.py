@@ -186,6 +186,12 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
     def __init__(self, param):
         astribot_simu_log("Initializing Isaac Lab environment...")
         self.scene_simulation = normalize_scene_simulation(param.get('scene_simulation'))
+        self.scene_object_specs = param.get('scene_objects', [])
+        self.scene_object_keys = {'dynamic': {}, 'static': {}, 'resources': None}
+        self.robot_placement_declaration = param.get('robot_placement')
+        self.robot_profile_data = param.get('robot_profile')
+        self.resolved_robot_placement = None
+        self._placement_publisher = None
         self.robot_root_path = param.get('robot_root_path', SUPPORTED_ROBOT_ROOT)
         if self.robot_root_path != SUPPORTED_ROBOT_ROOT:
             raise ValueError('Isaac scene adapter requires /World/astribot_whole_body robot root')
@@ -195,8 +201,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         super().__init__(param)
 
-        self.dt = 0.01
-        self.decimation = 1
+        self.dt = param.get('dt', 0.01)
+        self.decimation = param.get('decimation', 1)
         self.physics_device = param.get("physics_device")
         self.use_fabric = param.get("use_fabric", True)
         for name in self._CONTROL_PATTERNS:
@@ -240,6 +246,10 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.setup_simulation_and_scene()
 
         self.setup_joint_mapping()
+        if self.resolved_robot_placement is not None and self.node is not None:
+            from std_msgs.msg import String
+            self._placement_publisher = self.node.create_publisher(String, '/simulation/robot_placement', 10)
+            self._publish_robot_placement()
 
         self.joint_names_all, self.controller_mode, self.joint_position_command_all, \
             self.joint_velocity_command_all, self.joint_torque_command_all = self.update_joint_states()
@@ -249,6 +259,13 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
     def setup_simulation_and_scene(self):
         import torch
         self.device = self.physics_device or ("cuda:0" if torch.cuda.is_available() else "cpu")
+        if self.robot_placement_declaration is not None:
+            from src.simulation_config.robot_profile import RobotProfile
+            from src.simulation_config.robot_placement import resolve_robot_placement
+            if self.robot_profile_data is None:
+                raise ValueError('explicit robot placement requires a shared robot profile')
+            self.resolved_robot_placement = resolve_robot_placement(
+                RobotProfile(self.robot_profile_data), self.robot_placement_declaration)
 
         sim_cfg = SimulationCfg(
             dt=self.dt,
@@ -272,6 +289,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         robot_cfg = self._create_robot_config()
         scene_cfg.robot = robot_cfg
+        from src.simulation_config.isaac_scene_objects import attach_scene_objects
+        self.scene_object_keys = attach_scene_objects(scene_cfg, self.scene_object_specs)
 
         if self.camera_names:
             if not self.model_path.endswith(('.usd', '.usda')):
@@ -322,7 +341,15 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         self.robot: Articulation = self.scene["robot"]
 
+        if self.resolved_robot_placement is not None:
+            from src.simulation_config.robot_placement import transform_world_fixed_anchors
+            import omni.usd
+            transform_world_fixed_anchors(omni.usd.get_context().get_stage(),
+                '/World/envs/env_0/Robot/astribot_whole_body',
+                self.resolved_robot_placement['world_transform'])
+
         self.sim.reset()
+        self._restore_initial_state()
         if self.third_person_camera_cfg:
             eye = torch.tensor(
                 [self.third_person_camera_cfg["eye"]], device=self.device, dtype=torch.float32,
@@ -519,12 +546,16 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                 velocity_limit_sim=settings.get('velocity_limit_sim'),
             )
 
+        placement = self.resolved_robot_placement
+        spawn_pose = placement['spawn_pose_world'] if placement else [0., 0., 0., 1., 0., 0., 0.]
+        initial_joints = placement['initial_joint_positions'] if placement else {'.*': 0.0}
         robot_cfg = ArticulationCfg(
             prim_path="/World/envs/env_0/Robot",
             spawn=spawn_cfg,
             init_state=ArticulationCfg.InitialStateCfg(
-                pos=(0.0, 0.0, 0.0),
-                joint_pos={".*": 0.0},
+                pos=tuple(spawn_pose[:3]),
+                rot=tuple(spawn_pose[3:]),
+                joint_pos=initial_joints,
                 joint_vel={".*": 0.0},
             ),
             actuators=actuators_cfg,
@@ -615,6 +646,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
             self._capture_video_frame()
             self.render()
+            self._publish_robot_placement()
 
             step_end_time = time.time()
             self.real_time_fps = 1 / (step_end_time - step_begin_time) if (step_end_time - step_begin_time) > 0 else 50
@@ -714,6 +746,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         super().reset(seed=seed)
 
         self.scene.reset()
+        self._restore_initial_state()
+        self._publish_robot_placement()
 
         self.reset_flag = False
 
@@ -721,6 +755,68 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         info = self._get_info()
 
         return observation, info
+
+    def _restore_initial_state(self):
+        """Creation and reset consume the same resolved placement and joint pose."""
+        if self.resolved_robot_placement is not None:
+            import torch
+            root = self.robot.data.default_root_state.clone()
+            root[:, :7] = torch.tensor(
+                self.resolved_robot_placement['articulation_root_pose_world'], device=self.device)
+            root[:, 7:] = 0.
+            self.robot.data.default_root_state.copy_(root)
+            self.robot.write_root_pose_to_sim(root[:, :7])
+            self.robot.write_root_velocity_to_sim(root[:, 7:])
+            joints = self.robot.data.default_joint_pos.clone()
+            velocity = self.robot.data.default_joint_vel.clone()
+            self.robot.write_joint_state_to_sim(joints, velocity)
+            self.robot.set_joint_position_target(joints)
+            initial = self.resolved_robot_placement['initial_joint_positions']
+            grippers = {item['part']: item for item in self.robot_profile_data['grippers'].values()}
+            for part, interface in self.robot_dict.items():
+                values = [initial[name] for name in self.robot_joint_map[part]]
+                if part in grippers:
+                    gripper = grippers[part]
+                    measured = self.robot_joint_map[part][0]
+                    values = [values[0] / (gripper['model_joints'][measured] * gripper['radians_per_percent'])]
+                interface.joint_position_command = values
+                interface.joint_velocity_command = [0.] * len(values)
+                interface.joint_torque_command = [0.] * len(values)
+        from src.simulation_config.isaac_scene_objects import reset_scene_objects
+        reset_scene_objects(self.scene, self.scene_object_keys)
+        self.scene.write_data_to_sim()
+        if self.resolved_robot_placement is not None:
+            self.sim.physics_sim_view.update_articulations_kinematic()
+            self.sim.forward()
+        self.scene.update(dt=self.dt)
+
+    def _publish_robot_placement(self):
+        if self._placement_publisher is None:
+            return
+        from std_msgs.msg import String
+        resolved = self.resolved_robot_placement
+        indices, _ = self.robot.find_bodies(resolved['base_body'])
+        if len(indices) != 1:
+            raise ValueError('placement attestation requires a unique actual base body')
+        actual = self.robot.data.body_state_w[0, indices[0], :7].detach().cpu().tolist()
+        value = {'source': 'isaaclab.body_pose_w', 'observed_system_ns': time.time_ns(),
+                 'base_body': resolved['base_body'], 'actual_base_pose_world': actual,
+                 'declaration': resolved['declaration'],
+                 'robot_control_sha256': resolved['robot_control_sha256'], 'resolved': resolved}
+        self._placement_publisher.publish(String(data=json.dumps(value, allow_nan=False)))
+
+    def evaluation_state(self):
+        from src.simulation_config.isaac_scene_objects import read_scene_object_states
+        from src.simulation_config.poses import relative_pose
+        objects = read_scene_object_states(self.scene, self.scene_object_keys)
+        if self.robot_profile_data is not None:
+            indices, _ = self.robot.find_bodies(self.robot_profile_data['base_body'])
+            if len(indices) != 1:
+                raise ValueError('evaluation requires a unique actual robot base body')
+            base = self.robot.data.body_state_w[0, indices[0], :7].detach().cpu().numpy()
+            for value in objects.values():
+                value['pose_base'] = relative_pose(base, value['pose_world']).tolist()
+        return {'objects': objects, 'events': [], 'observations': {}}
 
     def _get_obs(self) -> np.ndarray:
         if self.object_names:
@@ -778,6 +874,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.sim.clear_all_callbacks()
         self.sim.clear_instance()
         IsaacLabAppManager.release_app()
+        from src.simulation_config.isaac_scene_objects import close_scene_objects
+        close_scene_objects(self.scene_object_keys)
 
     def get_joint_position(self, joint_name: str) -> float:
         if joint_name not in self.joint_name_to_index:

@@ -51,15 +51,23 @@ def check_credentials(value):
 def _merge(base, override):
     result = copy.deepcopy(base)
     for key, value in override.items():
-        result[key] = _merge(result[key], value) if isinstance(result.get(key), dict) and isinstance(value, dict) else copy.deepcopy(value)
+        # A new reference replaces the prior resource; never merge a descriptor
+        # into an already expanded resource and retain its stale fields.
+        result[key] = (_merge(result[key], value)
+                       if isinstance(result.get(key), dict) and isinstance(value, dict) and 'ref' not in value
+                       else copy.deepcopy(value))
     return result
 
 
-def _section(spec, directory, seen=()):
+def _section(spec, directory, seen=(), *, scene_assets=False):
     if not isinstance(spec, dict):
         raise ValueError('experiment sections must be objects or explicit ref/overrides objects')
     if 'ref' not in spec:
-        return copy.deepcopy(spec)
+        result = copy.deepcopy(spec)
+        if scene_assets:
+            from .scene_assets import expand_scene_assets
+            result = expand_scene_assets(result, directory)
+        return result
     check_fields(spec, {'ref', 'overrides'}, 'profile reference')
     if not isinstance(spec['ref'], str) or not spec['ref'] or '$' in spec['ref']:
         raise ValueError('profile ref must be a literal path (environment expansion is unsupported)')
@@ -69,7 +77,11 @@ def _section(spec, directory, seen=()):
     override = spec.get('overrides', {})
     if not isinstance(override, dict):
         raise ValueError('profile overrides must be an object')
-    return _merge(_section(read_json(path), path.parent, (*seen, path)), override)
+    result = _merge(_section(read_json(path), path.parent, (*seen, path), scene_assets=scene_assets), override)
+    if scene_assets:
+        from .scene_assets import expand_scene_assets
+        result = expand_scene_assets(result, directory)
+    return result
 
 
 def _positive(value, label, zero=False):
@@ -84,14 +96,18 @@ def validate_scene(scene):
     objects, regions = scene.get('objects', {}), scene.get('regions', {})
     if not isinstance(objects, dict) or not isinstance(regions, dict):
         raise ValueError('scene objects and regions must be named objects')
-    for name, obj in objects.items():
-        check_fields(obj, {'label', 'roles'}, f'scene.objects.{name}')
-        if not isinstance(obj.get('roles', []), list) or not all(isinstance(role, str) and role for role in obj.get('roles', [])):
-            raise ValueError('object roles must be strings')
+    from .scene_assets import validate_scene_objects
+    validate_scene_objects(scene)
     for name, region in regions.items():
         check_fields(region, {'frame', 'min', 'max'}, f'scene.regions.{name}')
         if region.get('frame') not in {'world', 'base', *scene.get('frames', {})}:
             raise ValueError('region frame must be world, base or a declared calibrated scene frame')
+        frame = region['frame']
+        while frame not in ('world', 'base'):
+            owner = frame.partition('.')[0]
+            if objects.get(owner, {}).get('asset', {}).get('physics', {}).get('body_type') == 'dynamic':
+                raise ValueError('region frame cannot depend on a dynamic object initial frame')
+            frame = scene['frames'][frame]['parent']
         for field in ('min', 'max'):
             vector = region.get(field)
             if not isinstance(vector, list) or len(vector) != 3 or not all(type(v) in (int, float) and math.isfinite(v) for v in vector):
@@ -206,12 +222,26 @@ def _legacy_sections(value):
 
 
 def _placement_sections(sections):
-    """Adapt v2 authoring to the existing immutable capture/settings contract."""
+    """Adapt modular authoring to the existing immutable capture/settings contract."""
     candidates = copy.deepcopy(sections['candidates'])
     selection = candidates.pop('selection', {'exclude_initial': True})
     return {**sections, 'candidates': candidates,
             'task': {'name': sections['name'], 'status': sections['status'],
                      'dataset': sections['source'].get('dataset'), 'event_rules': selection}}
+
+
+def _validate_evaluation_runtime(runtime):
+    check_fields(runtime, {'simulation', 'evaluation'}, 'evaluation.runtime')
+    simulation = runtime.get('simulation', {})
+    check_fields(simulation, {'dt', 'decimation'}, 'runtime.simulation')
+    if 'dt' in simulation:
+        _positive(simulation['dt'], 'runtime.simulation.dt')
+    if 'decimation' in simulation and (type(simulation['decimation']) is not int or simulation['decimation'] < 1):
+        raise ValueError('runtime.simulation.decimation must be a positive integer')
+    evaluation = runtime.get('evaluation', {})
+    check_fields(evaluation, {'max_steps'}, 'runtime.evaluation')
+    if 'max_steps' in evaluation and (type(evaluation['max_steps']) is not int or evaluation['max_steps'] < 1):
+        raise ValueError('runtime.evaluation.max_steps must be a positive integer')
 
 
 def resolve_experiment(path, *, require_ready=True):
@@ -221,36 +251,49 @@ def resolve_experiment(path, *, require_ready=True):
     if not isinstance(value, dict):
         raise ValueError('experiment must be a JSON object')
     version = value.get('schema_version')
-    if version is not None and (type(version) is not int or version not in (1, 2)):
+    if version is not None and (type(version) is not int or version not in (1, 2, 3)):
         raise ValueError('unsupported experiment schema_version')
-    if version == 2:
+    if version in (2, 3):
         kind = value.get('kind')
         if kind not in ('placement_test', 'evaluation'):
             raise ValueError('experiment.kind must be placement_test or evaluation')
         names = (('robot', 'candidates', 'jev', 'source', 'runtime', 'output')
                  if kind == 'placement_test' else ('robot', 'scene', 'task', 'output'))
+        if version == 3:
+            names += ('robot_placement',)
+            if kind == 'evaluation':
+                names += ('success', 'runtime')
         allowed = {'schema_version', 'kind', 'name', *names}
         if kind == 'placement_test':
             allowed.add('status')
         check_fields(value, allowed, kind)
-        required = {'name', *names} - {'runtime', 'output'}
+        required = {'name', *names} - {'runtime', 'output', 'robot_placement'}
         if required - set(value):
             raise ValueError(f'missing experiment sections: {sorted(required - set(value))}')
         name = value['name']
         if not isinstance(name, str) or not name.strip() or Path(name).name != name or name in ('.', '..'):
             raise ValueError('experiment.name must be a nonempty directory name')
-        sections = {key: _section(value.get(key, {}), path.parent) for key in names}
+        sections = {key: _section(value.get(key, {}), path.parent, scene_assets=key == 'scene')
+                    for key in names if key != 'robot_placement' or key in value}
         sections['name'] = name
         check_credentials(sections)
+        if 'robot_placement' in sections:
+            from .robot_placement import validate_robot_placement
+            sections['robot_placement'] = validate_robot_placement(sections['robot_placement'])
         if kind == 'evaluation':
             RobotProfile(sections['robot'])
             validate_scene(sections['scene'])
             task = sections['task']
-            check_fields(task, {'name', 'events', 'stages', 'success'}, 'evaluation.task')
-            if not isinstance(task.get('name'), str) or not task['name'] or 'success' not in task:
-                raise ValueError('evaluation.task requires name and success')
+            check_fields(task, {'name', 'events', 'stages'} | ({'success'} if version == 2 else set()), 'evaluation.task')
+            if not isinstance(task.get('name'), str) or not task['name']:
+                raise ValueError('evaluation.task requires name')
+            if version == 2:
+                if 'success' not in task:
+                    raise ValueError('v2 evaluation.task requires success')
+                sections['success'] = task.pop('success')
             from src.evaluation.task_evaluation import validate_evaluation_config
-            validate_evaluation_config(sections['scene'], task, task['success'])
+            validate_evaluation_config(sections['scene'], task, sections['success'])
+            _validate_evaluation_runtime(sections.get('runtime', {}))
             check_fields(sections['output'], {'root'}, 'evaluation.output')
             if 'root' in sections['output'] and (not isinstance(sections['output']['root'], str)
                                                 or not sections['output']['root']):
@@ -258,7 +301,7 @@ def resolve_experiment(path, *, require_ready=True):
             from .scene_profile import scene_simulation_provenance
             fingerprints = {key: fingerprint(section) for key, section in sections.items()}
             fingerprints['scene_simulation'] = fingerprint(scene_simulation_provenance(sections['scene']))
-            return {'schema_version': 2, 'kind': kind, 'sections': sections, 'fingerprints': fingerprints}
+            return {'schema_version': version, 'kind': kind, 'sections': sections, 'fingerprints': fingerprints}
         sections['status'] = value.get('status', 'ready')
         detector_sections = _placement_sections(sections)
         validate_sections(detector_sections, require_ready)
@@ -269,7 +312,7 @@ def resolve_experiment(path, *, require_ready=True):
             required = set(SECTIONS) - {'runtime', 'output'}
             if required - set(value):
                 raise ValueError(f'missing experiment sections: {sorted(required - set(value))}')
-            sections = {key: _section(value.get(key, {}), path.parent) for key in SECTIONS}
+            sections = {key: _section(value.get(key, {}), path.parent, scene_assets=key == 'scene') for key in SECTIONS}
         else:
             from .placement import validate_task_config
             validate_task_config(value, require_ready=require_ready, validate_identification=False)
@@ -283,14 +326,15 @@ def resolve_experiment(path, *, require_ready=True):
     if detector_sections['candidates'].get('type') is not None:
         detector_sections['candidates'] = asdict(DetectorConfig(**detector_sections['candidates']))
         sections['candidates'] = copy.deepcopy(detector_sections['candidates'])
-        if version == 2:
+        if version in (2, 3):
             sections['candidates']['selection'] = copy.deepcopy(detector_sections['task']['event_rules'])
     fingerprints = {key: fingerprint(section) for key, section in sections.items()}
     robot = sections['robot']
     fingerprints['robot_control'] = fingerprint(RobotProfile(robot).control_provenance())
     from .scene_profile import scene_simulation_provenance
     fingerprints['scene_simulation'] = fingerprint(scene_simulation_provenance(sections.get('scene', {})))
-    fingerprints['robot_kinematics'] = fingerprint({key: robot[key] for key in ('model_path', 'root_path', 'base_body', 'tcp', 'parts', 'grippers')})
+    fingerprints['robot_kinematics'] = fingerprint({key: robot[key] for key in (
+        'model_path', 'root_path', 'base_body', 'tcp', 'parts', 'grippers', 'initial_joint_positions') if key in robot})
     fingerprints['robot_tcp'] = fingerprint({key: robot[key] for key in ('base_body', 'tcp')})
     jev = sections['jev']
     from .defaults import JEV_ENDPOINT as ENDPOINT
@@ -304,7 +348,8 @@ def resolve_experiment(path, *, require_ready=True):
     fingerprints['jev_transport'] = fingerprint(jev.get('transport', {}))
     fingerprints['extraction'] = fingerprint({'robot': fingerprints['robot_kinematics'],
         'candidates': fingerprint(detector_sections['candidates']), 'alignment': sections['runtime'].get('alignment', {}),
-        'event_rules': detector_sections['task'].get('event_rules')})
+        'event_rules': detector_sections['task'].get('event_rules'),
+        **({'robot_placement': fingerprints['robot_placement']} if 'robot_placement' in sections else {})})
     settings = normalized_settings(detector_sections)
     settings['_resolved_sections'], settings['_fingerprints'] = copy.deepcopy(sections), fingerprints.copy()
     return {'schema_version': version, 'kind': 'placement_test', 'sections': sections,

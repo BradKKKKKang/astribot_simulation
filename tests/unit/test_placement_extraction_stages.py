@@ -16,7 +16,19 @@ from src.placement_analysis.robot_export import DEFAULT_USD
 from src.simulation_config.robot_profile import default_robot_profile, profile_for_settings
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG = ROOT / 'config/experiments/placement_test/penholder.json'
+CONFIG = ROOT / 'config/placement_distribution/penholder.json'
+
+
+@pytest.fixture(autouse=True)
+def legacy_capture_configuration(tmp_path, monkeypatch):
+    """These recorded fixtures predate grounded capture evidence: retain v2 coordinates."""
+    import sys
+    from src.simulation_config.experiment_config import resolve_experiment
+    sections = resolve_experiment(ROOT / 'config/placement_distribution/penholder.json')['sections']
+    sections.pop('robot_placement', None)
+    path = tmp_path / 'legacy-experiment.json'
+    path.write_text(json.dumps({'schema_version': 2, 'kind': 'placement_test', **sections}))
+    monkeypatch.setattr(sys.modules[__name__], 'CONFIG', path)
 
 
 def write_capture(path):
@@ -279,3 +291,33 @@ def test_v2_replay_to_real_cpu_extraction_with_recorded_feedback(tmp_path, cpu_m
     assert not {'scene', 'task', 'success'} & bundle['metadata']['task_config']['_resolved_sections'].keys()
     assert 'evaluation' not in bundle['metadata']
     assert bundle['robot_model']
+
+
+def test_v3_grounded_capture_uses_measured_world_pose_and_rejects_legacy(tmp_path):
+    pytest.importorskip('pxr')
+    from src.simulation_config.robot_placement import identity
+    settings, _ = detector_settings(ROOT / 'config/placement_distribution/penholder.json')
+    settings['_resolved_sections']['robot_placement'].update(xy=[1., 2.], yaw=.5)
+    _, _, names, model = prepare_extraction(DEFAULT_USD, settings=settings)
+    profile = profile_for_settings(settings)
+    path = write_capture(tmp_path / 'episode')
+    with pytest.raises(ValueError, match='legacy coordinates'):
+        extract_episode(path, settings, model, profile, StageCache(tmp_path / 'cache'))
+    metadata_path = path / 'run_metadata.json'
+    metadata = json.loads(metadata_path.read_text())
+    epoch, wall = metadata['epoch_monotonic_ns'], metadata['epoch_system_ns']
+    metadata['dataset_window_monotonic_ns'] = [epoch, epoch + 790_001_000]
+    actual = list(model.placement['base_pose_world'])
+    actual[0] += 2e-6
+    sample = {'source': 'isaaclab.body_pose_w', 'observed_system_ns': wall,
+              'base_body': profile.base_body, 'actual_base_pose_world': actual,
+              'declaration': model.placement['declaration'], 'resolved': model.placement,
+              'robot_control_sha256': identity(profile.control_provenance())}
+    metadata['robot_placement_attestations'] = [sample, {**sample, 'observed_system_ns': wall + 1_000_000_000}]
+    metadata_path.write_text(json.dumps(metadata))
+    result = extract_episode(path, settings, model, profile, StageCache(tmp_path / 'cache'))
+    np.testing.assert_allclose(result['reference']['body_poses_world'][names.index(profile.base_body)], actual)
+    assert result['episode']['robot_placement_actual']['actual_base_pose_world'] == actual
+    assert result['episode']['robot_kinematics_sha256'] != model.fingerprint()
+    for event in result['events']:
+        assert event['base_pose_world'] == pytest.approx(actual)

@@ -26,8 +26,12 @@ class RobotProfile:
     def __init__(self, value):
         _keys(value, {'name', 'model_path', 'root_path', 'base_body', 'tcp', 'tcp_calibration',
                       'parts', 'dataset_joint_names', 'fixed_chassis', 'grippers',
-                      'simulation_config', 'simulation_overrides'}, 'robot')
+                      'simulation_config', 'simulation_overrides', 'initial_joint_positions'}, 'robot')
         self._data = copy.deepcopy(value)
+        initial = value.get('initial_joint_positions', {})
+        if not isinstance(initial, dict) or not all(isinstance(k, str) and k and
+                type(v) in (int, float) and math.isfinite(v) for k, v in initial.items()):
+            raise ValueError('robot.initial_joint_positions must map model joints to finite radians')
         for field in ('name', 'model_path', 'root_path', 'base_body'):
             if not isinstance(value.get(field), str) or not value[field]:
                 raise ValueError(f'robot.{field} is required')
@@ -177,6 +181,8 @@ class RobotProfile:
         model = self.model_path
         result['model_sha256'] = hashlib.sha256(model.read_bytes()).hexdigest() if model.is_file() else None
         result['root_path'] = self._data['root_path']
+        if 'initial_joint_positions' in self._data:
+            result['initial_joint_positions'] = copy.deepcopy(self._data['initial_joint_positions'])
         result['identity_basis'] = 'declared profile and config; not verified running simulator identity'
         return result
 

@@ -105,6 +105,23 @@ def extract_episode(path, settings, model, profile, cache, *, alignment_max_gap_
     metadata, times, positions, quality, synchronized_key, sync_hit = normalized_capture(
         path, profile, detector.max_gap_s if alignment_max_gap_s is None else alignment_max_gap_s,
         cache, source_digests)
+    declared_kinematics_sha256 = model.fingerprint()
+    declaration = settings.get('_resolved_sections', {}).get('robot_placement')
+    actual_placement = None
+    if declaration is not None:
+        import copy
+        from src.simulation_config.robot_placement import validate_capture_placement, pose_matrix
+        actual_placement = validate_capture_placement(metadata, declaration, profile)
+        resolved = actual_placement['resolved']
+        if resolved != model.placement:
+            raise ValueError('capture grounded geometry/profile differs from extraction model')
+        # Preserve measured world coordinates, including tiny numerical offsets.
+        model = copy.copy(model)
+        model.world_transform = (model.Gf.Matrix4d(resolved['world_transform'])
+                                 * pose_matrix(resolved['base_pose_world']).GetInverse()
+                                 * pose_matrix(actual_placement['actual_base_pose_world']))
+    elif metadata.get('robot_placement_attestations'):
+        raise ValueError('grounded capture requires its original explicit robot_placement configuration')
     endpoints = list(dict.fromkeys([settings['base_body'],
                                    *[settings['tcp'][side]['body'] for side in ('left', 'right')]]))
     # The conversion result is included so linkage/profile mapping changes cannot
@@ -144,8 +161,11 @@ def extract_episode(path, settings, model, profile, cache, *, alignment_max_gap_
                                     for kind in EVENT_TYPES[detector.type]},
                'sample_start_s': float(times[0]), 'sample_end_s': float(times[-1]),
                'stage_keys': {'synchronized': synchronized_key, 'endpoint_fk': fk_key}}
+    if actual_placement is not None:
+        episode['robot_placement_actual'] = actual_placement
+        episode['robot_kinematics_sha256'] = kinematics_sha256
     return {'events': events, 'episode': episode, 'reference': snapshot(0),
-            'kinematics_sha256': kinematics_sha256,
+            'kinematics_sha256': declared_kinematics_sha256,
             'cache_hits': {'synchronized': sync_hit, 'endpoint_fk': cached is not None}}
 
 

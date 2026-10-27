@@ -29,14 +29,14 @@ def configuration(sample, **changes):
         resolved = resolve_experiment(Path(__file__).parents[2] / 'config/experiments/evaluation/press_cube.json')
         sections = copy.deepcopy(resolved['sections'])
         if 'success' in changes:
-            sections['task']['success'] = changes.pop('success')
+            sections['success'] = changes.pop('success')
         kind = 'evaluation'
     else:
         sections = copy.deepcopy(sample['settings']['_resolved_sections'])
         kind = 'placement_test'
     sections.update(changes)
     path = sample['output'].parent / 'experiment.json'
-    path.write_text(json.dumps({'schema_version': 2, 'kind': kind, **sections}))
+    path.write_text(json.dumps({'schema_version': 3, 'kind': kind, **sections}))
     return path
 
 
@@ -94,9 +94,9 @@ def test_dry_run_writes_nothing_and_candidate_type_cannot_change(artifact_sample
 def test_evaluation_runs_without_model_and_preserves_candidate_provenance(artifact_sample):
     sample = artifact_sample
     path = configuration(sample, task={'name': 'press_cube',
-        'events': {'press': {'event_type': 'press'}}, 'stages': {},
-        'success': {'mode': 'all', 'predicates': [
-            {'id': 'enough_candidates', 'kind': 'event_count', 'event': 'press', 'min_count': 1}]}})
+        'events': {'press': {'event_type': 'press'}}, 'stages': {}},
+        success={'mode': 'all', 'predicates': [
+            {'id': 'enough_candidates', 'kind': 'event_count', 'event': 'press', 'min_count': 1}]})
     before = load_bundle(sample['output'])
     result = evaluate_bundle(sample['output'], task_config=path)
     assert result['summary'] == {'passed': 1, 'failed': 0, 'unknown': 0}

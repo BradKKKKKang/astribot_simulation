@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DETECTOR_CONFIG = ROOT / 'config/experiments/placement_test/press_cube.json'
+DEFAULT_DETECTOR_CONFIG = ROOT / 'config/placement_distribution/press_cube.json'
 EVENT_TYPES = {'gripper': ('grasp', 'release'), 'press': ('press',)}
 
 
