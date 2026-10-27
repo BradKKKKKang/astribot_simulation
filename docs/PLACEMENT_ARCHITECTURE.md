@@ -6,7 +6,7 @@ with dataset targets or run a second simulation path.
 
 ```mermaid
 flowchart TB
-  profiles[Robot / Scene / Task / Candidates / Success / JEV profiles] --> resolver[Strict resolver and stage fingerprints]
+  profiles[Robot / Candidates / JEV profiles] --> resolver[Strict resolver and stage fingerprints]
   resolver --> replay[SDK and ROS replay]
   replay --> capture[(Immutable episode captures)]
   capture --> extraction[Bounded CPU workers: synchronize, endpoint FK, candidates]
@@ -17,7 +17,7 @@ flowchart TB
   identification --> evidence[(Shared frames and model responses)]
   events --> evaluation[Independent three-valued success evaluation]
   evidence --> evaluation
-  resolver --> evaluation
+  evalconfig[Evaluation experiment: Scene / Task / Success] --> evaluation
   evaluation --> results[(Evaluation evidence)]
   robot[USD robot and referenced assets] --> geometry[(Shared content-addressed GLB)]
   events --> reader[Read-only catalog and artifact routes]
@@ -28,36 +28,52 @@ flowchart TB
 
 ## Configuration composition
 
-The JSON experiment schema has `schema_version: 1` and the sections `robot`,
-`scene`, `task`, `candidates`, `success`, `jev`, `source`, `runtime` and `output`.
+Experiments use `schema_version: 2` and explicit `kind`:
+
+- `placement_test`: `name`, optional `status` (default `ready`), `robot`,
+  `candidates`, `jev`, `source`, optional `runtime` and `output`.
+- `evaluation`: `name`, `robot`, `scene`, `task`, optional `output`.
+  This version supports scene composition and explicit offline evidence evaluation;
+  policy rollout, episode budgets and task object spawning are not implemented yet.
+
+Placement rejects `scene`, `task` and `success`; evaluation rejects placement
+candidate/JEV/source settings. Profiles live under `config/robots`, `scenes`,
+`tasks`, `candidates` and `jev`, outside the workflow directories. Experiments live
+under `config/experiments/placement_test` and `config/experiments/evaluation`.
+`task.success` owns evaluation predicates. The shipped predicates are empty and
+therefore produce `unknown`; they do not define a completed benchmark.
+
 Each section is inline or uses `{ "ref": "relative/profile.json", "overrides":
 { ... } }`. References resolve relative to the declaring file. Object overrides
 merge recursively; arrays and scalar values replace their predecessor. Cycles,
-duplicate JSON keys, unknown placement-schema fields and invalid cross-references
-are rejected. Simulation overrides may change only keys already declared in the
-selected simulator YAML; the backend remains responsible for its runtime schema.
-Robot model and simulation-config paths retain the repository-root-relative
-asset convention; absolute paths are also supported.
+duplicate JSON keys, unknown schema fields and invalid cross-references are rejected.
+Simulation overrides may change only keys declared in the selected simulator YAML.
+Robot model and simulation-config paths retain repository-root-relative semantics;
+absolute paths are also supported. Existing backend YAML files remain in
+`config/astribot_s1/`.
 
-The checked-in `press_cube.json`, `penholder.json` and `cap_pen.json` assemble
-shared profiles. Legacy flat task JSON remains an explicit input adapter.
-Normalized settings carry resolved sections and fingerprints for downstream
-adapters; the original candidate-generation snapshot is retained in result
-metadata when later recognition or evaluation settings change.
+`src/simulation_config/` owns CPU-only resolution, robot mapping, scene adapters
+and configuration validation. It does not import placement runtime modules.
+Legacy flat and modular v1 inputs remain explicit read adapters. The normalized
+internal `settings.task` record retains name/dataset/readiness for existing capture
+and bundle readers; it is not a reference to an evaluation task. Authored v2 and
+`_resolved_sections` do not contain that legacy task section.
 
 | Section | Ownership |
 | --- | --- |
-| robot | USD root, model path, command order, feedback/model joint mapping, gripper expansion, base and TCP calibration, declared simulation configuration |
-| scene | Object IDs/labels/roles, calibrated coordinate frames and regions, Isaac ground/light/background settings and authored camera selection/resolution |
-| task | Dataset/task identity, readiness, event selectors, ordered stages and analysis-selection rules |
-| candidates | Detection thresholds and continuity/confirmation rules |
-| success | Independent predicates over events, roles, regions, stages or explicit evidence |
-| jev.request | Camera/frame selection, question, model and choices with explicit tie-breaking order |
-| jev.decision | Probability and margin requirements applied to raw responses |
-| jev.transport | Endpoint and timeout; endpoint is part of request identity, timeout is not |
-| source | Dataset location, command column and joint-metadata policy, consumed by replay validation and source-video mapping |
+| robot | Model, SDK/feedback joint mapping, grippers, TCP and simulation configuration |
+| candidates | Detector thresholds and `selection.exclude_initial` (default true) |
+| jev | Original-video request, choice order, decision thresholds and transport |
+| source | Dataset name, optional root, command column and metadata policy |
 | runtime | Feedback alignment and replay cadence |
-| output | Capture/bundle locations and publication defaults |
+| output | Placement capture/bundle paths and publication; evaluation reserves `root` |
+| scene (evaluation) | Object labels/roles, calibrated frames/regions and supported physical scene settings |
+| task (evaluation) | Event selectors, ordered stages and success predicates |
+
+A placement config may omit `source.dataset_root`: replay then requires an explicit
+input path or `--data-root`. Identification requires a root only when the original
+source and verified archived evidence cannot locate the data. Dataset readiness
+belongs to the placement experiment and does not gate independent evaluation.
 
 `RobotProfile` is shared by replay, capture, synchronization, FK and export.
 `build_simulation_config` constructs a simulator mapping without starting it.
@@ -65,8 +81,9 @@ The separate simulator process is not automatically reconfigured or verified
 by replay: recorded control provenance describes declared inputs.
 
 `build_experiment_simulation_config` in
-[`scene_profile.py`](../src/placement_analysis/scene_profile.py) composes that robot
-configuration with `scene.simulation`. The simulator entrypoint consumes it with
+[`scene_profile.py`](../src/simulation_config/scene_profile.py) composes that robot
+configuration with `scene.simulation` for evaluation. Placement uses the minimal
+ground/light environment defaults without a task scene. The simulator entrypoint consumes it with
 `python astribot_simulation.py --experiment <experiment.json>`; add `--check-config`
 to resolve on CPU before importing the factory, ROS or Isaac. Existing `--config`
 YAML launches remain available. Launching from an experiment currently requires
@@ -78,7 +95,7 @@ and its pose, and the three authored cameras' enable/resolution/body-path mappin
 Camera optics and link-relative extrinsics remain authored in USD (`spawn=None`);
 body-path syntax is checked before launch, while camera prim availability is a
 runtime sensor contract. The CPU-only
-[`isaac_scene_config.py`](../src/placement_analysis/isaac_scene_config.py) validates
+[`isaac_scene_config.py`](../src/simulation_config/isaac_scene_config.py) validates
 these settings and supplies the backend's spawn configurations. Scene simulation
 changes enter capture provenance; they do not invalidate candidate extraction
 from unchanged recorded feedback.
@@ -110,11 +127,11 @@ calibration; the shipped profiles make no additional calibration assumptions.
    Verified archived frames can be reused without the original videos when
    source selection is unchanged. An explicit `--data-root` always requests
    source revalidation. Decisions are recomputed from cached probabilities.
-6. Success evaluation consumes existing evidence and never requests JEV or
+6. Explicit `scripts/evaluate_placement.py --experiment <evaluation.json>` consumes existing evidence and never requests JEV or
    controls the robot. Results are `passed`, `failed` or `unknown`; explicit
    contact evidence is required for contact predicates.
 
-`--observations` accepts strict JSON such as:
+The separate evaluation command accepts `--observations` with strict JSON such as:
 
 ```json
 {"episodes":{"episode_000080":{"button_contact":{"kind":"contact","value":true,"source":"sensor-log:frame-12"}}}}
@@ -123,8 +140,8 @@ calibration; the shipped profiles make no additional calibration assumptions.
 The `evidence` field of a success predicate names `button_contact`. Unknown
 episode IDs and caller-supplied `events_complete` are rejected; completeness is
 owned by the pipeline. Observation content is retained with evaluation evidence.
-Missing observations produce `unknown`, not inferred contact. `--no-evaluate`
-skips the optional evaluation stage. Background incremental CPU subprocesses
+Missing observations produce `unknown`, not inferred contact. Evaluation runs only
+through its separate explicit entrypoint. Background incremental CPU subprocesses
 use `--extract-timeout` (3600 seconds by default) and are cancelled as owned
 process groups when replay is interrupted.
 

@@ -60,7 +60,7 @@ def sample(tmp_path):
     output = tmp_path / 'bundle'
     save_bundle(output, events, {'episodes': [episode], 'task_config': settings, 'status': 'complete'}, {})
     (output / 'robot.glb').write_bytes(b'test model')
-    return dict(output=output, root=root, settings=settings, video=video, source=source,
+    return dict(evaluation_config=Path(__file__).parents[2] / 'config/experiments/evaluation/press_cube.json', output=output, root=root, settings=settings, video=video, source=source,
                 commands=commands, metadata=metadata, episode=episode, events=events)
 
 

@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from src.placement_analysis.experiment_config import resolve_experiment, read_json
-from src.placement_analysis.robot_profile import default_robot_profile, RobotProfile
+from src.simulation_config.experiment_config import resolve_experiment, read_json
+from src.simulation_config.robot_profile import default_robot_profile, RobotProfile
 from src.placement_analysis.task_config import DEFAULT_DETECTOR_CONFIG, load_task_config
 
 
 def expanded():
     result = resolve_experiment(DEFAULT_DETECTOR_CONFIG)
-    return {'schema_version': 1, **copy.deepcopy(result['sections'])}
+    return {'schema_version': 2, 'kind': 'placement_test', **copy.deepcopy(result['sections'])}
 
 
 def resolve(tmp_path, value):
@@ -137,7 +137,7 @@ def test_custom_robot_mapping_not_hardcoded():
 
 @pytest.mark.parametrize('change', [
     lambda v: v['runtime'].update(alignment={'max_gap_s': 0}),
-    lambda v: v['scene'].update(regions={'bad': {'frame':'world','min':[1,0,0],'max':[0,1,1]}}),
+    lambda v: v.update(scene={}),
     lambda v: v['jev']['decision'].update(min_probability=1.1),
     lambda v: v['jev']['transport'].update(api_key='never-print-this'),
 ])
@@ -161,7 +161,7 @@ def test_choice_order_survives_canonical_serialization(tmp_path):
 
 
 def test_simulation_profile_builds_cpu_config_and_control_fingerprints(tmp_path):
-    from src.placement_analysis.robot_profile import build_simulation_config
+    from src.simulation_config.robot_profile import build_simulation_config
     value = expanded()
     before = resolve(tmp_path, value)['fingerprints']
     value['robot']['simulation_overrides'] = {'gripper_left_control': {'stiffness': 900.}}
@@ -192,7 +192,7 @@ def test_robot_mapping_rejects_duplicate_fixed_indices_and_gripper_owners():
 
 
 @pytest.mark.parametrize('change', [
-    lambda value: value['task'].pop('name'),
+    lambda value: value.pop('name'),
     lambda value: value['robot']['parts'][0].update(command_indices=3),
     lambda value: value['robot']['parts'][0].update(feedback_joints=None),
 ])
@@ -203,7 +203,7 @@ def test_malformed_schema_raises_value_error(tmp_path, change):
 
 
 def test_default_robot_profile_rejects_duplicate_json_keys(tmp_path, monkeypatch):
-    from src.placement_analysis import robot_profile
+    from src.simulation_config import robot_profile
     path = tmp_path / 'robot.json'
     path.write_text('{"name":"one","name":"two"}')
     monkeypatch.setattr(robot_profile, 'DEFAULT_ROBOT_PROFILE', path)
@@ -221,3 +221,62 @@ def test_resolver_preflight_rejects_unknown_simulator_overrides(tmp_path):
     value['robot']['simulation_overrides'] = {}
     # External capture profiles may omit simulator configuration entirely.
     assert resolve(tmp_path, value)['settings']['type'] == 'press'
+
+
+def test_v2_placement_has_no_evaluation_dependency(tmp_path, monkeypatch):
+    import builtins
+    from src.simulation_config.scene_profile import build_experiment_simulation_config
+    original = builtins.__import__
+    def guard(name, *args, **kwargs):
+        if name.startswith(('src.placement_analysis', 'src.evaluation', 'rclpy', 'isaaclab', 'pxr')):
+            raise AssertionError('unexpected workflow/runtime import: ' + name)
+        return original(name, *args, **kwargs)
+    monkeypatch.setattr(builtins, '__import__', guard)
+    resolved = resolve_experiment(DEFAULT_DETECTOR_CONFIG)
+    assert resolved['kind'] == 'placement_test'
+    assert not {'scene', 'task', 'success'} & resolved['sections'].keys()
+    assert resolved['settings']['event_rules'] == {'exclude_initial': True}
+    config = build_experiment_simulation_config(resolved)
+    assert config['scene_simulation']['ground']['enabled'] is True
+    assert config['robot_list'] == [p['name'] for p in resolved['sections']['robot']['parts']]
+
+
+def test_v1_v2_preserve_replay_extraction_and_request_identity(tmp_path):
+    new = resolve_experiment(DEFAULT_DETECTOR_CONFIG)
+    sections = new['sections']
+    legacy = {key: copy.deepcopy(sections[key]) for key in ('robot', 'candidates', 'jev', 'source', 'runtime', 'output')}
+    rules = legacy['candidates'].pop('selection')
+    legacy['source'].pop('dataset')
+    legacy.update(schema_version=1, scene={'objects': {}, 'regions': {}},
+                  task={**new['settings']['task'], 'event_rules': rules}, success={'predicates': []})
+    old = resolve(tmp_path, legacy)
+    for key in ('robot_control', 'robot_kinematics', 'robot_tcp', 'scene_simulation',
+                'extraction', 'jev_request', 'jev_decision', 'jev_transport'):
+        assert old['fingerprints'][key] == new['fingerprints'][key], key
+    strip = lambda value: {k: v for k, v in value.items() if not k.startswith('_')}
+    assert strip(old['settings']) == strip(new['settings'])
+
+
+def test_evaluation_and_placement_reject_each_others_fields(tmp_path):
+    for field in ('scene', 'task', 'success'):
+        value = expanded(); value[field] = {}
+        with pytest.raises(ValueError, match='unknown fields'):
+            resolve(tmp_path, value)
+    evaluation = DEFAULT_DETECTOR_CONFIG.parent.parent / 'evaluation/press_cube.json'
+    resolved = resolve_experiment(evaluation)
+    assert 'candidates' not in resolved['sections'] and 'settings' not in resolved
+    with pytest.raises(ValueError, match='placement_test'):
+        load_task_config(evaluation)
+    value = {'schema_version': 2, 'kind': 'evaluation', **resolved['sections'], 'jev': {}}
+    with pytest.raises(ValueError, match='unknown fields'):
+        resolve(tmp_path, value)
+
+
+def test_source_root_is_optional_until_source_resolution(tmp_path):
+    value = expanded()
+    value['source'].pop('dataset_root')
+    resolved = resolve(tmp_path, value)
+    assert resolved['settings']['dataset_root'] is None
+    from scripts import replay_extract_event as replay
+    path = tmp_path / 'experiment.json'
+    assert replay.main(['--experiment', str(path), '--dry-run']) == 1

@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "kind": "evaluation",
+  "name": "penholder",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../scenes/penholder.json"
+  },
+  "task": {
+    "ref": "../../tasks/penholder.json"
+  },
+  "output": {}
+}

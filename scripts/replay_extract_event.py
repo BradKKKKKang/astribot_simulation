@@ -26,8 +26,8 @@ sys.path.insert(0, str(ROOT))
 from src.placement_analysis.robot_export import DEFAULT_DEMO_OUTPUT, DEFAULT_POSE_CONFIG, DEFAULT_USD
 from src.placement_analysis.web_publish import task_directory_name
 from src.placement_analysis.task_config import DEFAULT_DETECTOR_CONFIG, load_task_config
-from src.placement_analysis.robot_profile import default_robot_profile, profile_for_settings
-from src.placement_analysis.experiment_config import fingerprint
+from src.simulation_config.robot_profile import default_robot_profile, profile_for_settings
+from src.simulation_config.experiment_config import fingerprint
 
 
 COMMAND_COLUMN = "joints_dict.joints_position_command"
@@ -58,7 +58,7 @@ def apply_experiment_settings(args, task, explicit_options=()):
     source, runtime, output = (sections.get(key, {}) for key in ('source', 'runtime', 'output'))
     args.replay_runtime = dict(runtime.get('replay', {}))
     args.metadata_policy = source.get('metadata_policy', 'assume_canonical')
-    from src.placement_analysis.scene_profile import scene_simulation_provenance
+    from src.simulation_config.scene_profile import scene_simulation_provenance
     args.scene_simulation = scene_simulation_provenance(sections.get('scene', {}))
     args.alignment_max_gap_s = runtime.get('alignment', {}).get('max_gap_s', .1)
     defaults = {'--column': ('column', source.get('column')),
@@ -130,7 +130,6 @@ def parser():
     mode = result.add_mutually_exclusive_group()
     mode.add_argument("--extract-only", action="store_true", help="reuse captures without replay or SDK")
     mode.add_argument("--identify-only", action="store_true", help="identify objects in an existing bundle without replay or USD")
-    mode.add_argument("--evaluate-only", action="store_true", help="evaluate existing event evidence without replay or JEV requests")
     mode.add_argument("--capture-only", action="store_true", help="capture SDK/ROS feedback without requiring extraction or Web assets")
     mode.add_argument("--export-robot-only", action="store_true", help="regenerate the persistent S1 Web model")
     mode.add_argument("--check-extraction", action="store_true", help=argparse.SUPPRESS)
@@ -160,9 +159,9 @@ def parser():
                         help="do not register the resulting manifest with the Web viewer")
     result.add_argument("--usd", type=Path, default=DEFAULT_USD, help="same fixed-base S1 USD used by Isaac")
     configs = result.add_mutually_exclusive_group()
-    configs.add_argument("--detector-config", type=Path, help="position-only detector settings (default: config/placement/press_cube.json)")
+    configs.add_argument("--detector-config", type=Path, help="position-only detector settings (default: config/experiments/placement_test/press_cube.json)")
     configs.add_argument("--task-config", "--experiment", dest="task_config", type=Path,
-                         help="modular experiment or legacy task settings")
+                         help="placement_test experiment or legacy placement settings")
     result.add_argument("--data-root", type=Path, help="relocate verified source datasets under this root")
     result.add_argument("--pose-config", type=Path, default=DEFAULT_POSE_CONFIG,
                         help="required reference joint targets for --export-robot-only")
@@ -177,9 +176,6 @@ def parser():
     result.add_argument("--resume-extraction", action="store_true", help="resume matching episode checkpoints")
     result.add_argument("--incremental", action="store_true", help="process completed captures while a batch is still partial")
     result.add_argument("--no-identify", action="store_true", help="extract candidates without invoking identification")
-    result.add_argument("--observations", type=Path,
-                        help="per-episode explicit evidence JSON for success evaluation")
-    result.add_argument("--no-evaluate", action="store_true", help="skip task evaluation after extraction/identification")
     result.add_argument("--no-progress", action="store_true",
                         help="disable replay/identification progress bars; keep identification stage logs")
     return result
@@ -204,7 +200,7 @@ def replay_settings(args):
                 ("column", "speed", "fps", "start_frame", "end_frame", "initial_duration", "control_mode")}
     declared = robot_profile(args).control_provenance()
     runtime = runtime_settings(args)
-    from src.placement_analysis.scene_profile import scene_simulation_provenance
+    from src.simulation_config.scene_profile import scene_simulation_provenance
     scene = getattr(args, 'scene_simulation', scene_simulation_provenance({}))
     settings.update(scene_simulation=scene, scene_simulation_sha256=fingerprint(scene),
                     robot_control=declared, robot_control_sha256=fingerprint(declared),
@@ -690,20 +686,16 @@ def run_cpu_phase(args, *, check=False, cancel_event=None):
         command.extend(["--detector-config", str(args.detector_config)])
     if args.data_root:
         command.extend(["--data-root", str(args.data_root)])
-    if args.observations:
-        command.extend(["--observations", str(args.observations)])
     if check:
         command.append("--check-extraction")
     elif args.export_robot_only:
         command.extend(["--export-robot-only", "--pose-config", str(args.pose_config)])
     elif args.identify_only:
         command.extend(["--identify-only", str(args.parquet)])
-    elif args.evaluate_only:
-        command.extend(["--evaluate-only", str(args.parquet)])
     else:
         source = args.parquet if args.extract_only else args.output_root
         command.extend(["--extract-only", str(source)])
-    if args.output is not None and not (args.identify_only or args.evaluate_only):
+    if args.output is not None and not args.identify_only:
         command.extend(["--output", str(args.output)])
     if args.task_name is not None:
         command.extend(["--task-name", args.task_name])
@@ -717,8 +709,7 @@ def run_cpu_phase(args, *, check=False, cancel_event=None):
         command.extend(["--artifact-root", str(args.artifact_root)])
     command.extend(["--workers", str(args.workers), "--identify-workers", str(args.identify_workers)])
     for option, enabled in (("--resume-extraction", args.resume_extraction),
-                            ("--incremental", args.incremental), ("--no-identify", args.no_identify),
-                            ("--no-evaluate", args.no_evaluate)):
+                            ("--incremental", args.incremental), ("--no-identify", args.no_identify)):
         if enabled:
             command.append(option)
     timeout = 60 if check else args.extract_timeout
@@ -772,7 +763,7 @@ def replay_with_incremental_extraction(args, report):
     cancel_event = Event()
     interim = argparse.Namespace(**vars(args))
     interim.incremental = interim.resume_extraction = True
-    interim.no_identify = interim.no_evaluate = interim.no_web_publish = True
+    interim.no_identify = interim.no_web_publish = True
     coordinator = IncrementalExtraction(lambda: run_cpu_phase(interim, cancel_event=cancel_event))
     try:
         run(args, report=report, on_capture=coordinator.schedule)
@@ -822,11 +813,11 @@ def main(argv=None):
         cli.error("an input episode, dataset or completed capture is required")
     if (args.export_robot_only or args.check_extraction) and args.parquet is not None:
         cli.error("model export/preflight does not accept an episode input")
-    if (args.export_robot_only or args.extract_only or args.identify_only or args.evaluate_only) and (args.resume or args.report):
+    if (args.export_robot_only or args.extract_only or args.identify_only) and (args.resume or args.report):
         cli.error("--resume and --report apply only to replay + extraction")
-    if (args.identify_only or args.evaluate_only) and (args.output is not None or args.detector_config is not None):
-        cli.error('identification/evaluation updates its input bundle; --output and --detector-config do not apply')
-    if (args.extract_only or args.identify_only or args.evaluate_only) and args.parquet is None:
+    if args.identify_only and (args.output is not None or args.detector_config is not None):
+        cli.error('identification updates its input bundle; --output and --detector-config do not apply')
+    if (args.extract_only or args.identify_only) and args.parquet is None:
         cli.error('an existing capture/bundle is required for extract-only/identify-only')
     if args.output is None:
         args.output = DEFAULT_DEMO_OUTPUT if args.export_robot_only else ROOT / "results/placement"
@@ -840,13 +831,16 @@ def main(argv=None):
             print(f"{task['task']['name']}: 待标注; configuration valid, execution disabled")
             return 0
         if args.parquet is None and task and not (args.export_robot_only or args.check_extraction):
-            args.parquet = (args.data_root or Path(task['dataset_root'])) / task['task']['dataset']
+            data_root = args.data_root or task.get('dataset_root')
+            if data_root is None:
+                raise ValueError('provide an input path, --data-root, or source.dataset_root')
+            args.parquet = Path(data_root).expanduser() / task['task']['dataset']
         if args.check_extraction:
             from src.placement_analysis.extraction import prepare_extraction
             prepare_extraction(args.usd, args.task_config or args.detector_config or DEFAULT_DETECTOR_CONFIG)
             print("CPU extraction preflight passed (no ROS, SDK, simulation or output writes).", flush=True)
             return 0
-        if args.extract_only or args.export_robot_only or args.identify_only or args.evaluate_only:
+        if args.extract_only or args.export_robot_only or args.identify_only:
             if args.extract_python:
                 run_cpu_phase(args)
             elif args.identify_only:
@@ -854,18 +848,6 @@ def main(argv=None):
                 identify_bundle(args.parquet, task_config=args.task_config, data_root=args.data_root,
                                 dry_run=args.dry_run, no_progress=args.no_progress,
                                 workers=args.identify_workers, store_root=args.artifact_root)
-                if not args.no_evaluate:
-                    from src.placement_analysis.pipeline_stages import evaluate_bundle
-                    evaluate_bundle(args.parquet, task_config=args.task_config, dry_run=args.dry_run,
-                                    observations=args.observations)
-                if not args.dry_run and not args.no_web_publish:
-                    from src.placement_analysis.web_publish import publish_bundle
-                    source = args.parquet.parent if args.parquet.is_file() else args.parquet
-                    publish_bundle(source, task_name=args.task_name)
-            elif args.evaluate_only:
-                from src.placement_analysis.pipeline_stages import evaluate_bundle
-                evaluate_bundle(args.parquet, task_config=args.task_config, dry_run=args.dry_run,
-                                observations=args.observations)
                 if not args.dry_run and not args.no_web_publish:
                     from src.placement_analysis.web_publish import publish_bundle
                     source = args.parquet.parent if args.parquet.is_file() else args.parquet
@@ -891,9 +873,6 @@ def main(argv=None):
                         identify_bundle(args.output, task_config=args.task_config, data_root=args.data_root,
                                         no_progress=args.no_progress, workers=args.identify_workers,
                                         store_root=args.artifact_root)
-                if not args.dry_run and not args.no_evaluate and (args.output / 'placement.json').is_file():
-                    from src.placement_analysis.pipeline_stages import evaluate_bundle
-                    evaluate_bundle(args.output, task_config=args.task_config, observations=args.observations)
                 if not args.dry_run and not args.no_web_publish:
                     from src.placement_analysis.web_publish import publish_bundle
                     publish_bundle(args.output, task_name=args.task_name)

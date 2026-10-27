@@ -26,7 +26,7 @@ def test_interim_flags_chosen_interpreter_coalescing_and_drain(tmp_path, monkeyp
         commands.append(command)
         assert timeout == 3600 and not cancel_event.is_set()
         assert command[0] == '/cpu/python'
-        assert {'--incremental', '--resume-extraction', '--no-identify', '--no-evaluate',
+        assert {'--incremental', '--resume-extraction', '--no-identify',
                 '--no-web-publish'} <= set(command)
         assert command[command.index('--extract-only') + 1] == str(args.output_root)
         if len(commands) == 1:
@@ -47,7 +47,7 @@ def test_interim_flags_chosen_interpreter_coalescing_and_drain(tmp_path, monkeyp
     assert len(commands) == 2
     assert order == ['replay cleanup', 'CPU done', 'CPU done']
     assert args.resume_extraction
-    assert not args.no_identify and not args.no_web_publish and not args.no_evaluate
+    assert not args.no_identify and not args.no_web_publish
 
 
 def test_interruption_cancels_owned_cpu_before_propagating(tmp_path, monkeypatch):
@@ -142,19 +142,22 @@ def test_owned_cpu_timeout_escalates_cleanup_for_its_child_only(monkeypatch):
     assert [call.kwargs for call in process.wait.call_args_list] == [{'timeout': 3}, {'timeout': 3}]
 
 
-def test_evaluate_only_forwards_no_output_and_never_loads_sdk(monkeypatch):
-    args = cli.parser().parse_args(['bundle', '--evaluate-only', '--extract-python', '/cpu/python'])
-    args.output = Path('/default/output')
-    run = Mock(return_value=Mock(returncode=0))
-    monkeypatch.setattr(cli.subprocess, 'run', run)
-    monkeypatch.setattr(cli, 'load_sdk', lambda: pytest.fail('offline evaluation imported SDK'))
-    cli.run_cpu_phase(args)
-    command = run.call_args.args[0]
-    assert command[0] == '/cpu/python' and '--evaluate-only' in command and '--output' not in command
+def test_evaluation_is_an_explicit_separate_entrypoint(monkeypatch):
+    from scripts import evaluate_placement
+    from src.evaluation import placement
+    calls = []
+    monkeypatch.setattr(placement, 'evaluate_bundle',
+                        lambda *a, **kw: calls.append((a, kw)) or {'summary': {'unknown': 1}})
+    assert evaluate_placement.main(['bundle', '--experiment', 'evaluation.json', '--dry-run']) == 0
+    assert calls == [((Path('bundle'),), {'task_config': Path('evaluation.json'),
+                                         'observations': None, 'dry_run': True})]
+    with pytest.raises(SystemExit):
+        cli.parser().parse_args(['bundle', '--evaluate-only'])
 
 
 def test_interim_extract_only_skips_evaluation_identification_and_sdk(tmp_path, monkeypatch):
-    from src.placement_analysis import extraction, identification, pipeline_stages
+    from src.placement_analysis import extraction, identification
+    from src.evaluation import placement as pipeline_stages
     output = tmp_path / 'bundle'
     def extract(*args, **kwargs):
         output.mkdir()
@@ -164,7 +167,7 @@ def test_interim_extract_only_skips_evaluation_identification_and_sdk(tmp_path, 
     monkeypatch.setattr(pipeline_stages, 'evaluate_bundle', lambda *a, **k: pytest.fail('interim evaluation'))
     monkeypatch.setattr(cli, 'load_sdk', lambda: pytest.fail('offline extraction imported SDK'))
     assert cli.main(['capture', '--extract-only', '--output', str(output), '--incremental',
-                     '--resume-extraction', '--no-identify', '--no-evaluate', '--no-web-publish']) == 0
+                     '--resume-extraction', '--no-identify', '--no-web-publish']) == 0
 
 
 def test_interruption_while_draining_also_cancels_and_joins_child(monkeypatch):

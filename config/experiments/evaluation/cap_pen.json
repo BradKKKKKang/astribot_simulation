@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "kind": "evaluation",
+  "name": "cap_pen",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../scenes/cap_pen.json"
+  },
+  "task": {
+    "ref": "../../tasks/cap_pen.json"
+  },
+  "output": {}
+}

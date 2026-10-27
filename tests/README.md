@@ -68,3 +68,24 @@ pytest -v
     - `/robot/camera/*/image_raw`
     - `/robot/camera/*/depth`
     - `/robot/camera/*/point_cloud`
+
+
+## Placement configuration migration checks
+
+Use a CPU Python with NumPy, PyArrow, PyYAML, OpenCV, pytest and a compatible
+`pxr` build (the geometry exporter uses `Usd.Stage.GetCompositionErrors`).
+Run:
+
+```bash
+python -m pytest -o addopts='' tests/unit/test_placement*.py \
+  tests/unit/test_identification*.py tests/unit/test_parquet_replay.py \
+  tests/unit/test_replay_artifacts_sdk_100hz.py
+```
+
+The v2 tests cover independent experiment schemas, v1/v2 replay/extraction/request
+identity, simulator config resolution without placement imports, and CLI replay
+orchestration through actual CPU preflight/extraction subprocesses. That last test
+mocks SDK feedback acquisition only, using explicit recorded-feedback fixtures;
+it exercises real USD FK and artifact export. These tests do not start Isaac or
+prove a live SDK/ROS/Isaac episode. Run the simulator import check separately;
+missing optional backends are skips, not successful backend execution.

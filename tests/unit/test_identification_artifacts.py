@@ -10,7 +10,7 @@ from tests.unit.test_placement_identification import sample, successful
 from src.placement_analysis.artifact_store import ArtifactStore
 from src.placement_analysis.bundle import load_bundle, save_bundle_revision
 from src.placement_analysis.identification import identify_bundle
-from src.placement_analysis.pipeline_stages import evaluate_bundle
+from src.evaluation.placement import evaluate_bundle
 
 
 @pytest.fixture
@@ -24,11 +24,19 @@ def artifact_sample(sample):
 
 
 def configuration(sample, **changes):
-    sections = copy.deepcopy(sample['settings']['_resolved_sections'])
-    for key, value in changes.items():
-        sections[key] = value
+    if set(changes) & {'success', 'task', 'scene'}:
+        from src.simulation_config.experiment_config import resolve_experiment
+        resolved = resolve_experiment(Path(__file__).parents[2] / 'config/experiments/evaluation/press_cube.json')
+        sections = copy.deepcopy(resolved['sections'])
+        if 'success' in changes:
+            sections['task']['success'] = changes.pop('success')
+        kind = 'evaluation'
+    else:
+        sections = copy.deepcopy(sample['settings']['_resolved_sections'])
+        kind = 'placement_test'
+    sections.update(changes)
     path = sample['output'].parent / 'experiment.json'
-    path.write_text(json.dumps({'schema_version': 1, **sections}))
+    path.write_text(json.dumps({'schema_version': 2, 'kind': kind, **sections}))
     return path
 
 
@@ -85,13 +93,10 @@ def test_dry_run_writes_nothing_and_candidate_type_cannot_change(artifact_sample
 
 def test_evaluation_runs_without_model_and_preserves_candidate_provenance(artifact_sample):
     sample = artifact_sample
-    sections = copy.deepcopy(sample['settings']['_resolved_sections'])
-    sections['task']['events'] = {'press': {'event_type': 'press'}}
-    sections['task']['stages'] = {}
-    sections['success'] = {'mode': 'all', 'predicates': [
-        {'id': 'enough_candidates', 'kind': 'event_count', 'event': 'press', 'min_count': 1}]}
-    path = sample['output'].parent / 'evaluation-config.json'
-    path.write_text(json.dumps({'schema_version': 1, **sections}))
+    path = configuration(sample, task={'name': 'press_cube',
+        'events': {'press': {'event_type': 'press'}}, 'stages': {},
+        'success': {'mode': 'all', 'predicates': [
+            {'id': 'enough_candidates', 'kind': 'event_count', 'event': 'press', 'min_count': 1}]}})
     before = load_bundle(sample['output'])
     result = evaluate_bundle(sample['output'], task_config=path)
     assert result['summary'] == {'passed': 1, 'failed': 0, 'unknown': 0}
@@ -137,7 +142,7 @@ def test_decision_only_uses_archived_evidence_and_invalidates_evaluation(artifac
     sample = artifact_sample
     monkeypatch.setenv('DECISION_API_KEY', 'unit-test-secret')
     identify_bundle(sample['output'], data_root=sample['root'], client=successful)
-    evaluate_bundle(sample['output'])
+    evaluate_bundle(sample['output'], task_config=sample['evaluation_config'])
     assert load_bundle(sample['output'])['metadata']['stages']['evaluation'] == 'complete'
     sample['video'].unlink()
     sample['source'].unlink()
@@ -176,7 +181,7 @@ def test_pipeline_writers_share_exclusive_lock(artifact_sample):
         with pytest.raises(RuntimeError, match='pipeline stage'):
             identify_bundle(sample['output'])
         with pytest.raises(RuntimeError, match='pipeline stage'):
-            evaluate_bundle(sample['output'])
+            evaluate_bundle(sample['output'], task_config=sample['evaluation_config'])
 
 
 def test_explicit_source_override_revalidates_instead_of_using_archived_frame(artifact_sample, monkeypatch):
@@ -195,7 +200,7 @@ def test_evidence_duplicate_keys_rejected(artifact_sample):
     path = sample['output'].parent / 'ambiguous-evidence.json'
     path.write_text('{"episodes":{},"episodes":{}}')
     with pytest.raises(ValueError, match='duplicate'):
-        evaluate_bundle(sample['output'], observations=path)
+        evaluate_bundle(sample['output'], task_config=sample['evaluation_config'], observations=path)
 
 
 def test_manifest_only_empty_episode_is_evaluated(artifact_sample):
@@ -207,5 +212,5 @@ def test_manifest_only_empty_episode_is_evaluated(artifact_sample):
     empty = write_episode_shard(store, 'empty', [])
     save_manifest_revision(sample['output'], manifest['metadata'], manifest['reference_snapshot'],
                            [*manifest['episodes'], empty], manifest['robot_model'], store=store)
-    report = evaluate_bundle(sample['output'])
+    report = evaluate_bundle(sample['output'], task_config=sample['evaluation_config'])
     assert [row['episode_id'] for row in report['episodes']] == ['episode_000000', 'empty']

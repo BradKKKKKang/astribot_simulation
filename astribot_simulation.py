@@ -19,7 +19,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Astribot Isaac Lab simulation")
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument('--config', default=None, help='existing simulator YAML configuration')
-    selection.add_argument('--experiment', help='compose robot and scene from a placement experiment')
+    selection.add_argument('--experiment', help='compose a robot replay environment or evaluation scene from an experiment')
     parser.add_argument('--check-config', action='store_true',
                         help='validate configuration on CPU without importing ROS or Isaac')
     parser.add_argument('--headless', action='store_true')
@@ -27,8 +27,8 @@ def main(argv=None):
                         help='disable configured camera sensors for state-only replay')
     args = parser.parse_args(argv)
     if args.experiment:
-        from src.placement_analysis.experiment_config import resolve_experiment
-        from src.placement_analysis.scene_profile import build_experiment_simulation_config
+        from src.simulation_config.experiment_config import resolve_experiment
+        from src.simulation_config.scene_profile import build_experiment_simulation_config
         data = build_experiment_simulation_config(resolve_experiment(args.experiment, require_ready=False))
     else:
         # Keep the existing YAML behavior while keeping --help/check-config free

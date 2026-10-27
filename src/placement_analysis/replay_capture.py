@@ -6,7 +6,7 @@ from pathlib import Path
 import threading
 import time
 
-from .robot_profile import default_robot_profile
+from src.simulation_config.robot_profile import default_robot_profile
 
 DEFAULT_PROFILE = default_robot_profile()
 

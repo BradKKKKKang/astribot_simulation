@@ -692,7 +692,8 @@ def test_task_and_identification_options_forward_to_cpu_without_output(monkeypat
 @pytest.mark.parametrize('no_identify', [False, True])
 def test_task_extract_automatically_passes_identification_settings(tmp_path, monkeypatch, no_identify):
     from types import ModuleType
-    from src.placement_analysis import identification, pipeline_stages
+    from src.placement_analysis import identification
+    from src.evaluation import placement as pipeline_stages
     extractor = ModuleType('src.placement_analysis.extraction')
     output = tmp_path / 'bundle'
     output.mkdir()
@@ -709,17 +710,18 @@ def test_task_extract_automatically_passes_identification_settings(tmp_path, mon
     assert kwargs['task_config'] == replay.DEFAULT_DETECTOR_CONFIG
     assert kwargs['data_root'] == tmp_path and kwargs['detector_config'] is None
     assert identify.call_count == (0 if no_identify else 1)
-    evaluate.assert_called_once_with(output, task_config=replay.DEFAULT_DETECTOR_CONFIG, observations=None)
+    evaluate.assert_not_called()
 
 
 def test_no_progress_reaches_identify_and_cpu_child(tmp_path, monkeypatch):
-    from src.placement_analysis import identification, pipeline_stages
+    from src.placement_analysis import identification
+    from src.evaluation import placement as pipeline_stages
     identify, evaluate = Mock(), Mock()
     monkeypatch.setattr(identification, 'identify_bundle', identify)
     monkeypatch.setattr(pipeline_stages, 'evaluate_bundle', evaluate)
     assert replay.main([str(tmp_path), '--identify-only', '--no-progress', '--no-web-publish']) == 0
     assert identify.call_args.kwargs['no_progress'] is True
-    evaluate.assert_called_once_with(tmp_path, task_config=None, dry_run=False, observations=None)
+    evaluate.assert_not_called()
     args = replay.parser().parse_args([str(tmp_path), '--identify-only', '--no-progress'])
     run = Mock(return_value=Mock(returncode=0))
     monkeypatch.setattr(replay.subprocess, 'run', run)

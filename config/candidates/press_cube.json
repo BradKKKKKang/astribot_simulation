@@ -12,5 +12,8 @@
   "press_min_retract_m": 0.015,
   "press_max_lateral_m": 0.025,
   "press_min_phase_s": 0.08,
-  "press_require_closed": true
+  "press_require_closed": true,
+  "selection": {
+    "exclude_initial": true
+  }
 }

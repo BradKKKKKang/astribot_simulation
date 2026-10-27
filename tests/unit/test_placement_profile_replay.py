@@ -9,7 +9,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from scripts import replay_extract_event as replay
-from src.placement_analysis.robot_profile import default_robot_profile, RobotProfile
+from src.simulation_config.robot_profile import default_robot_profile, RobotProfile
 from src.placement_analysis.replay_capture import ReplayCapture, state_rows
 from src.placement_analysis.task_config import load_task_config, DEFAULT_DETECTOR_CONFIG
 

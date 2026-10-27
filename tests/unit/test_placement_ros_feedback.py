@@ -140,7 +140,7 @@ def test_gripper_task_dry_run_does_not_require_source_video(tmp_path, monkeypatc
     monkeypatch.setattr(identification, 'EpisodeSource', forbidden)
     output = tmp_path / 'output'
     assert load_extractor().extract_events(
-        [capture], output, task_config=ROOT / 'config/placement/penholder.json', dry_run=True) is None
+        [capture], output, task_config=ROOT / 'config/experiments/placement_test/penholder.json', dry_run=True) is None
     assert not output.exists()
 
 
@@ -307,7 +307,7 @@ def test_full_capture_to_viewer_bundle_on_cpu(tmp_path, monkeypatch, raw_capture
         return store.put_bytes(b'geometry fixture', 'glb')
     monkeypatch.setattr(robot_export, 'cached_robot_geometry', geometry)
     output = tmp_path / 'output'
-    detector_config = ROOT / 'config/placement/penholder.json'
+    detector_config = ROOT / 'config/experiments/placement_test/penholder.json'
     assert module.extract_events([capture], output, usd=usd, detector_config=detector_config) == output / 'placement.json'
     bundle = load_bundle(output)
     assert bundle['schema_version'] == 5

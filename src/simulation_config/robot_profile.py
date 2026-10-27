@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_ROBOT_PROFILE = ROOT / 'config/placement/profiles/robots/astribot_s1.json'
+DEFAULT_ROBOT_PROFILE = ROOT / 'config/robots/astribot_s1.json'
 
 
 def _keys(value, allowed, label):

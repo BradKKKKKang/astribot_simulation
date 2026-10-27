@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "kind": "evaluation",
+  "name": "press_cube",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../scenes/press_cube.json"
+  },
+  "task": {
+    "ref": "../../tasks/press_cube.json"
+  },
+  "output": {}
+}

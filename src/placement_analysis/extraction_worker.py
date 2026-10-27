@@ -155,7 +155,7 @@ _WORKER = None
 def initialize_worker(usd, settings, store_root):
     global _WORKER
     from .extraction import prepare_extraction
-    from .robot_profile import profile_for_settings
+    from src.simulation_config.robot_profile import profile_for_settings
     _, _, _, model = prepare_extraction(usd, settings=settings)
     _WORKER = (settings, model, profile_for_settings(settings), StageCache(store_root))
 

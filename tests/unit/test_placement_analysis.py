@@ -103,7 +103,7 @@ class Tensor:
 
 
 def test_recorder_measured_tcp_frames_event_snapshot_and_typed_empty_output(tmp_path):
-    settings = load_task_config(Path(__file__).parents[2] / 'config/placement/press_cube.json')
+    settings = load_task_config(Path(__file__).parents[2] / 'config/experiments/placement_test/press_cube.json')
     settings['type'] = 'gripper'
     settings['confirm_duration_s'] = .02
     names = [settings['base_body'], settings['tcp']['left']['body'], settings['tcp']['right']['body']]
@@ -179,7 +179,7 @@ def test_initial_departure_is_per_hand_sustained_and_return_does_not_exclude():
 
 @pytest.mark.parametrize('operation', ['gripper', 'press'])
 def test_recorder_runs_only_the_task_detector_despite_other_hand_activity(operation):
-    settings = load_task_config(Path(__file__).parents[2] / 'config/placement/press_cube.json')
+    settings = load_task_config(Path(__file__).parents[2] / 'config/experiments/placement_test/press_cube.json')
     settings.update(type=operation, confirm_duration_s=.02)
     names = [settings['base_body'], settings['tcp']['left']['body'], settings['tcp']['right']['body']]
     joint_names = [f'astribot_gripper_{s}_joint_L1' for s in ('left', 'right')]
@@ -246,7 +246,7 @@ def test_press_rejects_idle_horizontal_transit_open_gripper_and_missing_lift():
 
 
 def test_press_recorder_and_parquet_preserve_measured_pose_and_evidence(tmp_path):
-    settings = load_task_config(Path(__file__).parents[2] / 'config/placement/press_cube.json')
+    settings = load_task_config(Path(__file__).parents[2] / 'config/experiments/placement_test/press_cube.json')
     names = [settings['base_body'], settings['tcp']['left']['body'], settings['tcp']['right']['body']]
     joint_names = [f'astribot_gripper_{s}_joint_L1' for s in ('left', 'right')]
     recorder = PlacementRecorder(None, settings, 'press', body_names=names, joint_names=joint_names)

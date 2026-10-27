@@ -3,9 +3,8 @@ import copy
 import fcntl
 from pathlib import Path
 
-from .artifact_store import atomic_write, json_bytes
-from .bundle import load_bundle, save_bundle_revision, store_for_manifest
-from .task_config import load_task_config
+from src.placement_analysis.artifact_store import atomic_write, json_bytes
+from src.placement_analysis.bundle import load_bundle, save_bundle_revision, store_for_manifest
 from .task_evaluation import evaluate_success
 
 
@@ -14,13 +13,19 @@ def _evaluate_bundle(path, *, task_config=None, dry_run=False, observations=None
     output = path if path.is_dir() else path.parent
     bundle = load_bundle(path)
     metadata = bundle['metadata']
-    settings = (load_task_config(task_config, require_ready=not dry_run, validate_identification=False)
-                if task_config else metadata.get('task_config', {}))
-    sections = settings.get('_resolved_sections')
-    if not sections:
-        return {'status': 'unknown', 'reason': 'No independent task-success configuration is available.'}
+    if task_config:
+        from src.simulation_config.experiment_config import resolve_experiment
+        resolved = resolve_experiment(task_config, require_ready=not dry_run)
+        if resolved['kind'] != 'evaluation':
+            raise ValueError('offline evaluation requires an evaluation experiment')
+        sections = resolved['sections']
+        sections = {**sections, 'success': sections['task']['success']}
+    else:
+        sections = metadata.get('task_config', {}).get('_resolved_sections', {})
+        if not {'scene', 'task', 'success'} <= sections.keys():
+            raise ValueError('an explicit evaluation experiment is required for this placement bundle')
     if isinstance(observations, (str, Path)):
-        from .experiment_config import read_json
+        from src.simulation_config.experiment_config import read_json
         observations = read_json(Path(observations).expanduser())
     if observations is None:
         observations = metadata.get('observations', {'episodes': {}})

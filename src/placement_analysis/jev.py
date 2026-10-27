@@ -6,7 +6,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-ENDPOINT = "https://decision.vllm-sr.ai/v1/systemone"
+from src.simulation_config.defaults import JEV_ENDPOINT as ENDPOINT
 QUESTION_ID = "nearest_object"
 QUESTION = "机器人的手臂最接近桌面上的哪个物体?"
 CHOICES = {"red": "红色方块", "blue": "蓝色方块", "yellow": "黄色方块"}

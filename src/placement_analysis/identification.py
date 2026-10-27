@@ -100,7 +100,10 @@ class EpisodeSource:
             source = original
             self.info = json.loads(info_path.read_text())
         else:
-            self.root = Path(data_root or settings['dataset_root']).expanduser() / settings['task']['dataset']
+            root = data_root or settings.get('dataset_root')
+            if root is None:
+                raise ValueError('source.dataset_root or --data-root is required to locate source videos')
+            self.root = Path(root).expanduser() / settings['task']['dataset']
             info_path = self.root / 'meta/info.json'
             self.info = json.loads(info_path.read_text())
             match = re.fullmatch(r'episode_(\d+)', original.stem)

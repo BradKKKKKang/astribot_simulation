@@ -37,7 +37,7 @@ from isaaclab.app import AppLauncher
 
 from src.simu_utils.simu_common_tools import astribot_simu_log
 from src.astribot_envs.astribot_base_env import AstribotBaseEnv
-from src.placement_analysis.isaac_scene_config import (
+from src.simulation_config.isaac_scene_config import (
     CAMERA_BODIES, SUPPORTED_ROBOT_ROOT, camera_prim_path,
     normalize_scene_simulation, spawn_scene_environment,
 )

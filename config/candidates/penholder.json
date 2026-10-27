@@ -8,5 +8,8 @@
   "max_gap_s": 0.1,
   "initial_radius_m": 0.05,
   "initial_departure_duration_s": 0.15,
-  "initial_ignore_s": 1.0
+  "initial_ignore_s": 1.0,
+  "selection": {
+    "exclude_initial": true
+  }
 }

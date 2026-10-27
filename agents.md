@@ -6,7 +6,7 @@
 
 - Astribot Simulation 是研究用途的多后端机器人仿真平台，通过 Gymnasium 环境工厂对接 MuJoCo、Genesis、ManiSkill 和 Isaac Lab，并提供 ROS1/ROS2 接口。
 - [astribot_simulation.py](astribot_simulation.py) 是程序入口；[src/astribot_envs/](src/astribot_envs/) 包含工厂、基类及后端。公共接口的一致性不代表各后端功能、性能或验证程度完全相同。
-- [config/astribot_s1/](config/astribot_s1/) 保存 YAML 配置；配置、关节映射和模型资源必须与所选后端一致。具体加载行为和能力以实现及测试为准。
+- [config/astribot_s1/](config/astribot_s1/) 保存后端 YAML；config/robots、scenes、tasks、candidates、jev 保存资源配置，config/experiments 下的 placement_test 与 evaluation 保存独立实验。src/simulation_config 提供公共解析和仿真配置组合，placement 不依赖评测任务或成功标准。配置、关节映射和模型资源必须与所选后端一致。具体加载行为和能力以实现及测试为准。
 - [src/simu_utils/](src/simu_utils/) 承担 ROS 接口、运动学与通用工具；[src/sim_assets_tools/](src/sim_assets_tools/) 承担模型与纹理转换。[astribot_descriptions/](astribot_descriptions/) 和 [astribot_msgs/](astribot_msgs/) 是独立 Git 子模块。
 - 环境与依赖按所选后端及 ROS 版本确认；不得把某一环境的结果外推到其它后端、ROS 版本或真实机器人。
 - 数据集轨迹回放统一使用 Astribot SDK → ROS → Isaac Lab → ROS 状态反馈链路，placement 分析基于该链路记录的仿真反馈，不另建绕过 SDK／ROS 的回放路径。

@@ -1,10 +1,5 @@
 {
   "name": "press_cube",
-  "dataset": "press_cube_merged",
-  "status": "ready",
-  "event_rules": {
-    "exclude_initial": true
-  },
   "events": {
     "press_target": {
       "event_type": "press",
@@ -19,5 +14,10 @@
       ],
       "ordered": true
     }
+  },
+  "success": {
+    "name": "Unconfigured task success; candidate detection is not contact evidence",
+    "mode": "all",
+    "predicates": []
   }
 }

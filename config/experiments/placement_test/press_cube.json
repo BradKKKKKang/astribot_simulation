@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "kind": "placement_test",
+  "name": "press_cube",
+  "status": "ready",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "candidates": {
+    "ref": "../../candidates/press_cube.json"
+  },
+  "jev": {
+    "ref": "../../jev/press_cube.json"
+  },
+  "source": {
+    "dataset_root": "/home/zihengkang/Datasets/real_eval/",
+    "dataset": "press_cube_merged"
+  },
+  "runtime": {
+    "alignment": {
+      "max_gap_s": 0.1
+    }
+  },
+  "output": {}
+}

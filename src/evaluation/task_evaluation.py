@@ -13,7 +13,7 @@ def _fields(value, allowed, label):
 
 
 def validate_evaluation_config(scene, task, success):
-    from .scene_profile import validate_scene_frames
+    from src.simulation_config.scene_profile import validate_scene_frames
     validate_scene_frames(scene)
     events = task.get('events', {})
     stages = task.get('stages', {})
@@ -165,7 +165,7 @@ def evaluate_success(events, scene, task, success, observations=None):
                         'frame': region['frame'], 'positions': []}
             missing, outside = False, False
             for event in selected:
-                from .scene_profile import frame_coordinates
+                from src.simulation_config.scene_profile import frame_coordinates
                 position = frame_coordinates(event, scene, region['frame'])
                 if position is None:
                     missing = True

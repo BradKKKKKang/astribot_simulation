@@ -4,7 +4,7 @@ import hashlib
 import math
 from pathlib import Path
 
-from src.placement_analysis.isaac_scene_config import (
+from src.simulation_config.isaac_scene_config import (
     CAMERA_BODIES, SUPPORTED_ROBOT_ROOT, normalize_scene_simulation, pose_fields,
 )
 from .robot_profile import ROOT, RobotProfile, build_simulation_config
@@ -34,7 +34,7 @@ def validate_scene_frames(scene):
 
 def frame_coordinates(event, scene, frame):
     """Transform a recorded TCP into a calibrated frame; return None if missing."""
-    from .events import compose_pose, relative_pose
+    from .poses import compose_pose, relative_pose
     frames = scene.get('frames', {})
     def resolved(name):
         if name in ('world', 'base'):
@@ -70,7 +70,7 @@ def build_experiment_simulation_config(resolved):
         raise ValueError('experiment scene composition currently supports IsaacLab only')
     if profile.root_path != SUPPORTED_ROBOT_ROOT:
         raise ValueError('Isaac experiment requires /World/astribot_whole_body robot root')
-    scene = sections['scene']
+    scene = sections.get('scene', {})
     validate_scene_frames(scene)
     simulation = normalize_scene_simulation(scene.get('simulation'))
     if 'background' in simulation:

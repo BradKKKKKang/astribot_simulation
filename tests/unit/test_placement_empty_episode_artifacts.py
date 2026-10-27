@@ -1,7 +1,7 @@
 """Completed zero-candidate episodes survive independent downstream stages."""
 from src.placement_analysis.bundle import load_bundle, save_manifest_revision, store_for_manifest, write_episode_shard
 from src.placement_analysis.identification import identify_bundle
-from src.placement_analysis.pipeline_stages import evaluate_bundle
+from src.evaluation.placement import evaluate_bundle
 from tests.unit.test_identification_artifacts import artifact_sample, sample, successful  # noqa: F401
 
 
@@ -24,7 +24,7 @@ def test_zero_event_episode_survives_identification_and_evaluation(artifact_samp
     identified = load_bundle(output)
     assert [item['episode_id'] for item in identified['episodes']] == expected_order
     assert identified['episodes'][0] == empty
-    report = evaluate_bundle(output)
+    report = evaluate_bundle(output, task_config=fixture['evaluation_config'])
     assert 'completed-empty' in [item['episode_id'] for item in report['episodes']]
     evaluated = load_bundle(output)
     assert [item['episode_id'] for item in evaluated['episodes']] == expected_order

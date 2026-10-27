@@ -14,7 +14,7 @@
 ## 稳定契约
 
 - 修改公共环境接口时，同步检查基类、工厂注册、四个后端、ROS 接口与测试。reset 返回 (observation, info)，step 返回 (observation, reward, terminated, truncated, info)；统一接口不代表各后端传感器、控制模式或观测能力完全一致。当前运行循环采样 action，但实际关节控制主要来自 ROS 命令，不能将其描述为完整机器人 action 控制协议。
-- 配置当前通过 yaml.safe_load 加载为可变字典，model_path 与 ASTRIBOT_SIMU_ROOT 拼接；尚无统一 schema、typed resolve 或 digest 校验。修改配置时核对 robot_list、joint_names_list、vel_compensation_list 的位置对应及模型中的关节、相机、传感器名称，不把未知字段、重复键或路径逃逸拒绝写成现有保证。
+- 旧版 --config YAML 通过 yaml.safe_load 加载为可变字典，model_path 与 ASTRIBOT_SIMU_ROOT 拼接。--experiment 使用 src/simulation_config 的严格 JSON 解析与配置指纹；placement_test 与 evaluation 分别校验，不能将其保证外推到旧版 YAML 或所有后端。修改配置时核对 robot_list、joint_names_list、vel_compensation_list 的位置对应及模型中的关节、相机、传感器名称，不把未知字段、重复键或路径逃逸拒绝写成现有保证。
 - ROS_VERSION 决定 ROS1/ROS2 分支；运行前先加载 ROS 及对应构建的消息工作区。env.sh 使用 ASTRIBOT_SIMU_ROOT、PYTHONPATH 和 ROS_DOMAIN_ID，诊断时应确认实际值与模块来源。消息变化须同步生产者、消费者和两套消息构建定义，不能假定 ROS1/ROS2 生成范围一致。
 - 关节名称、顺序、自由度、控制模式和状态消息必须一致；位姿工具采用 [x, y, z, qw, qx, qy, qz]，与 ROS 字段或后端坐标约定转换时显式处理顺序、单位和坐标系。固定底盘反馈属于仿真兼容行为，不能等同于控制权授权或真实底盘能力。
 - 相机接口采用 rgb_img、depth_img、point_cloud 字段；RGB 与深度发布编码分别为 rgb8、32FC1，实际可用字段取决于后端。相机名称、尺寸、颜色顺序、坐标约定、话题或 QoS 变化必须联动配置、模型、发布端、订阅端和验证；ROS2 SDK JPEG 发布需保持开关及订阅者条件，并在编码前正确转换 RGB/BGR。

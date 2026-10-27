@@ -13,10 +13,10 @@ from src.placement_analysis.extraction import discover_captures, extract_events,
 from src.placement_analysis.extraction_worker import StageCache, extract_episode
 from src.placement_analysis.recorder import PlacementRecorder
 from src.placement_analysis.robot_export import DEFAULT_USD
-from src.placement_analysis.robot_profile import default_robot_profile, profile_for_settings
+from src.simulation_config.robot_profile import default_robot_profile, profile_for_settings
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG = ROOT / 'config/placement/penholder.json'
+CONFIG = ROOT / 'config/experiments/placement_test/penholder.json'
 
 
 def write_capture(path):
@@ -254,3 +254,28 @@ def test_coordinator_rejects_worker_provenance_drift(tmp_path, cpu_model, monkey
         extract_events([capture], output, detector_config=CONFIG)
     assert not (output / 'placement.json').exists()
     assert json.loads((output / '.extraction-checkpoint.json').read_text())['episodes'] == {}
+
+
+def test_v2_replay_to_real_cpu_extraction_with_recorded_feedback(tmp_path, cpu_model, monkeypatch):
+    """Mock only SDK capture; run real CLI children, USD FK and artifact export."""
+    from scripts import replay_extract_event as replay
+    from src.placement_analysis.bundle import load_bundle
+    source = tmp_path / 'source.parquet'
+    pq.write_table(pa.table({replay.COMMAND_COLUMN: [[0.] * 25] * 80,
+                             'timestamp': np.arange(80) * .01}), source)
+    capture_root, output = tmp_path / 'captures', tmp_path / 'bundle'
+    def capture(args, *, report):
+        args.output_root.mkdir()
+        path = write_capture(args.output_root / report['episodes'][0]['episode_id'])
+        replay.write_json(args.output_root / 'batch_manifest.json', {
+            'status': 'complete', 'episodes': [{'episode_id': path.name}], 'completed': [path.name]})
+    monkeypatch.setattr(replay, 'run', capture)
+    assert replay.main([str(source), '--experiment', str(CONFIG), '--no-viewer',
+                        '--no-identify', '--no-web-publish', '--no-progress',
+                        '--output-root', str(capture_root), '--output', str(output)]) == 0
+    bundle = load_bundle(output)
+    assert len(bundle['events']) == 2
+    assert bundle['metadata']['status'] == 'complete'
+    assert not {'scene', 'task', 'success'} & bundle['metadata']['task_config']['_resolved_sections'].keys()
+    assert 'evaluation' not in bundle['metadata']
+    assert bundle['robot_model']

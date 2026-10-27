@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "kind": "placement_test",
+  "name": "penholder",
+  "status": "ready",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "candidates": {
+    "ref": "../../candidates/penholder.json"
+  },
+  "jev": {
+    "ref": "../../jev/penholder.json"
+  },
+  "source": {
+    "dataset_root": "/home/zihengkang/Datasets/real_eval/",
+    "dataset": "penholder_merged_clean"
+  },
+  "runtime": {
+    "alignment": {
+      "max_gap_s": 0.1
+    }
+  },
+  "output": {}
+}

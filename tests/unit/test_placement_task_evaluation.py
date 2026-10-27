@@ -1,6 +1,6 @@
 """Task-level semantics require actual evidence, independent of candidates."""
 import pytest
-from src.placement_analysis.task_evaluation import evaluate_success
+from src.evaluation.task_evaluation import evaluate_success
 
 SCENE = {'objects': {'pen': {'label':'笔', 'roles':['handled']}},
          'regions': {'holder': {'frame':'base', 'min':[0,0,0], 'max':[1,1,1]}}}

@@ -175,11 +175,15 @@ If you want to reset the robot state, press Backspace while the simulation is ru
 
 ### Replay a Parquet dataset and extract events
 
-Placement analysis has separate capture, candidate extraction, identification and
-success-evaluation stages. `scripts/replay_extract_event.py` remains the single
-CLI, with `--experiment` (alias `--task-config`) selecting a modular experiment.
-Profiles under `config/placement/profiles/` independently define the robot,
-scene, task, candidates, success criteria and JEV request/decision settings.
+Placement analysis has capture, candidate extraction and identification stages.
+`scripts/replay_extract_event.py` runs this workflow, with `--experiment` (alias
+`--task-config`) selecting a modular experiment. Offline success evaluation has
+a separate explicit entrypoint.
+Placement experiments live under `config/experiments/placement_test/` and reference
+`config/robots/`, `config/candidates/` and `config/jev/`. They do not require
+scene, evaluation task or success profiles. Dataset identity lives in `source`;
+startup filtering lives in `candidates.selection`. Evaluation experiments are
+separate under `config/experiments/evaluation/`, with success owned by `task`.
 See [the placement architecture](docs/PLACEMENT_ARCHITECTURE.md) for configuration
 composition, cache dependencies, result schemas and extension points.
 
@@ -189,11 +193,25 @@ extraction assets; `--resume` reuses matching completed captures. Capture
 provenance records declared robot/runtime inputs, not a verified identity of a
 separately launched simulator.
 
+Launch the minimal replay environment from the same experiment:
+
+```bash
+python astribot_simulation.py \
+  --experiment config/experiments/placement_test/press_cube.json --check-config
+# Remove --check-config to launch; add --headless --no-cameras for state-only replay.
+```
+
+Replay/extraction no longer runs success evaluation automatically. The old
+`--evaluate-only`, `--observations` and `--no-evaluate` placement options are removed;
+use `scripts/evaluate_placement.py` for explicit offline evaluation. This entry does
+not implement policy rollout. Existing flat and modular v1 input files remain
+readable, but checked-in profiles use `schema_version: 2` and an explicit `kind`.
+
 For offline processing of existing captures:
 
 ```bash
 python scripts/replay_extract_event.py /path/to/capture-batch \
-  --extract-only --experiment config/placement/press_cube.json \
+  --extract-only --experiment config/experiments/placement_test/press_cube.json \
   --output /path/to/analysis/press_cube \
   --artifact-root /path/to/shared-artifacts --workers 2 --no-identify
 ```
@@ -206,10 +224,10 @@ candidate rules; compatible synchronization/FK caches remain reusable.
 
 ```bash
 python scripts/replay_extract_event.py /path/to/analysis/press_cube \
-  --identify-only --experiment config/placement/press_cube.json \
+  --identify-only --experiment config/experiments/placement_test/press_cube.json \
   --identify-workers 2
-python scripts/replay_extract_event.py /path/to/analysis/press_cube \
-  --evaluate-only --experiment config/placement/press_cube.json
+python scripts/evaluate_placement.py /path/to/analysis/press_cube \
+  --experiment config/experiments/evaluation/press_cube.json
 ```
 
 Identification uses original dataset videos and `DECISION_API_KEY` from the
@@ -218,10 +236,11 @@ timeout does not invalidate model results, and changing confidence thresholds
 recomputes decisions from saved raw probabilities. Omit `--data-root` to reuse
 verified archived frames without reopening the dataset; an explicit `--data-root`
 always revalidates the requested source. `penholder.json` assigns the known object without a
-model call. `cap_pen.json` remains `needs_annotation`. The shipped success
-profile is deliberately unconfigured, so task success remains `unknown` until
+model call. `cap_pen.json` remains `needs_annotation`. The shipped evaluation
+tasks have deliberately unconfigured success predicates, so task success remains
+`unknown` until
 explicit predicates are supplied; motion candidates are not contact evidence.
-`--observations /path/to/evidence.json` supplies explicit per-episode observations
+`scripts/evaluate_placement.py --observations /path/to/evidence.json` supplies explicit per-episode observations
 to evaluation; its format is documented in the architecture guide.
 
 Schema 5 `placement.json` is a manifest referencing shared immutable episode

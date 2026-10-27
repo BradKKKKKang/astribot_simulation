@@ -1,8 +1,0 @@
-{
-  "name": "cap_pen",
-  "dataset": "cap_pen_merged",
-  "status": "needs_annotation",
-  "event_rules": null,
-  "events": {},
-  "stages": {}
-}

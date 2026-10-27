@@ -1,10 +1,5 @@
 {
   "name": "penholder",
-  "dataset": "penholder_merged_clean",
-  "status": "ready",
-  "event_rules": {
-    "exclude_initial": true
-  },
   "events": {
     "grasp": {
       "event_type": "grasp",
@@ -25,5 +20,10 @@
       ],
       "ordered": true
     }
+  },
+  "success": {
+    "name": "Unconfigured task success; candidate detection is not contact evidence",
+    "mode": "all",
+    "predicates": []
   }
 }

@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "kind": "placement_test",
+  "name": "cap_pen",
+  "status": "needs_annotation",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "candidates": {
+    "ref": "../../candidates/cap_pen.json"
+  },
+  "jev": {
+    "ref": "../../jev/cap_pen.json"
+  },
+  "source": {
+    "dataset_root": "/home/zihengkang/Datasets/real_eval/",
+    "dataset": "cap_pen_merged"
+  },
+  "runtime": {
+    "alignment": {
+      "max_gap_s": 0.1
+    }
+  },
+  "output": {}
+}

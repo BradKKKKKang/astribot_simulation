@@ -89,7 +89,7 @@ astribot-sim = "astribot_simulation:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["astribot_envs*", "simu_utils*", "sim_assets_tools*", "placement_analysis*"]
+include = ["astribot_envs*", "simu_utils*", "sim_assets_tools*", "placement_analysis*", "simulation_config*", "evaluation*"]
 
 [tool.black]
 line-length = 100

@@ -12,7 +12,7 @@ from .events import DetectorConfig
 from .recorder import PlacementRecorder
 from .reference_pose import UsdKinematics
 from .robot_export import DEFAULT_USD, open_robot_stage
-from .robot_profile import profile_for_settings
+from src.simulation_config.robot_profile import profile_for_settings
 from .task_config import DEFAULT_DETECTOR_CONFIG, EVENT_TYPES, load_task_config
 from .extraction_worker import (StageCache, capture_digests, digest, extract_episode,
                                 file_digest, initialize_worker, normalized_capture,

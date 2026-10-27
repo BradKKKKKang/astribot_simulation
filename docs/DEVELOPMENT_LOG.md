@@ -324,3 +324,36 @@ python tests/unit/test_camera_viewer.py \
 - **penholder 标注**：配置为 `gripper`，采用归一化闭合量 5% 的合拢起点，达到 75% 闭合并持续 0.08 s 后回溯确认；中止合拢或超过 0.1 s 的缺帧重置起点。释放取离开闭合带的时刻，进入张开带持续 0.08 s 后确认。`identification.enabled: false` 配合固定 `object: 笔`，不读取源视频、不要求 API key、不调用 JEV。episode0 源 Parquet 只读核对得到左手 grasp 3.00 s／确认 4.13 s、release 9.30 s／确认 9.53 s，右手无事件；这不是仿真反馈提取结果。`cap_pen` 保留 `type: null` 与待标注状态，等待用户定义。
 - **Web**：移除候选依据下拉框与组合去重，显示任务固定操作类型；列表、物体筛选、统计、热力图和导出都限定该类型。旧包按原默认类型读取并隐藏其它检测器候选，事件详情也只显示该任务的依据。任务切换重建对应事件图例，任务清空后清空类型与图例。
 - **验证**：使用 `/usr/bin/python3`，禁用不兼容的自动加载 pytest 插件，相关 Python 用例合计 170 passed；其中最初因缺少 pxr 跳过的 2 项 CPU 提取用例，使用已有 `/tmp/astribot-identification-deps` 内 usd-core 25.5.1 后通过。Node 19 passed；浏览器全套 7 passed，最后补充跨类型切换、清空任务与详情检查后，相关 2 项再次通过。前端构建、语法／JSON／空白检查通过。在线 `http://10.11.12.73:4173/` 实际加载 press_cube，类型为按压、949 个有效候选、模式选择器数量为 0、页面错误为空。未运行 SDK／ROS／仿真回放或调用真实模型。
+
+## 2026-10-27 — Separate placement configuration from evaluation
+
+- Replaced the checked-in `config/placement` hierarchy with shared robot, scene,
+  task, candidate and JEV profiles plus explicit v2 `placement_test` and
+  `evaluation` experiment directories. Dataset identity now belongs to `source`,
+  readiness to the placement experiment and startup filtering to
+  `candidates.selection`. Evaluation tasks own `success`.
+- Moved CPU-only resolution, robot mapping and scene composition to
+  `src/simulation_config`. Simulator startup no longer imports placement modules.
+  Retained explicit readers for previously supported flat/v1 inputs and the
+  normalized capture metadata contract; extraction/request identities remain
+  stable across v1/v2 inputs with equivalent semantics.
+- Removed automatic success evaluation and evaluation options from replay/extract.
+  `scripts/evaluate_placement.py` explicitly consumes an evaluation experiment and
+  an existing bundle. No policy rollout runner or task-object spawning was added.
+- Validation in an isolated checkout: 280 placement/replay/identification tests
+  passed, followed by 36 focused configuration/extraction tests including five new
+  migration cases. The latter includes actual CPU CLI children, USD FK and GLB
+  export with SDK acquisition mocked. Tests used system CPython 3.10 with the
+  existing `.venv-placement` NumPy 1.26.4, PyArrow 17 and USD 25.5 packages;
+  unrelated globally installed pytest plugins were disabled. Isaac's bundled
+  USD lacks the existing exporter's `GetCompositionErrors` interface and was not
+  used for the final CPU export checks.
+- Simulator import checks in `astribot_simu_il`: 5 passed, 3 skipped (MuJoCo,
+  Genesis and ManiSkill unavailable). Placement simulator `--check-config` passed.
+- Actual data checks: a 610-frame source episode passed replay dry-run. A completed
+  2,416-frame capture produced three events with the new configuration; comparison
+  against the original checkout's extraction found identical events and reference
+  snapshots. Outputs were written only under task-specific `/tmp` paths.
+- Coverage limits: no live SDK/ROS/Isaac replay or external JEV request was run.
+  Existing dirty model/message submodules were used read-only and excluded from
+  the change. No installation, asset conversion or deployment was performed.

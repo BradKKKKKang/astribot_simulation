@@ -9,30 +9,26 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from src.placement_analysis.isaac_scene_config import normalize_scene_simulation, spawn_scene_environment
-from src.placement_analysis.experiment_config import resolve_experiment
-from src.placement_analysis.scene_profile import build_experiment_simulation_config
+from src.simulation_config.isaac_scene_config import normalize_scene_simulation, spawn_scene_environment
+from src.simulation_config.experiment_config import resolve_experiment
+from src.simulation_config.scene_profile import build_experiment_simulation_config
 from src.placement_analysis.task_config import DEFAULT_DETECTOR_CONFIG
-from src.placement_analysis.task_evaluation import evaluate_success
+from src.evaluation.task_evaluation import evaluate_success
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def experiment(tmp_path, change=None):
-    resolved = resolve_experiment(DEFAULT_DETECTOR_CONFIG)
+    resolved = resolve_experiment(ROOT / 'config/experiments/evaluation/press_cube.json')
     if change:
         change(resolved['sections'])
     path = tmp_path / 'experiment.json'
-    path.write_text(json.dumps({'schema_version': 1, **resolved['sections']}))
+    path.write_text(json.dumps({'schema_version': 2, 'kind': 'evaluation', **resolved['sections']}))
     return resolve_experiment(path), path
 
 
-def test_scene_changes_launch_config_and_capture_identity_only(tmp_path):
-    from scripts import replay_extract_event as replay
+def test_scene_changes_launch_config_without_placement_dependency(tmp_path):
     before, _ = experiment(tmp_path)
-    args = replay.parser().parse_args(['episode.parquet'])
-    replay.apply_experiment_settings(args, before['settings'])
-    old_capture = replay.replay_settings(args)
     changed, _ = experiment(tmp_path, lambda sections: sections['scene'].update(simulation={
         'ground': {'enabled': False}, 'light': {'intensity': 1500., 'color': [.8,.7,.6]},
         'cameras': {'head_rgbd': {'width': 320, 'height': 240}, 'left_wrist_rgbd': {'enabled': False}}}))
@@ -42,10 +38,7 @@ def test_scene_changes_launch_config_and_capture_identity_only(tmp_path):
     assert config['camera_names'] == ['head_rgbd', 'right_wrist_rgbd']
     assert config['camera_resolutions']['head_rgbd'] == {'width':320, 'height':240}
     assert changed['fingerprints']['scene_simulation'] != before['fingerprints']['scene_simulation']
-    assert changed['fingerprints']['extraction'] == before['fingerprints']['extraction']
-    replay.apply_experiment_settings(args, changed['settings'])
-    assert replay.replay_settings(args)['scene_simulation_sha256'] != old_capture['scene_simulation_sha256']
-    assert replay.replay_settings(args)['robot_control_sha256'] == old_capture['robot_control_sha256']
+    assert 'candidates' not in changed['sections']
 
 
 def test_nested_calibrated_frames_are_consumed_by_region_evaluation(tmp_path):
@@ -56,18 +49,18 @@ def test_nested_calibrated_frames_are_consumed_by_region_evaluation(tmp_path):
         sections['scene']['regions'] = {'destination': {'frame':'target','min':[-.1,-.1,-.1],'max':[.1,.1,.1]}}
         sections['task']['events'] = {'press':{'event_type':'press'}}
         sections['task']['stages'] = {}
-        sections['success'] = {'predicates':[{'id':'region','kind':'in_region','event':'press','region':'destination'}]}
+        sections['task']['success'] = {'predicates':[{'id':'region','kind':'in_region','event':'press','region':'destination'}]}
     resolved, _ = experiment(tmp_path, configure)
     sections = resolved['sections']
     event = {'event_id':'event', 'event_type':'press', 'tcp_pose_base':[1,2,0,1,0,0,0]}
-    result = evaluate_success([event],sections['scene'],sections['task'],sections['success'],{'events_complete':True})
+    result = evaluate_success([event],sections['scene'],sections['task'],sections['task']['success'],{'events_complete':True})
     assert result['status'] == 'passed'
     assert result['predicates'][0]['evidence']['positions'] == [[0.,0.,0.]]
     event['tcp_pose_base'][0] = 2
-    assert evaluate_success([event],sections['scene'],sections['task'],sections['success'],{'events_complete':True})['status'] == 'failed'
-    original = resolve_experiment(DEFAULT_DETECTOR_CONFIG)
+    assert evaluate_success([event],sections['scene'],sections['task'],sections['task']['success'],{'events_complete':True})['status'] == 'failed'
+    original = resolve_experiment(ROOT / 'config/experiments/evaluation/press_cube.json')
     assert resolved['fingerprints']['scene_simulation'] == original['fingerprints']['scene_simulation']
-    assert resolved['fingerprints']['extraction'] == original['fingerprints']['extraction']
+    assert 'extraction' not in resolved['fingerprints']
 
 
 @pytest.mark.parametrize('scene', [
@@ -121,7 +114,7 @@ def test_runtime_spawn_adapter_keeps_defaults_and_consumes_overrides():
 def test_backend_scene_method_consumes_config_without_importing_isaac(monkeypatch):
     """Execute the actual method AST with configuration-class fakes only."""
     import sys
-    from src.placement_analysis.isaac_scene_config import camera_prim_path
+    from src.simulation_config.isaac_scene_config import camera_prim_path
     tree=ast.parse((ROOT/'src/astribot_envs/astribot_isaaclab_env.py').read_text())
     cls=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=='AstribotIsaacLabEnv')
     method=next(node for node in cls.body if isinstance(node,ast.FunctionDef) and node.name=='setup_simulation_and_scene')
@@ -158,7 +151,7 @@ def test_entrypoint_help_and_check_config_import_no_runtime(tmp_path, monkeypatc
     entry=importlib.util.module_from_spec(spec);spec.loader.exec_module(entry)
     original=builtins.__import__
     def guarded(name,*args,**kwargs):
-        if name.startswith(('rclpy','rospy','isaaclab','astribot_sdk')) or name=='src.astribot_envs.astribot_envs_factory':
+        if name.startswith(('rclpy','rospy','isaaclab','astribot_sdk','src.placement_analysis')) or name=='src.astribot_envs.astribot_envs_factory':
             raise AssertionError('runtime import during config validation: '+name)
         return original(name,*args,**kwargs)
     monkeypatch.setattr(builtins,'__import__',guarded)
@@ -171,7 +164,7 @@ def test_entrypoint_help_and_check_config_import_no_runtime(tmp_path, monkeypatc
 
 
 def test_scene_frame_rotation_and_missing_pose_evidence():
-    from src.placement_analysis.scene_profile import frame_coordinates
+    from src.simulation_config.scene_profile import frame_coordinates
     import math
     scene={'frames':{'turned':{'parent':'world','position':[1,0,0],
                               'quaternion_wxyz':[math.sqrt(.5),0,0,math.sqrt(.5)]}}}
