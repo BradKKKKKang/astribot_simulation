@@ -1,0 +1,27 @@
+{
+  "ref": "astribot_lab.json",
+  "overrides": {
+    "name": "press_cube",
+    "objects": {
+      "red": {
+        "label": "红色方块",
+        "roles": [
+          "press_target"
+        ]
+      },
+      "yellow": {
+        "label": "黄色方块",
+        "roles": [
+          "press_target"
+        ]
+      },
+      "blue": {
+        "label": "蓝色方块",
+        "roles": [
+          "press_target"
+        ]
+      }
+    },
+    "regions": {}
+  }
+}

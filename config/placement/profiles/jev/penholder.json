@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "request": {},
+  "decision": {
+    "policy": "max_probability_v1"
+  },
+  "transport": {
+    "timeout_s": 60.0
+  },
+  "object": "笔"
+}

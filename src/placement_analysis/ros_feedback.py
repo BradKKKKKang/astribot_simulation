@@ -10,7 +10,8 @@ PART_CONFIGS = (
 JOINTS = tuple(f'{part}_joint_{i}' for part, count in PART_CONFIGS for i in range(1, count + 1))
 
 
-def synchronize_feedback(rows, api_rows, metadata, joint_names, max_gap_s):
+def synchronize_feedback(rows, api_rows, metadata, joint_names, max_gap_s, *,
+                         anchor_joint=None, part_by_joint=None):
     """Interpolate feedback on torso header times within the actual API window.
 
     Each joint needs bracketing feedback less than max_gap_s apart. Missing
@@ -41,11 +42,18 @@ def synchronize_feedback(rows, api_rows, metadata, joint_names, max_gap_s):
         requested_start, requested_end = [(value - epoch_mono) / 1e9 for value in window]
     else:
         requested_start, requested_end = starts[0] / 1e9, ends[-1] / 1e9 + .01
+    anchor_joint = anchor_joint or 'astribot_torso_joint_1'
+    if anchor_joint not in joint_names:
+        raise ValueError('feedback anchor must be a configured joint')
+    part_by_joint = (part_by_joint if part_by_joint is not None else
+                     {name: name.rsplit('_joint_', 1)[0] for name in joint_names})
+    if set(part_by_joint) != set(joint_names):
+        raise ValueError('feedback part mapping must cover all joints')
     streams = {name: [] for name in joint_names}
     for row in rows:
         name = row['joint']
         if (row['frame_id'] != 'simulation' or name not in streams
-                or row['part'] != name.rsplit('_joint_', 1)[0]):
+                or row['part'] != part_by_joint[name]):
             raise ValueError('unexpected joint/part or non-simulation feedback')
         stamp = int(row['header_stamp_ns'])
         value = float(row['position'])
@@ -58,7 +66,7 @@ def synchronize_feedback(rows, api_rows, metadata, joint_names, max_gap_s):
     if any(len(values) < 2 for values in streams.values()):
         raise ValueError('missing or insufficient feedback for one or more joints')
     streams = {name: np.asarray(values) for name, values in streams.items()}
-    times = streams['astribot_torso_joint_1'][:, 0]
+    times = streams[anchor_joint][:, 0]
     times = times[(times >= requested_start) & (times <= requested_end)]
     if len(times) < 2:
         raise ValueError('insufficient feedback within the command window')

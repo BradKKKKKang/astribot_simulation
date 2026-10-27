@@ -45,10 +45,11 @@ test('empty density is absent and smoothing scale has physical units', () => {
 
 test('demo motion hotspots follow episode ranges 1–24, 23–24 and 24', () => {
   const bundle = demoBundle();
+  bundle.events = bundle.events.filter((e) => e.event_type === 'dwell').map((e) => ({ ...e, event_type: 'press' }));
   const episodes = [...new Set(bundle.events.map((e) => e.episode_id))].sort();
   const stages = [1, 23, 24].map((start) => {
     const events = filterEvents(bundle.events, { episodeIds: episodes.slice(start - 1),
-      candidateMode: 'motion', side: 'left', frame: 'base', zMin: -2, zMax: 3,
+      type: 'press', side: 'left', frame: 'base', zMin: -2, zMax: 3,
       ignoreSeconds: 1, excludeInitial: true });
     const field = densityField(events, 'base', .05);
     const index = field.values.indexOf(1);

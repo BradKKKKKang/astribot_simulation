@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "robot": {
+    "ref": "profiles/robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "profiles/scenes/penholder.json"
+  },
+  "task": {
+    "ref": "profiles/tasks/penholder.json"
+  },
+  "candidates": {
+    "ref": "profiles/candidates/penholder.json"
+  },
+  "success": {
+    "ref": "profiles/success/unconfigured.json"
+  },
+  "jev": {
+    "ref": "profiles/jev/penholder.json"
+  },
+  "source": {
+    "dataset_root": "/home/zihengkang/Datasets/real_eval/"
+  },
+  "runtime": {
+    "alignment": {
+      "max_gap_s": 0.1
+    }
+  },
+  "output": {}
+}

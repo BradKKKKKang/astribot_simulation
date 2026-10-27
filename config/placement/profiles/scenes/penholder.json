@@ -1,0 +1,15 @@
+{
+  "ref": "astribot_lab.json",
+  "overrides": {
+    "name": "penholder",
+    "objects": {
+      "pen": {
+        "label": "笔",
+        "roles": [
+          "handled_object"
+        ]
+      }
+    },
+    "regions": {}
+  }
+}

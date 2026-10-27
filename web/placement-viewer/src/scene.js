@@ -1,10 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { eventPosition, snapshotPoses } from './data.js';
+import { eventPosition, objectCatalog, objectName, snapshotPoses, UNKNOWN_OBJECT_COLOR } from './data.js';
 import { densityField, fieldVertexShader, fieldFragmentShader } from './field.js';
-
-const COLORS = { grasp: 0x21c5b5, release: 0xf4ab62, dwell: 0x9c9cfa, press: 0x9c9cfa };
 
 export class PlacementScene {
   constructor(element, onSelect) {
@@ -92,6 +90,12 @@ export class PlacementScene {
   }
 
   async loadRobot(url, metadata, snapshot) {
+    if (url === this.robotUrl && this.robot.children.length
+        && JSON.stringify(metadata.body_names) === JSON.stringify(this.metadata?.body_names)) {
+      this.metadata = metadata;
+      this.pose(snapshot, 'base');
+      return;
+    }
     const loadId = (this.robotLoadId ?? 0) + 1;
     this.robotLoadId = loadId;
     let next;
@@ -115,6 +119,7 @@ export class PlacementScene {
     }
     this.clear(this.robot);
     this.robot.add(next);
+    this.robotUrl = url;
     this.metadata = metadata;
     this.pose(snapshot, 'base');
   }
@@ -131,19 +136,8 @@ export class PlacementScene {
     this.robot.updateMatrixWorld(true);
   }
 
-  opacity(value) {
-    this.robot.traverse((node) => {
-      if (!node.material) return;
-      (Array.isArray(node.material) ? node.material : [node.material]).forEach((material) => {
-        material.opacity = value;
-        material.transparent = value < 1;
-        material.depthWrite = value >= 1;
-        material.needsUpdate = true;
-      });
-    });
-  }
-
-  renderEvents(events, frame, mode, counted = events, excludedIds = new Set(), bandwidth = .05) {
+  renderEvents(events, frame, mode, counted = events, excludedIds = new Set(), bandwidth = .05,
+    objectColors = new Map(objectCatalog(events).map(({ name, color }) => [name, color]))) {
     this.clear(this.markers);
     this.clear(this.density);
     for (const type of ['grasp', 'release', 'dwell', 'press']) {
@@ -152,10 +146,12 @@ export class PlacementScene {
       const geometry = type === 'grasp' ? new THREE.SphereGeometry(0.009, 12, 8)
         : type === 'release' ? new THREE.OctahedronGeometry(0.013) : new THREE.BoxGeometry(0.018, 0.018, 0.018);
       const mesh = new THREE.InstancedMesh(geometry,
-        new THREE.MeshBasicMaterial({ color: COLORS[type], depthTest: false }), selected.length);
+        new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, toneMapped: false }), selected.length);
       selected.forEach((event, index) => {
         mesh.setMatrixAt(index, new THREE.Matrix4().makeTranslation(...eventPosition(event, frame)));
-        mesh.setColorAt(index, new THREE.Color(excludedIds.has(event.event_id) ? 0x85858b : COLORS[type]));
+        const color = excludedIds.has(event.event_id) ? '#85858b'
+          : objectColors.get(objectName(event)) ?? UNKNOWN_OBJECT_COLOR;
+        mesh.setColorAt(index, new THREE.Color(color));
       });
       mesh.material.color.set(0xffffff);
       mesh.instanceColor.needsUpdate = true;
@@ -199,6 +195,7 @@ export class PlacementScene {
     this.element.dataset.densityKind = isField ? 'field' : 'none';
     this.element.dataset.densitySamples = String(counted.length);
     this.element.dataset.densityMeshes = String(this.density.children.length);
+    this.element.dataset.markerCount = String(events.length);
   }
 
   select(event, frame) {

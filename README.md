@@ -175,40 +175,76 @@ If you want to reset the robot state, press Backspace while the simulation is ru
 
 ### Replay a Parquet dataset and extract events
 
-Run `scripts/replay_extract_event.py` with a raw episode or dataset directory
-while Isaac Lab runs separately. The command replays through the ROS2 SDK,
-records simulation feedback, then automatically exports the event data and S1
-model for the Web viewer. `--output-root` selects the capture directory;
-`--output` selects the Web bundle. `--resume` reuses completed captures,
-`--extract-only` reprocesses captures, and `--export-robot-only` regenerates the
-default S1 model. CPU extraction uses the current Python or `--extract-python`.
+Placement analysis has separate capture, candidate extraction, identification and
+success-evaluation stages. `scripts/replay_extract_event.py` remains the single
+CLI, with `--experiment` (alias `--task-config`) selecting a modular experiment.
+Profiles under `config/placement/profiles/` independently define the robot,
+scene, task, candidates, success criteria and JEV request/decision settings.
+See [the placement architecture](docs/PLACEMENT_ARCHITECTURE.md) for configuration
+composition, cache dependencies, result schemas and extension points.
 
-Place each task in `web/placement-viewer/public/data/<task-directory>/`, containing
-`placement.json` and its matching `robot.glb`. The task selector reads immediate
-subdirectory names directly: `public/data/press_cube_olddemo` appears as
-`press_cube_olddemo`. No index JSON is required. Hidden directories, symbolic
-links and directories missing either file are excluded.
+Isaac Lab runs separately. Replay uses the existing SDK → ROS2 → Isaac Lab →
+ROS2 feedback path. `--capture-only` records feedback without requiring CPU
+extraction assets; `--resume` reuses matching completed captures. Capture
+provenance records declared robot/runtime inputs, not a verified identity of a
+separately launched simulator.
 
-Both `npm run dev` and `npm run preview` scan this directory at runtime through
-the read-only `/api/tasks` endpoint and serve data directly from `public/data`.
-The page checks every five seconds, discovering additions, renames, removals and
-file updates without a build or server restart. A manually selected task stays
-selected while it exists; removal selects an available task or clears the scene.
-Updates reset the episode interval to the full range. Explicit `?dataset=...`
-URLs and manual imports retain their selection.
+For offline processing of existing captures:
 
-Normal replay and `--extract-only` automatically copy completed output bundles
-into `public/data/<output-directory-name>/`. `--task-name` optionally chooses that
-directory name; it is not a separate display label. A bundle already at that path
-needs no copy. The extraction output must still be a new/empty directory.
-`--no-web-publish` disables copying; `--dry-run` validates without extracting or
-publishing points (a requested validation report is still written).
+```bash
+python scripts/replay_extract_event.py /path/to/capture-batch \
+  --extract-only --experiment config/placement/press_cube.json \
+  --output /path/to/analysis/press_cube \
+  --artifact-root /path/to/shared-artifacts --workers 2 --no-identify
+```
 
-Run `npm run build` once after frontend code changes. The build contains frontend
-assets only; keep `public/data` alongside the project and use Vite dev/preview
-for directory discovery. A generic server hosting only `dist` does not provide
-the directory API. Detection settings can be supplied explicitly, for example
-`--detector-config config/placement/placement_press_buttons.json` for press tasks.
+`--resume-extraction` resumes matching episode checkpoints. `--incremental`
+allows completed episodes in a partial batch; when used during replay it overlaps
+CPU extraction with capture. Worker counts are bounded; keep them low when
+sharing a machine with simulation. Use a new analysis directory after changing
+candidate rules; compatible synchronization/FK caches remain reusable.
+
+```bash
+python scripts/replay_extract_event.py /path/to/analysis/press_cube \
+  --identify-only --experiment config/placement/press_cube.json \
+  --identify-workers 2
+python scripts/replay_extract_event.py /path/to/analysis/press_cube \
+  --evaluate-only --experiment config/placement/press_cube.json
+```
+
+Identification uses original dataset videos and `DECISION_API_KEY` from the
+environment. Frame/request caches and decision identities are separate: changing
+timeout does not invalidate model results, and changing confidence thresholds
+recomputes decisions from saved raw probabilities. Omit `--data-root` to reuse
+verified archived frames without reopening the dataset; an explicit `--data-root`
+always revalidates the requested source. `penholder.json` assigns the known object without a
+model call. `cap_pen.json` remains `needs_annotation`. The shipped success
+profile is deliberately unconfigured, so task success remains `unknown` until
+explicit predicates are supplied; motion candidates are not contact evidence.
+`--observations /path/to/evidence.json` supplies explicit per-episode observations
+to evaluation; its format is documented in the architecture guide.
+
+Schema 5 `placement.json` is a manifest referencing shared immutable episode
+shards, event snapshots and robot geometry. New extraction does not duplicate a
+complete JSON/Parquet bundle or a robot GLB for every task. Web publication
+registers a manifest in `.placement-catalog.json`; it does not copy result files
+into `public/data`. `--no-web-publish` disables registration. Existing schema 1–4
+bundles and legacy `public/data/<task>/placement.json` + `robot.glb` pairs remain
+readable and are not rewritten or removed automatically.
+
+Run `npm run build` after frontend code changes, then use Vite dev/preview. Its
+read-only routes serve the registered artifact closure. The page checks the task
+catalog every five seconds, reuses unchanged model resources and fetches full
+robot snapshots only when selecting events. A generic server serving only
+`dist` does not provide these runtime routes. Keep the referenced artifact store
+available; recognition screenshots and raw responses remain local audit data.
+
+Replay opens camera viewers by default. When simulator cameras are disabled,
+add `--no-viewer`; these separate processes do not share CLI options. Neither
+candidate extraction nor source-video identification requires simulator images.
+CPU stages use the current Python or `--extract-python`. `--dry-run` validates
+without replay or artifact writes (an explicit `--report` still writes its report).
+Use `python scripts/replay_extract_event.py --help` for all options.
 
 ### Switch to Other Simulators
 

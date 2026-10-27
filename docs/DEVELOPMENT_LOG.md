@@ -1,6 +1,21 @@
 # 开发日志
 
-本日志供agnt记录工作内容。最新改动放在文档最前面。
+本日志供agent记录工作内容。最新改动放在文档最前面。
+
+## 2026-10-26: Fixed robot opacity in the placement viewer
+
+- Fixed robot materials at 65% opacity and removed the opacity slider, percentage output, input handler and unused material-update method.
+- Validation: all 23 Web unit tests and the production build passed; source and built markup no longer contain the removed control. Runtime result data is unchanged.
+
+## 2026-10-26: Modular placement stages and shared artifacts
+
+- Replaced copied task definitions with independently referenced robot, scene, task, candidate, success and JEV profiles. Strict composition rejects duplicate/unknown placement fields, cycles and invalid roles; explicit choice order survives canonical JSON. Robot command/feedback/gripper mappings are shared by replay and extraction. Scene ground/light/background/camera controls reach the Isaac backend through the same experiment; named coordinate frames are consumed by region evaluation. The simulator `--check-config` path does not import ROS/Isaac.
+- Reduced full-trajectory FK to base/wrist endpoints, retaining complete snapshots only at event/reference frames and calculating diagnostic derivatives at candidate windows. Added synchronization/FK caches, bounded process workers, immutable episode shards, resumable/incremental extraction and coalesced background CPU work during replay. Candidate/recognition/evaluation writes use one per-analysis lock; no-op resume retains downstream results, while appended captures invalidate them.
+- Added schema 5 manifests and shared content-addressed assets. Geometry caching fingerprints composed USD geometry layers and export inputs; unused MDL/texture dependencies do not block neutral-material export, while missing geometry composition fails. Web publication registers immutable revisions without copying bundles/models into public/data; snapshots load on demand and unchanged geometry is reused across revisions. Historical results are preserved.
+- Separated frame/request caches from probability decisions. Archived immutable evidence supports new questions or decisions without source video access unless an explicit source override requests revalidation. Invalid responses retain their source/frame/raw audit references; changed recognition invalidates earlier evaluation. Success predicates return passed/failed/unknown and consume explicit per-episode observations; shipped tasks remain unknown until criteria are configured.
+- Verification: 282 placement/replay/timing CPU tests passed using Python 3.10.12 with the placement NumPy/Arrow/USD/OpenCV environment plus system pytest/PyYAML; 33 isolated gripper/torso CPU-tensor tests passed in the existing Isaac Python 3.10.22 environment. Node 23/23 and browser 8/8 tests passed; frontend production build passed with the existing Three.js chunk-size warning. Additional real Python publication → Vite → browser checks confirmed lazy snapshots and a single GLB/page load across event revisions.
+- Existing capture episode_000080 (1,617 samples, three candidates) matched all original event fields and snapshots: reference extraction 1.520 s, optimized cold 0.509 s, warm 0.145 s; timings exclude model preparation, simulation and remote inference. Real S1 geometry export produced the existing 42,473,540-byte/33-body model (3.50 s initial export, 0.33 s cached lookup). A real capture completed the CLI extraction/evaluation/publication path into temporary outputs with no duplicated public bundle; success remained unknown as configured.
+- No SDK/ROS control, simulator/GPU launch or live JEV request was performed. Scene runtime assembly was exercised with fake configuration classes; live simulation timing and remote service throughput are not claimed. Source capture data, model/message submodules and existing public results were not modified. Work was isolated from the preexisting dirty tree before guarded delivery.
 
 ## 2026-10-23：统一数据集回放、反馈同步与按压事件提取
 
@@ -28,12 +43,12 @@
 - **检测与网页验证**：带 CPU USD 依赖的检测／同步／模型导出测试 **53 passed**，前端单元测试 **11 passed**，新增按压浏览器用例 **1 passed**；4173 页面加载参考包显示三个按压点且无浏览器异常。以上为原记录证据，本次仅整理文档并检查结构、路径与空白，未重跑测试或仿真。
 - **证据边界**：最初同步失败未留下完整录制，其异步收尾原因来自运行路径分析，后续实录补充了边界滞后证据。按压候选仅描述运动形态，未测接触力或按钮触发；整批数量不代表人工标注准确率，浅按压可能低于阈值，未证明硬实时 100 Hz 或真机等价性。
 
-操作命令见 [DATASET_REPLAY.md](DATASET_REPLAY.md)，故障分析见 [REPLAY_FEEDBACK_SYNC_ANALYSIS_2026-10-23.md](REPLAY_FEEDBACK_SYNC_ANALYSIS_2026-10-23.md)。
+操作入口见 [README](../README.md)，故障分析见 [REPLAY_FEEDBACK_SYNC_ANALYSIS_2026-10-23.md](REPLAY_FEEDBACK_SYNC_ANALYSIS_2026-10-23.md)。
 
 ## 2026-10-22：原始 Parquet 整目录回放与 Web 数据衔接
 
 - **批量回放**：`replay_parquet.py` 直接读取原始 25 DOF 数据目录，经 SDK → ROS → Isaac Lab 逐 episode 回放，支持无查看器运行、反馈保存、断点续跑和校验报告。默认沿用 SDK 103 逐帧运动，保留原始时间间隔；反馈统计排除预定位，恢复时核对输入、设置和捕获文件。
-- **Web 数据**：`extract_placement_events.py` 移除对逐关节对齐入口的依赖，按完整批次提取候选及配套模型；`export_placement_robot.py` 继续负责默认模型和参考姿态。运行说明见 [DATASET_REPLAY.md](DATASET_REPLAY.md)。
+- **Web 数据**：`extract_placement_events.py` 移除对逐关节对齐入口的依赖，按完整批次提取候选及配套模型；`export_placement_robot.py` 继续负责默认模型和参考姿态。运行入口见 [README](../README.md)。
 - **验证与限制**：press_buttons 全目录 dry-run 覆盖 **319 episodes、220,191 帧、约 2.04 小时**；缺少关节元数据，明确采用现有 Astribot 顺序。CPU 测试 **70 passed**，网页 `npm test`、语法及空白检查通过。实际 SDK／ROS／Isaac 重放尚未执行，由用户运行。
 
 
@@ -118,6 +133,10 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -o addopts='' \
 - **文档收敛**：使用说明、检测语义、配置及输出契约保留在 [PLACEMENT_ANALYSIS.md](PLACEMENT_ANALYSIS.md)，同步最终筛选项名称；删除 `web/placement-viewer/README.md` 中与该说明重复的启动／测试文档，并移除功能说明中重复的 CPU 测试章节。测试代码继续保留，复现命令统一记录如下。本轮只修改文档，校对引用与格式，不重跑测试或轨迹。
 
 CPU 测试复现（USD 用例需能导入 `pxr`；现有 Isaac USD 库的 CPU 加载方式见功能说明）：
+
+export PLACEMENT_USD_LIBS="$CONDA_PREFIX/lib/python3.10/site-packages/isaacsim/extscache/omni.usd.libs-1.0.1+d02c707b.lx64.r.cp310"
+export PYTHONPATH="$PLACEMENT_USD_LIBS${PYTHONPATH:+:$PYTHONPATH}"
+export LD_LIBRARY_PATH="$PLACEMENT_USD_LIBS/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -o addopts='' \
@@ -260,7 +279,7 @@ python tests/unit/test_camera_viewer.py \
 
 ## 2026-10-23：回放文档分层与网页更新流程
 
-- `DATASET_REPLAY.md` 整理为操作手册，区分 validate/dry-run、候选提取、静态构建和浏览器刷新；补充输出目录与 dataset URL 的对应关系、已有录制重提取、新数据回放、输出目录不覆盖和 preview 服务使用方式。
+- 回放操作说明整理为操作手册，区分 validate/dry-run、候选提取、静态构建和浏览器刷新；补充输出目录与 dataset URL 的对应关系、已有录制重提取、新数据回放、输出目录不覆盖和 preview 服务使用方式。
 - `REPLAY_FEEDBACK_SYNC_ANALYSIS_2026-10-23.md` 集中保存同步故障的历史证据、当前同步契约、episode 3 按压特征和整批验证结果。将最初未保留反馈的故障归因明确标记为假设，区分边界裁剪与缺失运动重建，历史测试结果不冒充本次重跑。
 - 文档显式使用当前存在的 `config/placement/placement_press_buttons.json`，说明脚本中仍指向已缺失文件的检测／参考姿态默认路径；本次未修改配置移动或恢复已删除文件。
 - 验证：在线 bundle 为 schema 3、press、complete，319 episodes／949 press candidates；现路径下 episode 3 extract-only dry-run 通过（1,517 samples，0 gaps），CPU extraction preflight 通过。两份文档的本地链接、代码围栏、Bash/Zsh 命令语法、空白检查和 git diff --check 通过。本次未重新导出、构建网页、调用 SDK/ROS 或启动仿真；在线结果来自此前已完成的构建。两份文档原为已有未跟踪文件，未整体纳入提交。
@@ -289,3 +308,19 @@ python tests/unit/test_camera_viewer.py \
 - Filled the existing empty `scripts/jev_test.py` with a standard-library client for `POST https://decision.vllm-sr.ai/v1/systemone`, using `vllm-sr/d3-turbo` by default. The original PNG/JPEG/WebP image is sent as a base64 data URL with the requested Chinese question and red/blue/yellow block choices. No expected answer is included in the request.
 - Usage: set `DECISION_API_KEY`, then run `python3 scripts/jev_test.py --image /path/to/photo.png`. The script prints the original JSON response, selected label, available option probabilities and request duration. `--dry-run` validates local input and previews the request with image data omitted, without requiring a key or making a network request. `--timeout` defaults to 60 seconds.
 - Validation: Python syntax, actual supplied-image dry-run, base64 round-trip, mocked request/response handling, HTTP/network errors and missing credentials passed. No live inference, ROS, simulator or hardware calls were made; model accuracy remains for the user to evaluate.
+
+## 2026-10-26：任务配置、JEV 识别与 Web 物体展示
+
+- **任务配置**：在 `config/placement/` 扩展 `press_cube.json`，新增待标注的 `cap_pen.json`、`penholder.json`；保留原检测参数与 TCP。`--task-config` 串联提取、识别和发布，与纯位置提取的 `--detector-config` 互斥，保存配置快照并修正失效默认路径。
+- **源帧关联**：按实际命令时间及源帧索引映射原始 Parquet 和视频，支持变速、起始帧偏移与重复命令，保留 SHA256 和越界校验。旧按压 capture 304–318 已验证对应新数据 305–319：恢复原文件后哈希完全一致，仅编号字段变化；映射证据保存在 capture 旁，原录制不变。
+- **JEV 识别**：共享客户端使用 `DECISION_API_KEY`，每个事件选择配置候选中概率最高的一项写入 `object`；并列按配置顺序，概率缺失或非法则失败。`--identify-only` 支持逐事件检查点和中断续跑，缓存原响应会按最新规则重算，无需重复调用模型；单个事件失败不阻断整批。
+- **进度与输出**：tqdm 显示有效事件进度、预计剩余时间及成功／复用／失败计数，阶段日志覆盖校验、截帧、请求耗时和保存，长等待定期提示；`--no-progress` 只关闭进度条。schema 4 的 JSON／Parquet 同步保存物体、概率、选择规则及来源，截图和原响应留在处理目录，凭据不落盘。
+- **Web 展示**：按 `object` 名称分配点位颜色，提供逐物体显示开关，同步过滤列表、统计和热力场；无结果显示灰色“未识别”。发布仅复制 JSON／GLB，兼容 schema 1–3，沿用任务发现和自动刷新；常驻 `http://10.11.12.73:4173/` 已构建并重启 preview。
+- **验证**：相关 Python 回归 164 passed、前端 Node 19 passed、浏览器 7 passed；949 个有效事件全部通过来源检查，修复涉及的 45 个事件实际截帧通过。验收及修复报告分别位于 `results/identification_acceptance/`、`results/source_relocation_repair/`；修改验证使用 mock／dry-run，未额外调用真实模型或重新回放。
+
+## 2026-10-26：由任务 type 唯一决定候选依据
+
+- **配置与提取**：配置顶层 `type` 统一决定候选类型：`gripper` 只提取抓取／释放，`press` 只提取下压／低点／抬起；移除 `motion_detector` 和 `identification.event_types` 两处重复选择。Recorder 不再同时运行两套检测器或关联两种候选。输出保存类型与对应事件计数，仍保留初始阶段候选供排除检查。`press_cube.json` 清除停留和夹爪转换的无关参数，按压阈值不变。
+- **penholder 标注**：配置为 `gripper`，采用归一化闭合量 5% 的合拢起点，达到 75% 闭合并持续 0.08 s 后回溯确认；中止合拢或超过 0.1 s 的缺帧重置起点。释放取离开闭合带的时刻，进入张开带持续 0.08 s 后确认。`identification.enabled: false` 配合固定 `object: 笔`，不读取源视频、不要求 API key、不调用 JEV。episode0 源 Parquet 只读核对得到左手 grasp 3.00 s／确认 4.13 s、release 9.30 s／确认 9.53 s，右手无事件；这不是仿真反馈提取结果。`cap_pen` 保留 `type: null` 与待标注状态，等待用户定义。
+- **Web**：移除候选依据下拉框与组合去重，显示任务固定操作类型；列表、物体筛选、统计、热力图和导出都限定该类型。旧包按原默认类型读取并隐藏其它检测器候选，事件详情也只显示该任务的依据。任务切换重建对应事件图例，任务清空后清空类型与图例。
+- **验证**：使用 `/usr/bin/python3`，禁用不兼容的自动加载 pytest 插件，相关 Python 用例合计 170 passed；其中最初因缺少 pxr 跳过的 2 项 CPU 提取用例，使用已有 `/tmp/astribot-identification-deps` 内 usd-core 25.5.1 后通过。Node 19 passed；浏览器全套 7 passed，最后补充跨类型切换、清空任务与详情检查后，相关 2 项再次通过。前端构建、语法／JSON／空白检查通过。在线 `http://10.11.12.73:4173/` 实际加载 press_cube，类型为按压、949 个有效候选、模式选择器数量为 0、页面错误为空。未运行 SDK／ROS／仿真回放或调用真实模型。

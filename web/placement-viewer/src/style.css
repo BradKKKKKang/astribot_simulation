@@ -31,3 +31,7 @@
 .dot.press{background:#9c9cfa;border-radius:1px}
 
 .task-select{grid-column:1/-1;margin:20px 0 16px}.task-select select{background:#f0f3f6;width:100%;min-width:0;text-overflow:ellipsis}
+
+#detail-object{font-weight:600;color:#385363;margin-top:8px}#detail-identification{overflow-wrap:anywhere}.details-title{min-width:0}
+
+#object-legend{display:flex;flex-direction:column;gap:10px;max-height:220px;overflow:auto;padding:3px}#object-legend .checkbox{margin:0;overflow-wrap:anywhere;align-items:flex-start}.object-dot{flex:none;width:9px;height:9px;margin-top:2px}#detail-object{display:flex;gap:7px;align-items:center}#detail-object .object-dot{margin:0}#candidate-legend .dot{background:#8995a3}.dot.release{border-radius:0;transform:rotate(45deg)}.dot.press,.dot.dwell{border-radius:1px}

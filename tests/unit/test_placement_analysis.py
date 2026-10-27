@@ -13,6 +13,7 @@ from src.placement_analysis.events import (
     motion_metrics, relative_pose,
 )
 from src.placement_analysis.recorder import PlacementRecorder, save_bundle
+from src.placement_analysis.task_config import load_task_config
 
 
 def test_independent_hands_and_no_initial_event():
@@ -38,6 +39,22 @@ def test_debounce_deadband_partial_close_and_gap():
     # Invert dataset polarity explicitly rather than guessing from a trajectory.
     inverted = DetectorConfig(confirm_duration_s=.03, larger_is_open=False)
     assert detect_transitions(np.arange(20)*.01, [0]*10 + [100]*10, inverted)[0]['event_type'] == 'grasp'
+
+
+def test_grasp_onset_is_retrospective_and_resets_on_aborted_closure_or_gap():
+    config = DetectorConfig(grasp_onset_threshold=5, confirm_duration_s=.02)
+    values = [0]*10 + [10]*5 + [0]*5 + [10]*10 + [80]*10 + [60]*5 + [0]*10
+    times = np.arange(len(values))*.01
+    events = detect_transitions(times, values, config)
+    assert [(e['event_type'], e['frame_index']) for e in events] == [('grasp', 20), ('release', 40)]
+    assert events[0]['transition_start_index'] == 20
+    assert events[0]['transition_end_index'] == 30 and events[0]['confirmed_index'] == 32
+    assert detect_transitions(times[:30], values[:30], config) == []
+    # Starting above the onset threshold is not a new threshold crossing.
+    already_partial = [10]*20 + [80]*10
+    assert detect_transitions(np.arange(30)*.01, already_partial, config)[0]['frame_index'] == 20
+    times[30:] += 1
+    assert all(e['event_type'] != 'grasp' for e in detect_transitions(times, values, config))
 
 
 @pytest.mark.parametrize('times,values', [([0, 0], [0, 1]), ([0, .01], [0, float('nan')]),
@@ -86,7 +103,8 @@ class Tensor:
 
 
 def test_recorder_measured_tcp_frames_event_snapshot_and_typed_empty_output(tmp_path):
-    settings = json.loads((Path(__file__).parents[2] / 'config/placement_analysis.json').read_text())
+    settings = load_task_config(Path(__file__).parents[2] / 'config/placement/press_cube.json')
+    settings['type'] = 'gripper'
     settings['confirm_duration_s'] = .02
     names = [settings['base_body'], settings['tcp']['left']['body'], settings['tcp']['right']['body']]
     joint_names = [f'astribot_gripper_{s}_joint_L1' for s in ('left', 'right')]
@@ -106,25 +124,20 @@ def test_recorder_measured_tcp_frames_event_snapshot_and_typed_empty_output(tmp_
     np.testing.assert_allclose(transitions[0]['tcp_pose_world'][:3], [1.5, 2.005, 1])
     np.testing.assert_allclose(transitions[0]['tcp_pose_base'][:3], [.5, .005, 1])
     assert transitions[0]['low_motion']
-    assert 'motion' in transitions[0]['detection_sources']
+    assert transitions[0]['detection_sources'] == ['gripper']
+    assert all(not event['related_event_ids'] for event in events)
     assert all(e['initial_phase'] and e['exclusion_reasons'] for e in events)
     assert len(events[0]['snapshot']['body_poses_world']) == 3
     metadata = {'body_names': names}
     save_bundle(tmp_path / 'full', events, metadata, recorder.snapshot(0))
     table = pq.read_table(tmp_path / 'full/events.parquet')
-    assert table.num_rows == len(events) == 4
+    assert table.num_rows == len(events) == 2
     assert table['body_poses_world'][0].as_py() == events[0]['snapshot']['body_poses_world']
     save_bundle(tmp_path / 'empty', [], metadata, recorder.snapshot(0))
     empty = pq.read_table(tmp_path / 'empty/events.parquet')
     assert empty.num_rows == 0 and empty.schema == table.schema
     assert not (tmp_path / 'full/trajectory.parquet').exists()
-    assert json.loads((tmp_path / 'full/placement.json').read_text())['schema_version'] == 2
-    # An instant low-motion frame is insufficient evidence for the combined
-    # path when no sustained stop meets the configured minimum duration.
-    recorder.config = replace(recorder.config, dwell_duration_s=1)
-    instant = recorder.finish()
-    assert len(instant) == 2
-    assert all(e['low_motion'] and e['detection_sources'] == ['gripper'] for e in instant)
+    assert json.loads((tmp_path / 'full/placement.json').read_text())['schema_version'] == 4
 
 
 def test_stop_windows_require_both_metrics_duration_and_motion_rearm():
@@ -164,9 +177,10 @@ def test_initial_departure_is_per_hand_sustained_and_return_does_not_exclude():
     assert stationary.all() and no_departure is None
 
 
-def test_recorder_motion_only_press_candidates_and_same_hand_association():
-    settings = json.loads((Path(__file__).parents[2] / 'config/placement_analysis.json').read_text())
-    settings.update(dwell_duration_s=.1, confirm_duration_s=.02, initial_departure_duration_s=.05)
+@pytest.mark.parametrize('operation', ['gripper', 'press'])
+def test_recorder_runs_only_the_task_detector_despite_other_hand_activity(operation):
+    settings = load_task_config(Path(__file__).parents[2] / 'config/placement/press_cube.json')
+    settings.update(type=operation, confirm_duration_s=.02)
     names = [settings['base_body'], settings['tcp']['left']['body'], settings['tcp']['right']['body']]
     joint_names = [f'astribot_gripper_{s}_joint_L1' for s in ('left', 'right')]
     data = SimpleNamespace(joint_names=joint_names)
@@ -174,21 +188,16 @@ def test_recorder_motion_only_press_candidates_and_same_hand_association():
                           joint_name_to_index=dict(zip(joint_names, range(2))),
                           _gripper_joint_to_percent=lambda name, value: value)
     recorder = PlacementRecorder(env, settings, 'press')
-    for index in range(200):
-        x = 0 if index < 30 else min((index-30)*.005, .2)
-        poses = [[0, 0, 0, 1, 0, 0, 0], [x, .2, 1, 1, 0, 0, 0], [0, -.2, 1, 1, 0, 0, 0]]
+    times, positions = press_trajectory()
+    for timestamp, point in zip(times, positions):
+        poses = [[0, 0, 0, 1, 0, 0, 0], [*point, 1, 0, 0, 0], [0, -.2, 1, 1, 0, 0, 0]]
         data.body_link_pose_w = Tensor([poses])
-        # Only the right gripper closes while the left arm makes a press stop.
-        data.joint_pos = Tensor([[0, 100 if index >= 100 else 0]])
-        recorder.sample(5 + index * .01)
+        data.joint_pos = Tensor([[100, 100 if timestamp >= 2 else 0]])
+        recorder.sample(timestamp)
     events = recorder.finish()
-    press = next(e for e in events if e['side'] == 'left' and e['event_type'] == 'dwell' and not e['initial_phase'])
-    assert press['detection_sources'] == ['motion'] and not press['related_event_ids']
-    assert press['departure_time_s'] is not None
-    assert press['episode_elapsed_s'] > 1
-    right = next(e for e in events if e['event_type'] == 'grasp')
-    assert right['initial_phase'] and 'initial_pose' in right['exclusion_reasons']
-    assert right['event_id'] not in press['related_event_ids']
+    assert [(e['side'], e['event_type']) for e in events] == (
+        [('left', 'press')] * 3 if operation == 'press' else [('right', 'grasp')])
+    assert all(not e['related_event_ids'] for e in events)
 
 
 def press_trajectory(rate=80):
@@ -202,7 +211,7 @@ def press_trajectory(rate=80):
 def test_press_cycles_require_no_low_acceleration_or_fixed_count(rate):
     times, positions = press_trajectory(rate)
     positions[:, 2] += .0005 * np.sin(times * 53)  # feedback jitter
-    config = DetectorConfig(motion_detector='press')
+    config = DetectorConfig(type='press')
     events = detect_presses(times, positions, np.full(len(times), 100), config)
     assert len(events) == 3
     stamps = [times[event['frame_index']] for event in events]
@@ -219,7 +228,7 @@ def test_press_cycles_require_no_low_acceleration_or_fixed_count(rate):
 def test_press_rejects_idle_horizontal_transit_open_gripper_and_missing_lift():
     times, positions = press_trajectory()
     closed = np.full(len(times), 100)
-    config = DetectorConfig(motion_detector='press')
+    config = DetectorConfig(type='press')
     assert detect_presses(times, np.zeros_like(positions), closed, config) == []
     transit = positions.copy()
     transit[:, 0] = times * .3
@@ -237,7 +246,7 @@ def test_press_rejects_idle_horizontal_transit_open_gripper_and_missing_lift():
 
 
 def test_press_recorder_and_parquet_preserve_measured_pose_and_evidence(tmp_path):
-    settings = json.loads((Path(__file__).parents[2] / 'config/placement_press_buttons.json').read_text())
+    settings = load_task_config(Path(__file__).parents[2] / 'config/placement/press_cube.json')
     names = [settings['base_body'], settings['tcp']['left']['body'], settings['tcp']['right']['body']]
     joint_names = [f'astribot_gripper_{s}_joint_L1' for s in ('left', 'right')]
     recorder = PlacementRecorder(None, settings, 'press', body_names=names, joint_names=joint_names)
@@ -252,15 +261,15 @@ def test_press_recorder_and_parquet_preserve_measured_pose_and_evidence(tmp_path
         assert event['detection_sources'] == ['motion']
         assert event['snapshot'] == recorder.snapshot(event['frame_index'])
         assert event['tcp_pose_world'][2] == positions[event['frame_index'], 2]
-    save_bundle(tmp_path, events, {'detector': {'motion_detector': 'press'}}, recorder.snapshot(0))
+    save_bundle(tmp_path, events, {'detector': {'type': 'press'}}, recorder.snapshot(0))
     bundle = json.loads((tmp_path / 'placement.json').read_text())
-    assert bundle['schema_version'] == 3
+    assert bundle['schema_version'] == 4
     rows = pq.read_table(tmp_path / 'events.parquet').to_pylist()
     assert rows[0]['press_depth_m'] == events[0]['press_depth_m']
     assert rows[0]['press_lateral_m'] == events[0]['press_lateral_m']
 
 
-@pytest.mark.parametrize('settings', [dict(motion_detector='unknown'), dict(press_smoothing_s=0),
+@pytest.mark.parametrize('settings', [dict(type='unknown'), dict(press_smoothing_s=0),
                                     dict(press_min_depth_m=float('nan')), dict(press_require_closed='yes'),
                                     dict(press_min_phase_s=2)])
 def test_press_settings_reject_invalid_values(settings):

@@ -1,0 +1,224 @@
+{
+  "base_body": "astribot_torso_base",
+  "tcp": {
+    "left": {
+      "body": "astribot_arm_left_link_7",
+      "position": [
+        0.0,
+        -0.195,
+        0.0
+      ],
+      "quaternion_wxyz": [
+        0.7071067811865476,
+        0.7071067811865476,
+        0.0,
+        0.0
+      ]
+    },
+    "right": {
+      "body": "astribot_arm_right_link_7",
+      "position": [
+        0.0,
+        -0.195,
+        0.0
+      ],
+      "quaternion_wxyz": [
+        0.7071067811865476,
+        0.7071067811865476,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "tcp_calibration": "Nominal 15 cm offset along gripper-base +Z; calibrate against the physical grasp center before interpreting object locations.",
+  "name": "astribot_s1",
+  "model_path": "astribot_descriptions/usd/astribot_s1_usd/astribot_s1_textured.usda",
+  "root_path": "/World/astribot_whole_body",
+  "parts": [
+    {
+      "name": "astribot_torso",
+      "command_indices": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "feedback_joints": [
+        "astribot_torso_joint_1",
+        "astribot_torso_joint_2",
+        "astribot_torso_joint_3",
+        "astribot_torso_joint_4"
+      ],
+      "model_joints": [
+        "astribot_torso_joint_1",
+        "astribot_torso_joint_2",
+        "astribot_torso_joint_3",
+        "astribot_torso_joint_4"
+      ]
+    },
+    {
+      "name": "astribot_arm_left",
+      "command_indices": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "feedback_joints": [
+        "astribot_arm_left_joint_1",
+        "astribot_arm_left_joint_2",
+        "astribot_arm_left_joint_3",
+        "astribot_arm_left_joint_4",
+        "astribot_arm_left_joint_5",
+        "astribot_arm_left_joint_6",
+        "astribot_arm_left_joint_7"
+      ],
+      "model_joints": [
+        "astribot_arm_left_joint_1",
+        "astribot_arm_left_joint_2",
+        "astribot_arm_left_joint_3",
+        "astribot_arm_left_joint_4",
+        "astribot_arm_left_joint_5",
+        "astribot_arm_left_joint_6",
+        "astribot_arm_left_joint_7"
+      ]
+    },
+    {
+      "name": "astribot_gripper_left",
+      "command_indices": [
+        14
+      ],
+      "feedback_joints": [
+        "astribot_gripper_left_joint_1"
+      ],
+      "model_joints": [
+        "astribot_gripper_left_joint_1"
+      ]
+    },
+    {
+      "name": "astribot_arm_right",
+      "command_indices": [
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
+      ],
+      "feedback_joints": [
+        "astribot_arm_right_joint_1",
+        "astribot_arm_right_joint_2",
+        "astribot_arm_right_joint_3",
+        "astribot_arm_right_joint_4",
+        "astribot_arm_right_joint_5",
+        "astribot_arm_right_joint_6",
+        "astribot_arm_right_joint_7"
+      ],
+      "model_joints": [
+        "astribot_arm_right_joint_1",
+        "astribot_arm_right_joint_2",
+        "astribot_arm_right_joint_3",
+        "astribot_arm_right_joint_4",
+        "astribot_arm_right_joint_5",
+        "astribot_arm_right_joint_6",
+        "astribot_arm_right_joint_7"
+      ]
+    },
+    {
+      "name": "astribot_gripper_right",
+      "command_indices": [
+        22
+      ],
+      "feedback_joints": [
+        "astribot_gripper_right_joint_1"
+      ],
+      "model_joints": [
+        "astribot_gripper_right_joint_1"
+      ]
+    },
+    {
+      "name": "astribot_head",
+      "command_indices": [
+        23,
+        24
+      ],
+      "feedback_joints": [
+        "astribot_head_joint_1",
+        "astribot_head_joint_2"
+      ],
+      "model_joints": [
+        "astribot_head_joint_1",
+        "astribot_head_joint_2"
+      ]
+    }
+  ],
+  "dataset_joint_names": [
+    "chassis_action_0",
+    "chassis_action_1",
+    "chassis_action_2",
+    "torso_action_0",
+    "torso_action_1",
+    "torso_action_2",
+    "torso_action_3",
+    "left_arm_action_0",
+    "left_arm_action_1",
+    "left_arm_action_2",
+    "left_arm_action_3",
+    "left_arm_action_4",
+    "left_arm_action_5",
+    "left_arm_action_6",
+    "left_gripper_action_0",
+    "right_arm_action_0",
+    "right_arm_action_1",
+    "right_arm_action_2",
+    "right_arm_action_3",
+    "right_arm_action_4",
+    "right_arm_action_5",
+    "right_arm_action_6",
+    "right_gripper_action_0",
+    "head_action_yaw",
+    "head_action_pitch"
+  ],
+  "fixed_chassis": {
+    "part": "astribot_chassis",
+    "command_indices": [
+      0,
+      1,
+      2
+    ]
+  },
+  "grippers": {
+    "left": {
+      "part": "astribot_gripper_left",
+      "feedback_joint": "astribot_gripper_left_joint_1",
+      "radians_per_percent": 0.009300000000000001,
+      "model_joints": {
+        "astribot_gripper_left_joint_L1": -1,
+        "astribot_gripper_left_joint_L2": -1,
+        "astribot_gripper_left_joint_R11": -1,
+        "astribot_gripper_left_joint_R1": 1,
+        "astribot_gripper_left_joint_R2": 1,
+        "astribot_gripper_left_joint_L11": 1
+      }
+    },
+    "right": {
+      "part": "astribot_gripper_right",
+      "feedback_joint": "astribot_gripper_right_joint_1",
+      "radians_per_percent": 0.009300000000000001,
+      "model_joints": {
+        "astribot_gripper_right_joint_L1": -1,
+        "astribot_gripper_right_joint_L2": -1,
+        "astribot_gripper_right_joint_R11": -1,
+        "astribot_gripper_right_joint_R1": 1,
+        "astribot_gripper_right_joint_R2": 1,
+        "astribot_gripper_right_joint_L11": 1
+      }
+    }
+  },
+  "simulation_config": "config/astribot_s1/simulation_isaaclab_param.yaml",
+  "simulation_overrides": {}
+}

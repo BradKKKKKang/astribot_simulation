@@ -37,6 +37,10 @@ from isaaclab.app import AppLauncher
 
 from src.simu_utils.simu_common_tools import astribot_simu_log
 from src.astribot_envs.astribot_base_env import AstribotBaseEnv
+from src.placement_analysis.isaac_scene_config import (
+    CAMERA_BODIES, SUPPORTED_ROBOT_ROOT, camera_prim_path,
+    normalize_scene_simulation, spawn_scene_environment,
+)
 
 if TYPE_CHECKING:
     from isaaclab.assets import ArticulationCfg
@@ -181,6 +185,13 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
     def __init__(self, param):
         astribot_simu_log("Initializing Isaac Lab environment...")
+        self.scene_simulation = normalize_scene_simulation(param.get('scene_simulation'))
+        self.robot_root_path = param.get('robot_root_path', SUPPORTED_ROBOT_ROOT)
+        if self.robot_root_path != SUPPORTED_ROBOT_ROOT:
+            raise ValueError('Isaac scene adapter requires /World/astribot_whole_body robot root')
+        self.camera_bodies = {**CAMERA_BODIES, **param.get('camera_bodies', {})}
+        for camera_name in param.get('camera_names', []):
+            camera_prim_path(camera_name, self.camera_bodies.get(camera_name, ''), self.robot_root_path)
 
         super().__init__(param)
 
@@ -252,14 +263,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         astribot_simu_log(f"Physics device: {self.device}, Fabric: {self.use_fabric}")
 
-        ground_cfg = sim_utils.GroundPlaneCfg()
-        ground_cfg.func("/World/ground", ground_cfg)
-
-        light_cfg = sim_utils.DomeLightCfg(
-            intensity=3000.0,
-            color=(0.75, 0.75, 0.75)
-        )
-        light_cfg.func("/World/light", light_cfg)
+        spawn_scene_environment(sim_utils, self.scene_simulation)
 
         scene_cfg = InteractiveSceneCfg(
             num_envs=1,
@@ -274,22 +278,15 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                 raise ValueError("Isaac Lab cameras require the USD robot model")
             from isaaclab.sensors import CameraCfg
 
-            camera_links = {
-                "head_rgbd": "astribot_head_link_2",
-                "left_wrist_rgbd": "astribot_arm_left_link_7",
-                "right_wrist_rgbd": "astribot_arm_right_link_7",
-            }
             for camera_name in self.camera_names:
-                if camera_name not in camera_links:
+                if camera_name not in self.camera_bodies:
                     raise ValueError(f"Unknown Isaac Lab camera: {camera_name}")
                 width, height = self.camera_resolutions[camera_name]
                 # Existing USD cameras already use the OpenGL convention.
                 # spawn=None preserves their link-relative poses and optics.
                 setattr(scene_cfg, camera_name, CameraCfg(
-                    prim_path=(
-                        f"/World/envs/env_0/Robot/astribot_whole_body/"
-                        f"{camera_links[camera_name]}/{camera_name}"
-                    ),
+                    prim_path=camera_prim_path(camera_name, self.camera_bodies[camera_name],
+                                               self.robot_root_path),
                     spawn=None,
                     data_types=["rgb"],
                     width=width,

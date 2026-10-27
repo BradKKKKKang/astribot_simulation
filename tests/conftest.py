@@ -38,3 +38,17 @@ def temp_yaml_config(tmp_path, minimal_config, mock_ros_env):
     with open(config_file, 'w') as f:
         yaml.dump(minimal_config, f)
     return str(config_file)
+
+
+@pytest.fixture
+def sdk103_pose_settings():
+    """Explicit SDK ROS2 example 103 targets; independent of removed user configs."""
+    return {
+        'name': 'SDK ROS2 example 103 target',
+        'joint_targets_rad': {
+            'astribot_head': [.1, .2], 'astribot_torso': [.29, -.58, .29, 0],
+            'astribot_arm_left': [.1754, -.4918, -1.4068, 1.5557, -.8239, .2965, .0410],
+            'astribot_arm_right': [-.1754, -.4918, 1.4068, 1.5557, .8239, .2965, -.0410],
+        },
+        'gripper_percent': {'left': 50, 'right': 50},
+    }

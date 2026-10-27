@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "request": {
+    "camera": "images_dict.head.rgb",
+    "frame_offset": 0,
+    "question_id": "interaction_object",
+    "question": "图中机器人的{side}正在按压哪个方块？请只判断该手正在交互的目标物体。",
+    "choices": {
+      "red": "红色方块",
+      "yellow": "黄色方块",
+      "blue": "蓝色方块"
+    },
+    "model": "vllm-sr/d3-turbo"
+  },
+  "decision": {
+    "policy": "max_probability_v1"
+  },
+  "transport": {
+    "timeout_s": 60.0
+  }
+}

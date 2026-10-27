@@ -66,4 +66,74 @@ test('runtime HTTP reads current public folders, rejects stale revisions and nev
   assert.equal((await fetch(`${origin}/data/%2e%2e%2fsecret/robot.glb`)).status, 404);
   assert.equal((await fetch(`${origin}/data/renamed/robot.glb`, { method: 'POST' })).status, 405);
   assert.equal((await fetch(`${origin}/unrelated`)).status, 418);
+  assert.equal((await fetch(`${origin}/.placement-catalog.json`)).status, 404);
+  assert.equal((await fetch(`${origin}/%2eplacement-catalog.json`)).status, 404);
+  assert.equal((await fetch(`${origin}/@fs/tmp/.placement-catalog.json`)).status, 404);
+});
+
+test('Web serves only bundle and model, leaving recognition screenshots and responses local', async (t) => {
+  const root = await fixture(t);
+  const directory = await bundle(root, 'identified');
+  await mkdir(join(directory, 'screenshots'));
+  await writeFile(join(directory, 'screenshots/frame.png'), 'image bytes');
+  await symlink(join(directory, 'placement.json'), join(directory, 'screenshots/link.png'));
+  const middleware = taskDataMiddleware(root);
+  const server = createServer((req, res) => middleware(req, res, () => res.end('fallback')));
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); });
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const [task] = await discoverTasks(root);
+  const response = await fetch(`${origin}/data/identified/screenshots/frame.png?v=${task.revision}`);
+  assert.equal(response.status, 404);
+  assert.equal((await fetch(`${origin}/data/identified/screenshots/link.png`)).status, 404);
+  assert.equal((await fetch(`${origin}/data/identified/identification/raw.json`)).status, 404);
+  assert.equal((await fetch(`${origin}/data/identified/screenshots/frame.png?v=stale`)).status, 404);
+  assert.equal((await fetch(`${origin}/data/identified/screenshots/%2e%2e%2fplacement.json`)).status, 404);
+});
+
+test('catalog serves immutable permitted closures, retains old revisions and rejects arbitrary paths', async (t) => {
+  const { createHash } = await import('node:crypto');
+  const directory = await fixture(t), root = join(directory, 'public/data'), storeRoot = join(directory, 'store');
+  await mkdir(root, { recursive: true });
+  const storeId = 'a'.repeat(24), artifacts = {};
+  const put = async (value, extension = 'json') => {
+    const bytes = extension === 'json' ? JSON.stringify(value) : value;
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    const ref = { path: `objects/${sha256.slice(0, 2)}/${sha256}.${extension}`, sha256, size_bytes: Buffer.byteLength(bytes) };
+    await mkdir(join(storeRoot, 'objects', sha256.slice(0, 2)), { recursive: true });
+    await writeFile(join(storeRoot, ref.path), bytes);
+    artifacts[ref.path.split('/').at(-1)] = ref;
+    return ref;
+  };
+  const model = await put('shared model', 'glb');
+  const manifest = await put({ schema_version: 5, robot_model: model, episodes: [],
+    artifact_store: { path: '/private/local/path' }, metadata: { status: 'complete' } });
+  const catalog = { version: 1, tasks: { sample: { name: 'sample', revision: manifest.sha256, updated_at: 1 } },
+    stores: { [storeId]: { root: storeRoot, artifacts } },
+    revisions: { [manifest.sha256]: { store_id: storeId, manifest } } };
+  const save = () => writeFile(join(directory, '.placement-catalog.json'), JSON.stringify(catalog));
+  await save();
+  const middleware = taskDataMiddleware(root);
+  const server = createServer((req, res) => middleware(req, res, () => res.end('fallback')));
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(async () => { server.closeAllConnections(); await new Promise((done) => server.close(done)); });
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const [task] = await discoverTasks(root);
+  const bundleResponse = await fetch(`${origin}/${task.bundle}`), body = await bundleResponse.json();
+  assert.equal(body.artifact_store, undefined);
+  assert.equal(body.robot_model, `/artifacts/${storeId}/${model.path.split('/').at(-1)}`);
+  const response = await fetch(`${origin}${body.robot_model}`);
+  assert.equal(await response.text(), 'shared model');
+  assert.match(response.headers.get('cache-control'), /immutable/);
+  catalog.tasks.sample.revision = 'b'.repeat(64); await save();
+  assert.equal((await fetch(`${origin}/${task.bundle}`)).status, 200); // in-flight old revision remains coherent
+  assert.equal((await fetch(`${origin}${body.robot_model}`, { method: 'DELETE' })).status, 405);
+  assert.equal((await fetch(`${origin}/artifacts/${storeId}/unregistered.json`)).status, 404);
+  assert.equal((await fetch(`${origin}/artifacts/${storeId}/%2e%2e%2fsecret`)).status, 404);
+  await writeFile(join(storeRoot, model.path), 'tampered');
+  assert.equal((await fetch(`${origin}${body.robot_model}`)).status, 500);
+  await rm(join(storeRoot, model.path));
+  await symlink(join(storeRoot, manifest.path), join(storeRoot, model.path));
+  assert.equal((await fetch(`${origin}${body.robot_model}`)).status, 500);
 });

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "robot": {
+    "ref": "../profiles/robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../profiles/scenes/press_cube.json",
+    "overrides": {
+      "simulation": {
+        "light": {
+          "intensity": 1500.0
+        },
+        "cameras": {
+          "head_rgbd": {
+            "width": 640,
+            "height": 360
+          }
+        }
+      }
+    }
+  },
+  "task": {
+    "ref": "../profiles/tasks/press_cube.json"
+  },
+  "candidates": {
+    "ref": "../profiles/candidates/press_cube.json",
+    "overrides": {
+      "press_min_depth_m": 0.025
+    }
+  },
+  "success": {
+    "ref": "../profiles/success/unconfigured.json"
+  },
+  "jev": {
+    "ref": "../profiles/jev/press_cube.json",
+    "overrides": {
+      "transport": {
+        "timeout_s": 90
+      }
+    }
+  },
+  "source": {
+    "dataset_root": "/data/real_eval"
+  },
+  "runtime": {
+    "alignment": {
+      "max_gap_s": 0.1
+    }
+  },
+  "output": {}
+}

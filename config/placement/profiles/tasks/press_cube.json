@@ -1,0 +1,23 @@
+{
+  "name": "press_cube",
+  "dataset": "press_cube_merged",
+  "status": "ready",
+  "event_rules": {
+    "exclude_initial": true
+  },
+  "events": {
+    "press_target": {
+      "event_type": "press",
+      "role": "press_target",
+      "exclude_initial": true
+    }
+  },
+  "stages": {
+    "press": {
+      "events": [
+        "press_target"
+      ],
+      "ordered": true
+    }
+  }
+}

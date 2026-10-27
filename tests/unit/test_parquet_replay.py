@@ -317,7 +317,7 @@ def test_viewer_quit_stops_replay():
         replay.wait_until(0, viewer, Mock())
 
 
-@pytest.mark.parametrize('outcome', ['ready', 'timeout', 'not_simulation'])
+@pytest.mark.parametrize('outcome', ['ready', 'timeout', 'not_simulation', 'no_cameras'])
 @pytest.mark.parametrize('cameras', [True, False])
 def test_probe_context_and_cleanup(monkeypatch, outcome, cameras):
     import sys
@@ -350,10 +350,11 @@ def test_probe_context_and_cleanup(monkeypatch, outcome, cameras):
     def deliver(**kwargs):
         for topic, callback in subscriptions.items():
             if topic.endswith('/image_raw'):
-                callback(SimpleNamespace(width=640, height=480))
+                if outcome != 'no_cameras':
+                    callback(SimpleNamespace(width=640, height=480))
             else:
-                frame_id = 'simulation' if outcome == 'ready' else 'hardware'
-                if outcome == 'ready' and topic == '/astribot_chassis/joint_space_states':
+                frame_id = 'hardware' if outcome == 'not_simulation' else 'simulation'
+                if frame_id == 'simulation' and topic == '/astribot_chassis/joint_space_states':
                     frame_id = ''
                 callback(SimpleNamespace(header=SimpleNamespace(
                     frame_id=frame_id)))
@@ -367,6 +368,12 @@ def test_probe_context_and_cleanup(monkeypatch, outcome, cameras):
     elif outcome == 'not_simulation':
         with pytest.raises(RuntimeError, match='not from simulation'):
             replay.wait_for_simulation(1, cameras=cameras)
+    elif outcome == 'no_cameras' and cameras:
+        ticks = iter([0, 0, 2])
+        monkeypatch.setattr(replay.time, 'monotonic', lambda: next(ticks))
+        with pytest.raises(RuntimeError, match='--no-viewer') as error:
+            replay.wait_for_simulation(1, cameras=cameras)
+        assert f'missing: {sorted(replay.CAMERAS)}' in str(error.value)
     else:
         replay.wait_for_simulation(1, cameras=cameras)
         assert len(subscriptions) == (10 if cameras else 7)
@@ -503,7 +510,7 @@ def test_headless_batch_reuses_sdk_and_saves_each_episode(tmp_path, monkeypatch)
     monkeypatch.setattr(replay_capture, 'ReplayCapture', factory)
     replay.run(args, report=report)
     sdk.assert_called_once_with(freq=replay.CONTROL_HZ)
-    probe.assert_called_once_with(args.timeout, cameras=False)
+    probe.assert_called_once_with(args.timeout, cameras=False, profile=replay.robot_profile(args))
     assert dispatch.call_count == 2
     for index, capture in enumerate(captures):
         capture.save.assert_called_once()
@@ -666,3 +673,55 @@ def test_output_conflicts_fail_before_motion(tmp_path, monkeypatch, conflict):
     cpu.assert_not_called()
     if conflict == 'existing':
         assert (output / 'placement.json').read_text() == 'preserve existing dataset'
+
+
+def test_task_and_identification_options_forward_to_cpu_without_output(monkeypatch):
+    args = replay.parser().parse_args(['bundle', '--identify-only', '--task-config', 'task.json',
+                                      '--data-root', '/new-root', '--dry-run'])
+    args.output = Path('/unused/default')
+    run = Mock(return_value=Mock(returncode=0))
+    monkeypatch.setattr(replay.subprocess, 'run', run)
+    replay.run_cpu_phase(args)
+    command = run.call_args.args[0]
+    assert '--identify-only' in command and '--dry-run' in command
+    assert command[command.index('--task-config') + 1] == 'task.json'
+    assert command[command.index('--data-root') + 1] == '/new-root'
+    assert '--detector-config' not in command and '--output' not in command
+
+
+@pytest.mark.parametrize('no_identify', [False, True])
+def test_task_extract_automatically_passes_identification_settings(tmp_path, monkeypatch, no_identify):
+    from types import ModuleType
+    from src.placement_analysis import identification, pipeline_stages
+    extractor = ModuleType('src.placement_analysis.extraction')
+    output = tmp_path / 'bundle'
+    output.mkdir()
+    (output / 'placement.json').write_text('{}')
+    extractor.extract_events = Mock()
+    identify, evaluate = Mock(), Mock()
+    monkeypatch.setattr(identification, 'identify_bundle', identify)
+    monkeypatch.setattr(pipeline_stages, 'evaluate_bundle', evaluate)
+    monkeypatch.setitem(replay.sys.modules, extractor.__name__, extractor)
+    options = ['--no-identify'] if no_identify else []
+    assert replay.main(['capture', '--extract-only', '--task-config', str(replay.DEFAULT_DETECTOR_CONFIG),
+                        '--data-root', str(tmp_path), '--no-web-publish', '--output', str(output), *options]) == 0
+    kwargs = extractor.extract_events.call_args.kwargs
+    assert kwargs['task_config'] == replay.DEFAULT_DETECTOR_CONFIG
+    assert kwargs['data_root'] == tmp_path and kwargs['detector_config'] is None
+    assert identify.call_count == (0 if no_identify else 1)
+    evaluate.assert_called_once_with(output, task_config=replay.DEFAULT_DETECTOR_CONFIG, observations=None)
+
+
+def test_no_progress_reaches_identify_and_cpu_child(tmp_path, monkeypatch):
+    from src.placement_analysis import identification, pipeline_stages
+    identify, evaluate = Mock(), Mock()
+    monkeypatch.setattr(identification, 'identify_bundle', identify)
+    monkeypatch.setattr(pipeline_stages, 'evaluate_bundle', evaluate)
+    assert replay.main([str(tmp_path), '--identify-only', '--no-progress', '--no-web-publish']) == 0
+    assert identify.call_args.kwargs['no_progress'] is True
+    evaluate.assert_called_once_with(tmp_path, task_config=None, dry_run=False, observations=None)
+    args = replay.parser().parse_args([str(tmp_path), '--identify-only', '--no-progress'])
+    run = Mock(return_value=Mock(returncode=0))
+    monkeypatch.setattr(replay.subprocess, 'run', run)
+    replay.run_cpu_phase(args)
+    assert '--no-progress' in run.call_args.args[0]

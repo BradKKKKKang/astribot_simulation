@@ -7,8 +7,10 @@ import numpy as np
 
 @dataclass(frozen=True)
 class DetectorConfig:
+    type: str = 'gripper'
     closed_threshold: float = 25.0
     open_threshold: float = 75.0
+    grasp_onset_threshold: float = None
     larger_is_open: bool = False
     confirm_duration_s: float = 0.08
     max_gap_s: float = 0.1
@@ -22,7 +24,6 @@ class DetectorConfig:
     initial_radius_m: float = 0.05
     initial_departure_duration_s: float = 0.15
     initial_ignore_s: float = 1.0
-    motion_detector: str = 'stop'
     press_smoothing_s: float = 0.2
     press_context_s: float = 1.5
     press_min_depth_m: float = 0.02
@@ -53,8 +54,12 @@ class DetectorConfig:
             raise ValueError('stop/rearm/departure durations and distances must be positive')
         if self.coincidence_tolerance_s < 0 or self.initial_ignore_s < 0:
             raise ValueError('coincidence tolerance and initial ignore time must be nonnegative')
-        if self.motion_detector not in ('stop', 'press'):
-            raise ValueError('motion_detector must be stop or press')
+        if self.type not in ('gripper', 'press'):
+            raise ValueError('type must be gripper or press')
+        if self.grasp_onset_threshold is not None and not (
+                math.isfinite(self.grasp_onset_threshold)
+                and 0 < self.grasp_onset_threshold < 100 - self.open_threshold):
+            raise ValueError('grasp_onset_threshold must be within the open band (normalized closure percent)')
         press = [self.press_smoothing_s, self.press_context_s, self.press_min_depth_m,
                  self.press_min_retract_m, self.press_max_lateral_m, self.press_min_phase_s]
         if not all(math.isfinite(value) and value > 0 for value in press):
@@ -69,7 +74,8 @@ def detect_transitions(times, openings, config=DetectorConfig()):
     """Return one grasp/release per confirmed transition; initial state is silent.
 
     Values are SDK percentages, normalized here so 100 means open. Grasp uses
-    the first closed sample; release uses departure from the closed band. A
+    the first closed sample, or the configured closure onset retrospectively;
+    release uses departure from the closed band. A
     sustained target state confirms the event retrospectively. Missing-time
     gaps reset the state rather than inventing an event across the gap.
     """
@@ -83,10 +89,17 @@ def detect_transitions(times, openings, config=DetectorConfig()):
     if not config.larger_is_open:
         openings = 100 - openings
     state, candidate, candidate_at, departure = None, None, None, None
+    grasp_onset = None
     events = []
     for i, value in enumerate(openings):
         if i and times[i] - times[i - 1] > config.max_gap_s:
             state, candidate, candidate_at, departure = None, None, None, None
+            grasp_onset = None
+        if state == 'open' and config.grasp_onset_threshold is not None:
+            if 100 - value < config.grasp_onset_threshold:
+                grasp_onset = None
+            elif grasp_onset is None and i and 100 - openings[i - 1] < config.grasp_onset_threshold:
+                grasp_onset = i
         label = ("closed" if value <= config.closed_threshold else
                  "open" if value >= config.open_threshold else None)
         if label == state and state is not None:
@@ -103,23 +116,37 @@ def detect_transitions(times, openings, config=DetectorConfig()):
         if state is not None:
             grasp = label == "closed"
             index = candidate_at if grasp else departure
+            if grasp and grasp_onset is not None:
+                index = grasp_onset
             events.append({"event_type": "grasp" if grasp else "release",
                            "frame_index": int(index),
-                           "transition_start_index": int(departure),
+                           "transition_start_index": int(grasp_onset if grasp and grasp_onset is not None else departure),
                            "transition_end_index": int(candidate_at),
                            "confirmed_index": i})
         state, candidate, candidate_at, departure = label, None, None, None
+        grasp_onset = None
     return events
 
 
-def motion_metrics(times, positions, config=DetectorConfig()):
-    """Derivatives in physical time; do not smooth across missing-time gaps."""
+def motion_metrics(times, positions, config=DetectorConfig(), *, indices=None):
+    """Physical-time derivatives, optionally at selected frames only.
+
+    Selected frames use exactly the same local windows, including boundaries
+    and gaps, as the full trajectory calculation. Other entries remain NaN.
+    """
     times, positions = np.asarray(times, float), np.asarray(positions, float)
     if times.ndim != 1 or not np.isfinite(times).all() or np.any(np.diff(times) <= 0):
         raise ValueError('timestamps must be finite and strictly increasing')
     if positions.shape != (len(times), 3) or not np.isfinite(positions).all():
         raise ValueError("TCP positions must have finite shape (N, 3)")
     speed, acceleration = np.full(len(times), np.nan), np.full(len(times), np.nan)
+    selected = None
+    if indices is not None:
+        selected = np.asarray(indices)
+        if selected.ndim != 1 or (selected.size and (not np.issubdtype(selected.dtype, np.integer)
+                                                     or np.any(selected < 0) or np.any(selected >= len(times)))):
+            raise ValueError("metric indices must be valid frame indices")
+        selected = set(selected.tolist())
     segments = np.split(np.arange(len(times)), np.flatnonzero(np.diff(times) > config.max_gap_s) + 1)
     for indices in segments:
         if len(indices) < 3:
@@ -128,6 +155,8 @@ def motion_metrics(times, positions, config=DetectorConfig()):
         radius = max(1, config.smoothing_samples // 2)
         window = min(len(indices), 2 * radius + 1)
         for i, index in enumerate(indices):
+            if selected is not None and index not in selected:
+                continue
             start = min(max(0, i - radius), len(indices) - window)
             local_t = times[indices[start:start + window]] - times[index]
             # A local quadratic fit gives derivatives at the actual event time,

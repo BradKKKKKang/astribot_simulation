@@ -5,12 +5,13 @@ import { discoverTasks } from '../../task-data.js';
 
 // Use a published robot asset; synthetic points exist only in test routes.
 export async function viewerFixture() {
-  const task = (await discoverTasks(resolve('public/data')))[0];
+  const publicRoot = resolve(process.env.PLACEMENT_FIXTURE_PUBLIC || 'public');
+  const task = (await discoverTasks(resolve(publicRoot, 'data'))).find((item) => item.id.startsWith('folder:'));
   if (!task) throw new Error('Browser tests require a published placement task');
-  const source = JSON.parse(await readFile(resolve('public', task.bundle), 'utf8'));
+  const source = JSON.parse(await readFile(resolve(publicRoot, task.bundle), 'utf8'));
   const bundle = demoBundle({ ...source.metadata, reference_snapshot: source.reference_snapshot });
   bundle.robot_model = `/${dirname(task.bundle)}/robot.glb`;
-  return { bundle, modelPath: resolve('public', dirname(task.bundle), 'robot.glb') };
+  return { bundle, modelPath: resolve(publicRoot, dirname(task.bundle), 'robot.glb') };
 }
 
 export async function installViewerFixture(page) {

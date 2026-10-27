@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "request": {
+    "camera": "images_dict.head.rgb",
+    "frame_offset": 0,
+    "question_id": "interaction_object",
+    "question": null,
+    "choices": {},
+    "model": "vllm-sr/d3-turbo"
+  },
+  "decision": {
+    "policy": "max_probability_v1"
+  },
+  "transport": {
+    "timeout_s": 60.0
+  }
+}

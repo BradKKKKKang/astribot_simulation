@@ -1,0 +1,29 @@
+{
+  "name": "penholder",
+  "dataset": "penholder_merged_clean",
+  "status": "ready",
+  "event_rules": {
+    "exclude_initial": true
+  },
+  "events": {
+    "grasp": {
+      "event_type": "grasp",
+      "role": "handled_object",
+      "exclude_initial": true
+    },
+    "release": {
+      "event_type": "release",
+      "role": "handled_object",
+      "exclude_initial": true
+    }
+  },
+  "stages": {
+    "transfer": {
+      "events": [
+        "grasp",
+        "release"
+      ],
+      "ordered": true
+    }
+  }
+}

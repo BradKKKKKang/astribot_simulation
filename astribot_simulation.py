@@ -9,25 +9,48 @@
 # -----------------------------------------------------------------------------
 
 import sys
-from src.astribot_envs.astribot_envs_factory import AstribotEnvsFactory
 
-def main():
+def main(argv=None):
     import argparse
     import signal
     import threading
     import os
 
     parser = argparse.ArgumentParser(description="Astribot Isaac Lab simulation")
-    parser.add_argument('--config', default='config/astribot_s1/simulation_isaaclab_param.yaml')
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument('--config', default=None, help='existing simulator YAML configuration')
+    selection.add_argument('--experiment', help='compose robot and scene from a placement experiment')
+    parser.add_argument('--check-config', action='store_true',
+                        help='validate configuration on CPU without importing ROS or Isaac')
     parser.add_argument('--headless', action='store_true')
     parser.add_argument('--no-cameras', action='store_true',
                         help='disable configured camera sensors for state-only replay')
-    args = parser.parse_args()
-    data = AstribotEnvsFactory.load_yaml_file(args.config)
+    args = parser.parse_args(argv)
+    if args.experiment:
+        from src.placement_analysis.experiment_config import resolve_experiment
+        from src.placement_analysis.scene_profile import build_experiment_simulation_config
+        data = build_experiment_simulation_config(resolve_experiment(args.experiment, require_ready=False))
+    else:
+        # Keep the existing YAML behavior while keeping --help/check-config free
+        # of factory, ROS, gymnasium and simulator imports.
+        import yaml
+        from pathlib import Path
+        config = args.config or 'config/astribot_s1/simulation_isaaclab_param.yaml'
+        data = yaml.safe_load(Path(config).expanduser().read_text())
+        if not isinstance(data, dict):
+            raise ValueError('simulation configuration must be an object')
+        root = os.getenv('ASTRIBOT_SIMU_ROOT')
+        if root is None:
+            raise ValueError('ASTRIBOT_SIMU_ROOT must be set for legacy --config YAML')
+        data['model_path'] = root + data['model_path']
     if args.headless:
         data['mode'] = 'rgb_array'
     if args.no_cameras:
         data['camera_names'] = []
+    if args.check_config:
+        print('Simulation configuration resolved; no ROS, SDK or simulator imported.')
+        return data
+    from src.astribot_envs.astribot_envs_factory import AstribotEnvsFactory
     factory = AstribotEnvsFactory()
     factory.stop_event = threading.Event()
     def install_stop_handlers():

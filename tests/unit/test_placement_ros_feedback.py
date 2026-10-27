@@ -129,6 +129,21 @@ def test_dry_run_capture_validation_has_no_runtime_imports_or_output(tmp_path, m
     assert not output.exists()
 
 
+def test_gripper_task_dry_run_does_not_require_source_video(tmp_path, monkeypatch):
+    from src.placement_analysis import identification
+    capture = tmp_path / 'episode'
+    write_fixture(capture)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('disabled identification must not access source video')
+
+    monkeypatch.setattr(identification, 'EpisodeSource', forbidden)
+    output = tmp_path / 'output'
+    assert load_extractor().extract_events(
+        [capture], output, task_config=ROOT / 'config/placement/penholder.json', dry_run=True) is None
+    assert not output.exists()
+
+
 def test_raw_replay_window_excludes_blocking_sdk_preposition():
     rows, api, meta = capture_fixture()
     epoch = meta['epoch_monotonic_ns']
@@ -286,21 +301,28 @@ def test_full_capture_to_viewer_bundle_on_cpu(tmp_path, monkeypatch, raw_capture
         path.write_text(json.dumps(meta))
     module = load_extractor()
     # Mesh exporter has its own USD tests; avoid duplicating a 42 MB export.
-    def geometry(stage, root, names, output):
-        output.write_bytes(b'geometry fixture')
-        return {'body_count': len(names)}
-    monkeypatch.setattr(module, 'export_robot_glb', geometry)
+    from src.placement_analysis import robot_export
+    from src.placement_analysis.bundle import load_bundle
+    def geometry(stage, root, names, store, **kwargs):
+        return store.put_bytes(b'geometry fixture', 'glb')
+    monkeypatch.setattr(robot_export, 'cached_robot_geometry', geometry)
     output = tmp_path / 'output'
-    assert module.extract_events([capture], output, usd=usd) == output / 'placement.json'
-    bundle = json.loads((output / 'placement.json').read_text())
-    assert bundle['schema_version'] == 2
-    events = [e for e in bundle['events'] if e['event_type'] != 'dwell']
+    detector_config = ROOT / 'config/placement/penholder.json'
+    assert module.extract_events([capture], output, usd=usd, detector_config=detector_config) == output / 'placement.json'
+    bundle = load_bundle(output)
+    assert bundle['schema_version'] == 5
+    events = bundle['events']
     assert [e['event_type'] for e in events] == ['grasp', 'release']
     assert all(e['side'] == 'left' for e in events)
     assert len(events[0]['snapshot']['body_poses_world']) == 33
     assert bundle['metadata']['time_basis'].startswith('ROS header wall time')
     assert bundle['metadata']['status'] == 'complete'
-    assert pq.read_table(output / 'events.parquet').num_rows == len(bundle['events'])
+    assert bundle['metadata']['type'] == bundle['metadata']['detector']['type'] == 'gripper'
+    assert set(bundle['metadata']['episodes'][0]['candidate_counts']) == {'grasp', 'release'}
+    manifest = json.loads((output / 'placement.json').read_text())
+    assert 'events' not in manifest and len(manifest['episodes']) == 1
+    assert not (output / 'events.parquet').exists()
+    assert not (output / 'robot.glb').exists()
     with pytest.raises(FileExistsError):
         module.extract_events([capture], output)
 
@@ -329,7 +351,9 @@ def test_unified_model_export_calls_internal_exporter_without_replay(tmp_path, m
     monkeypatch.setattr(robot_export, 'export_reference_robot', export)
     monkeypatch.setattr(entry, 'run', sdk)
     output = tmp_path / 'S1 model'
-    assert entry.main(['--export-robot-only', '--output', str(output)]) == 0
+    pose_config = tmp_path / 'pose.json'
+    pose_config.write_text('{}')
+    assert entry.main(['--export-robot-only', '--output', str(output), '--pose-config', str(pose_config)]) == 0
     export.assert_called_once_with(output, usd=robot_export.DEFAULT_USD,
-                                   pose_config=robot_export.DEFAULT_POSE_CONFIG)
+                                   pose_config=pose_config)
     sdk.assert_not_called()

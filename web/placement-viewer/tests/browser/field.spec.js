@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { installViewerFixture } from './fixtures.js';
+import { installViewerFixture, viewerFixture } from './fixtures.js';
 
 test('demo heat field updates with live episode filtering and clears empty results', async ({ page }) => {
   test.setTimeout(120000); // The demo always loads the full Astribot S1 GLB.
@@ -7,6 +7,13 @@ test('demo heat field updates with live episode filtering and clears empty resul
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await installViewerFixture(page);
+  const { bundle } = await viewerFixture();
+  bundle.schema_version = 3;
+  bundle.metadata.type = 'press';
+  bundle.events = bundle.events.filter((e) => e.event_type === 'dwell').map((e) => ({
+    ...e, event_type: 'press', press_depth_m: .02, press_retract_m: .015, press_lateral_m: .01,
+  }));
+  await page.route('**/fixture.json', (route) => route.fulfill({ json: bundle }));
   await page.goto('/');
   await expect(page.locator('#scene-message')).toBeHidden();
   await page.evaluate(async () => {
@@ -48,7 +55,6 @@ test('demo heat field updates with live episode filtering and clears empty resul
       return { peak, colors };
     };
   });
-  await page.locator('#candidate-mode').selectOption('motion');
   await page.locator('#display-mode').selectOption('field');
   await expect(page.locator('#viewport')).toHaveAttribute('data-density-samples', '72');
   const all = await page.evaluate(() => window.readField());

@@ -1,0 +1,12 @@
+{
+  "type": "gripper",
+  "closed_threshold": 25.0,
+  "open_threshold": 75.0,
+  "larger_is_open": false,
+  "grasp_onset_threshold": 5.0,
+  "confirm_duration_s": 0.08,
+  "max_gap_s": 0.1,
+  "initial_radius_m": 0.05,
+  "initial_departure_duration_s": 0.15,
+  "initial_ignore_s": 1.0
+}

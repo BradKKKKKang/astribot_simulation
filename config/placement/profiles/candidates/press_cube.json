@@ -1,0 +1,16 @@
+{
+  "type": "press",
+  "closed_threshold": 25.0,
+  "larger_is_open": false,
+  "max_gap_s": 0.1,
+  "initial_radius_m": 0.05,
+  "initial_departure_duration_s": 0.15,
+  "initial_ignore_s": 1.0,
+  "press_smoothing_s": 0.2,
+  "press_context_s": 1.5,
+  "press_min_depth_m": 0.02,
+  "press_min_retract_m": 0.015,
+  "press_max_lateral_m": 0.025,
+  "press_min_phase_s": 0.08,
+  "press_require_closed": true
+}

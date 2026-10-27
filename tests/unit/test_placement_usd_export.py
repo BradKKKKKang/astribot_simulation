@@ -68,9 +68,9 @@ def test_reference_pose_solves_joint_frames_and_preserves_fixed_base():
     assert snapshot['joint_positions_rad'] == [np.pi/2]
 
 
-def test_sdk103_targets_produce_symmetric_arm_pose_in_actual_usd():
+def test_sdk103_targets_produce_symmetric_arm_pose_in_actual_usd(sdk103_pose_settings):
     root = Path(__file__).parents[2]
-    settings = json.loads((root / 'config/placement_reference_pose.json').read_text())
+    settings = sdk103_pose_settings
     targets = sdk_joint_positions(settings)
     assert [targets[f'astribot_torso_joint_{i}'] for i in range(1, 5)] == [.29, -.58, .29, 0]
     assert targets['astribot_gripper_left_joint_L1'] == -.465
@@ -90,7 +90,7 @@ def test_sdk103_targets_produce_symmetric_arm_pose_in_actual_usd():
     np.testing.assert_allclose(np.linalg.norm(np.asarray(full['body_poses_world'])[:, 3:], axis=1), 1, atol=1e-7)
 
 
-def test_internal_reference_export_preserves_s1_geometry_and_sdk_pose_contract(tmp_path, monkeypatch):
+def test_internal_reference_export_preserves_s1_geometry_and_sdk_pose_contract(tmp_path, monkeypatch, sdk103_pose_settings):
     from src.placement_analysis import robot_export
 
     def geometry(stage, root, names, output):
@@ -100,7 +100,9 @@ def test_internal_reference_export_preserves_s1_geometry_and_sdk_pose_contract(t
         return {'body_count': len(names), 'triangle_count': 1, 'bytes': output.stat().st_size}
 
     monkeypatch.setattr(robot_export, 'export_robot_glb', geometry)
-    robot_export.export_reference_robot(tmp_path)
+    pose_config = tmp_path / 'pose.json'
+    pose_config.write_text(json.dumps(sdk103_pose_settings))
+    robot_export.export_reference_robot(tmp_path, pose_config=pose_config)
     model = json.loads((tmp_path / 'model.json').read_text())
     assert model['reference_pose']['name'] == 'SDK ROS2 example 103 target'
     assert model['base_body'] == 'astribot_torso_base'

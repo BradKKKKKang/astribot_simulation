@@ -71,7 +71,25 @@ class UsdKinematics:
             self.incoming[child] = (str(parents[0]) if parents else None,
                                     second.GetInverse(), first, prim.GetName(), axis)
 
-    def snapshot(self, joint_positions):
+    def fingerprint(self):
+        """Hash only compiled kinematics, independent of mesh/texture changes."""
+        import hashlib
+        import json
+        def matrix(value):
+            return [[float(v) for v in row] for row in value]
+        roots = (set(self.bodies.values()) |
+                 {entry[0] for entry in self.incoming.values() if entry[0] is not None}) - set(self.incoming)
+        value = {
+            'version': 1, 'bodies': self.bodies, 'joint_names': self.joint_names,
+            'authored_roots': {path: matrix(transform) for path, transform in self.authored.items()
+                               if path in roots},
+            'incoming': {path: [parent, matrix(second), matrix(first), name,
+                                list(axis) if axis is not None else None]
+                         for path, (parent, second, first, name, axis) in self.incoming.items()},
+        }
+        return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+    def snapshot(self, joint_positions, *, body_names=None):
         Gf = self.Gf
         unknown = set(joint_positions) - set(self.joint_names)
         if unknown or not all(math.isfinite(v) for v in joint_positions.values()):
@@ -98,7 +116,7 @@ class UsdKinematics:
             return result
 
         poses = []
-        for name in self.body_names:
+        for name in self.body_names if body_names is None else body_names:
             matrix = solve(self.bodies[name])
             rotation = Gf.Transform(matrix).GetRotation().GetQuat().GetNormalized()
             poses.append([*matrix.ExtractTranslation(), rotation.GetReal(), *rotation.GetImaginary()])

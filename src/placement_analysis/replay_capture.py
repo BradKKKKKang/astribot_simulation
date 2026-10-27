@@ -6,13 +6,18 @@ from pathlib import Path
 import threading
 import time
 
-from .ros_feedback import JOINTS, PART_CONFIGS
+from .robot_profile import default_robot_profile
+
+DEFAULT_PROFILE = default_robot_profile()
 
 
-def state_rows(msg, part):
+def state_rows(msg, part, profile=None):
     """Validate the complete part payload before recording any of its joints."""
-    expected = [f'{part}_joint_{i}' for i in range(1, dict(PART_CONFIGS)[part] + 1)]
-    names = [name.replace('_joint_L1', '_joint_1') for name in msg.name]
+    profile = profile or DEFAULT_PROFILE
+    expected = [joint for joint, owner in profile.feedback_parts.items() if owner == part]
+    if not expected:
+        raise ValueError(f'{part}: unknown feedback part')
+    names = [profile.feedback_aliases.get(name, name) for name in msg.name]
     if msg.header.frame_id != 'simulation' or len(names) != len(expected) or set(names) != set(expected):
         raise ValueError(f'{part}: expected complete named simulation feedback')
     if len(msg.position) != len(names) or not all(math.isfinite(float(v)) for v in msg.position):
@@ -27,10 +32,11 @@ def state_rows(msg, part):
 class ReplayCapture:
     """Subscribe on the SDK's existing executor; keep at most one episode."""
 
-    def __init__(self, robot):
+    def __init__(self, robot, profile=None):
         from astribot_msgs.msg import RobotJointState
         from rclpy.qos import qos_profile_sensor_data
 
+        self.profile = profile or DEFAULT_PROFILE
         self.node = robot.astribot_interface.node
         self.lock = threading.Lock()
         self.latest, self.rows, self.calls, self.errors = {}, [], [], []
@@ -39,7 +45,7 @@ class ReplayCapture:
         self.dataset_end_monotonic_ns = None
         self.subscriptions = []
         try:
-            for part, _ in PART_CONFIGS:
+            for part, _ in self.profile.part_configs:
                 self.subscriptions.append(self.node.create_subscription(
                     RobotJointState, f'/{part}/joint_space_states',
                     lambda msg, part=part: self.on_state(msg, part), qos_profile_sensor_data))
@@ -49,7 +55,7 @@ class ReplayCapture:
 
     def on_state(self, msg, part):
         try:
-            rows = state_rows(msg, part)
+            rows = state_rows(msg, part, getattr(self, "profile", DEFAULT_PROFILE))
             with self.lock:
                 previous = self.latest.get(part)
                 if previous and rows[0]['header_stamp_ns'] <= previous[0]['header_stamp_ns']:
@@ -73,7 +79,7 @@ class ReplayCapture:
         self.calls.append(dict(frame_index=len(self.calls), source_frame_index=int(source_frame),
                                source_time_s=float(source_time), phase=phase,
                                call_start_monotonic_ns=int(started), call_end_monotonic_ns=int(ended),
-                               position=command[3:].astype(float).tolist()))
+                               position=command[list(getattr(self, 'profile', DEFAULT_PROFILE).command_indices)].astype(float).tolist()))
         if phase != 'initial':
             self.dataset_end_monotonic_ns = int(ended)
 
@@ -95,7 +101,7 @@ class ReplayCapture:
             end_stamp = self.epoch_wall + self.window[1] - self.epoch_mono
             return all(self.latest.get(part)
                        and self.latest[part][0]['header_stamp_ns'] >= end_stamp
-                       for part, _ in PART_CONFIGS)
+                       for part, _ in getattr(self, "profile", DEFAULT_PROFILE).part_configs)
 
     def save(self, output, source, settings):
         import pyarrow as pa
@@ -116,15 +122,21 @@ class ReplayCapture:
             'dataset_window_monotonic_ns': self.window,
             'position_source': 'Isaac ROS measured joint positions; not dataset targets',
             'time_basis': 'ROS header wall time; not PhysX simulation time',
-            'joint_names': list(JOINTS),
+            'joint_names': list(getattr(self, 'profile', DEFAULT_PROFILE).joint_names),
+            'declared_robot_control': getattr(self, 'profile', DEFAULT_PROFILE).control_provenance(),
         }
+        if source.get('task_config'):
+            metadata['task_config'] = source['task_config']
         # Preserve failed recordings too: strict synchronization can then be
         # diagnosed offline, without rerunning robot motion or inventing data.
         failure = None
         try:
             if errors:
                 raise RuntimeError(errors[-1])
-            _, _, metadata['feedback_quality'] = synchronize_feedback(rows, self.calls, metadata, JOINTS, .1)
+            profile = getattr(self, 'profile', DEFAULT_PROFILE)
+            _, _, metadata['feedback_quality'] = synchronize_feedback(
+                rows, self.calls, metadata, profile.joint_names, settings.get('alignment_max_gap_s', .1),
+                anchor_joint=profile.anchor_joint, part_by_joint=profile.feedback_parts)
         except (ValueError, RuntimeError) as error:
             failure = error
             metadata.update(status='failed', error=str(error))

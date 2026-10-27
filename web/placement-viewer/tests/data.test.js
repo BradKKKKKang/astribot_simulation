@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Vector3 } from 'three';
-import { eventPosition, exclusionReasons, filterEvents, poseMatrix, snapshotPoses, validateBundle } from '../src/data.js';
+import { eventPosition, exclusionReasons, filterEvents, operationType, poseMatrix, snapshotPoses, validateBundle } from '../src/data.js';
 import { demoBundle } from '../src/demo.js';
 
 test('demo retains all candidate sources and filters hands independently', () => {
@@ -16,29 +16,33 @@ test('demo retains all candidate sources and filters hands independently', () =>
   assert.equal(filterEvents(bundle.events, { ...filters, episodeIds: ['示例 01'] }).length, 2);
 });
 
-test('three candidate modes select types automatically without double weighting', () => {
+test('task type selects one detector and ignores obsolete viewer modes', () => {
   const bundle = demoBundle();
-  const filters = { episode: 'all', side: 'all', frame: 'base',
+  const filters = { side: 'all', frame: 'base', type: 'gripper',
     zMin: -2, zMax: 3, excludeInitial: true, ignoreSeconds: 1 };
-  const select = (candidateMode) => filterEvents(bundle.events, { ...filters, candidateMode });
-  assert.equal(select('gripper').length, 96);
-  assert.equal(select('motion').length, 72);
-  assert.equal(select('union').length, 144); // 24 shared stops count only via their transitions
-  assert.throws(() => select('intersection'), /不支持/);
-  assert(select('motion').every((e) => e.event_type === 'dwell'));
-  assert.equal(filterEvents(bundle.events, { ...filters, candidateMode: 'gripper', eventTypes: ['grasp'] }).length, 48);
-  assert.equal(filterEvents(bundle.events, { ...filters, candidateMode: 'gripper', eventTypes: [] }).length, 0);
-  // Independent stop evidence remains when its related grasp is deselected.
-  assert.equal(filterEvents(bundle.events, { ...filters, candidateMode: 'union', eventTypes: ['release', 'dwell'] }).length, 120);
-  assert.equal(filterEvents(bundle.events, { ...filters, candidateMode: 'motion', eventTypes: [] }).length, 72);
+  assert.equal(filterEvents(bundle.events, filters).length, 96);
+  assert.equal(filterEvents(bundle.events, { ...filters, candidateMode: 'union' }).length, 96);
+  assert.equal(filterEvents(bundle.events, { ...filters, eventTypes: ['grasp'] }).length, 48);
+  assert.equal(filterEvents(bundle.events, { ...filters, eventTypes: [] }).length, 0);
+  assert.equal(filterEvents(bundle.events, { ...filters, eventTypes: ['dwell'] }).length, 0);
   assert.equal(filterEvents(bundle.events, { ...filters, episodeIds: ['示例 01', '示例 02'] }).length, 8);
   assert.equal(filterEvents(bundle.events, { ...filters, episodeIds: [] }).length, 0);
+  assert.throws(() => filterEvents(bundle.events, { ...filters, type: 'union' }), /type/);
+  assert.equal(operationType(bundle), 'gripper');
+  bundle.metadata.detector.motion_detector = 'press';
+  assert.equal(operationType(bundle), 'press'); // old published bundle
+  bundle.metadata.task_config = { type: 'gripper' };
+  assert.equal(operationType(bundle), 'gripper'); // explicit config is authoritative
+  bundle.metadata.type = 'press';
+  assert.throws(() => operationType(bundle), /不一致/);
+  bundle.metadata.type = 'union';
+  assert.throws(() => validateBundle(bundle), /type/);
 });
 
 test('startup/time exclusions are reversible, per event and stable across episode timestamp offsets', () => {
   const events = demoBundle().events;
   const filters = { episode: 'all', side: 'all', frame: 'base',
-    zMin: -2, zMax: 3, candidateMode: 'gripper', excludeInitial: true, ignoreSeconds: 1 };
+    zMin: -2, zMax: 3, type: 'gripper', excludeInitial: true, ignoreSeconds: 1 };
   assert.equal(filterEvents(events, filters).length, 96);
   const audit = filterEvents(events, { ...filters, includeExcluded: true });
   assert.equal(audit.length, 144);
@@ -84,7 +88,7 @@ test('reject wrong units, missing bodies, duplicate IDs and mismatched frames', 
   assert.equal(validateBundle(legacy).schema_version, 1);
 });
 
-test('press schema selects motion candidates and preserves displacement evidence', () => {
+test('press schema selects only press candidates and preserves displacement evidence', () => {
   const bundle = demoBundle();
   bundle.schema_version = 3;
   bundle.events = bundle.events.filter((e) => e.event_type === 'dwell' && !e.initial_phase).slice(0, 3)
@@ -92,9 +96,36 @@ test('press schema selects motion candidates and preserves displacement evidence
       press_depth_m: .021, press_retract_m: .016, press_lateral_m: .008 }));
   validateBundle(bundle);
   const filters = { side: 'all', frame: 'base', zMin: -2, zMax: 3 };
-  assert.equal(filterEvents(bundle.events, { ...filters, candidateMode: 'motion' }).length, 3);
-  assert.equal(filterEvents(bundle.events, { ...filters, candidateMode: 'gripper' }).length, 0);
-  assert.equal(filterEvents(bundle.events, { ...filters, candidateMode: 'union' }).length, 3);
+  assert.equal(filterEvents(bundle.events, { ...filters, type: 'press' }).length, 3);
+  assert.equal(filterEvents(bundle.events, { ...filters, type: 'gripper' }).length, 0);
   delete bundle.events[0].press_depth_m;
   assert.throws(() => validateBundle(bundle), /位移依据/);
+});
+
+test('schema 4 objects coexist with historical schemas without reading image references', () => {
+  const bundle = demoBundle();
+  bundle.schema_version = 4;
+  bundle.events.forEach((event) => { event.object = null; event.identification = { status: 'not_requested' }; });
+  bundle.events[0].object = '红色方块';
+  bundle.events[0].identification = { status: 'success', screenshot: 'screenshots/frame.png' };
+  assert.equal(validateBundle(bundle).events[0].object, '红色方块');
+  bundle.events[0].identification.screenshot = '../private.png';
+  assert.equal(validateBundle(bundle).events[0].object, '红色方块'); // unused image reference
+  bundle.events[0].identification.screenshot = 'screenshots/frame.png';
+  bundle.events[0].object = 1;
+  assert.throws(() => validateBundle(bundle), /物体/);
+});
+
+test('schema 1 upgraded by identification retains original candidate filtering contract', () => {
+  const bundle = demoBundle();
+  bundle.schema_version = 4;
+  bundle.metadata.source_schema_version = 1;
+  bundle.events = bundle.events.filter((event) => event.event_type === 'grasp');
+  bundle.events.forEach((event) => {
+    delete event.initial_phase;
+    delete event.detection_sources;
+    event.object = null;
+    event.identification = { status: 'failed' };
+  });
+  assert.equal(validateBundle(bundle).metadata.source_schema_version, 1);
 });

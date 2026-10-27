@@ -1,0 +1,8 @@
+{
+  "ref": "astribot_lab.json",
+  "overrides": {
+    "name": "cap_pen",
+    "objects": {},
+    "regions": {}
+  }
+}

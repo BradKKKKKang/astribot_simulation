@@ -64,3 +64,7 @@ web/placement-viewer/playwright-report/
 # 测试文件
 results/
 artifacts/
+# Local placement artifacts and viewer registration are runtime state.
+.placement-artifacts/
+.placement-catalog.json
+.placement-catalog.lock

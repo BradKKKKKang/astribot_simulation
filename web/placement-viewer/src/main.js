@@ -1,15 +1,21 @@
 import './style.css';
-import { EVENT_LABELS, eventPosition, exclusionReasons, filterEvents, validateBundle } from './data.js';
+import { EVENT_LABELS, eventPosition, exclusionReasons, filterEvents, hasCandidateAnnotations,
+  objectCatalog, objectName, operationType, OPERATION_TYPES, UNKNOWN_OBJECT_COLOR, validateBundle } from './data.js';
+import { expandManifest, snapshotLoader } from './bundle.js';
 import { PlacementScene } from './scene.js';
 
 const $ = (id) => document.getElementById(id);
 const state = { bundle: null, events: [], selected: null, side: 'all', frame: 'base',
   episodes: [], episodeStart: 1, episodeEnd: 1,
-  pointTypes: { gripper: new Set(['grasp', 'release']), union: new Set(['grasp', 'release', 'dwell', 'press']) },
+  type: 'gripper', pointTypes: new Set(['grasp', 'release']),
+  objects: [], objectColors: new Map(), hiddenObjects: new Set(),
   modelUrl: null, modelObjectUrl: null, pendingBundle: null, limit: 60, revision: 0 };
 const tasks = { items: [], selected: '', revision: null, externalName: '', loading: false,
   polling: false, followLatest: !new URLSearchParams(window.location.search).has('dataset') };
 let scene;
+const loadSnapshot = snapshotLoader();
+const eventTypes = () => state.bundle?.display?.event_types ?? OPERATION_TYPES[state.type];
+const eventLabel = (type) => state.bundle?.display?.event_labels?.[type] ?? EVENT_LABELS[type] ?? type;
 const sceneMessage = $('scene-message');
 
 function notice(message, error = false) {
@@ -44,10 +50,11 @@ async function loadBundleUrl(path, name, task = null) {
   if (url.origin !== window.location.origin) throw new Error('数据 URL 必须与页面同源');
   const response = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' } });
   if (!response.ok) throw new Error(`数据加载失败：HTTP ${response.status}`);
-  const bundle = validateBundle(await response.json());
+  const bundle = await expandManifest(await response.json(), url.href);
   const model = new URL(bundle.robot_model || 'robot.glb', url);
   if (model.origin !== window.location.origin) throw new Error('模型 URL 必须与页面同源');
-  if (task) model.searchParams.set('v', task.revision);
+  if (task && !model.pathname.startsWith('/artifacts/')) model.searchParams.set('v', task.revision);
+  bundle.source_url = url.href;
   await openBundle(bundle, model.href, name, task?.id ?? 'external');
   tasks.revision = task?.revision ?? null;
 }
@@ -75,6 +82,13 @@ async function refreshTasks() {
       state.events = [];
       state.selected = null;
       state.episodes = [];
+      state.objects = [];
+      state.objectColors.clear();
+      state.hiddenObjects.clear();
+      renderObjectChoices();
+      $('operation-type').textContent = '—';
+      $('candidate-help').textContent = '';
+      $('candidate-legend').replaceChildren();
       state.episodeStart = state.episodeEnd = 0;
       scene.clear(scene.robot);
       scene.renderEvents([], state.frame, 'points');
@@ -94,12 +108,12 @@ async function refreshTasks() {
 }
 
 function filters() {
-  const mode = $('candidate-mode').value;
   return { episodeIds: state.episodes.slice(state.episodeStart - 1, state.episodeEnd),
     episodeStart: state.episodeStart, episodeEnd: state.episodeEnd,
-    eventTypes: mode === 'motion' ? ['dwell', 'press'] : [...state.pointTypes[mode]],
+    eventTypes: [...state.pointTypes], availableEventTypes: eventTypes(),
+    objects: state.objects.filter(({ name }) => !state.hiddenObjects.has(name)).map(({ name }) => name),
     side: state.side, frame: $('coordinate-frame').value,
-    candidateMode: $('candidate-mode').value, excludeInitial: $('exclude-initial').checked,
+    type: state.type, analysisSelection: state.bundle?.schema_version === 5, excludeInitial: $('exclude-initial').checked,
     ignoreSeconds: Number($('ignore-seconds').value), includeExcluded: $('include-excluded').checked,
     zMin: Number($('z-min').value), zMax: Number($('z-max').value) };
 }
@@ -139,43 +153,62 @@ function updateEpisodeRange(bound, raw) {
   refresh();
 }
 
-function renderPointChoices(mode) {
+function renderPointChoices() {
   const legend = $('candidate-legend');
-  const motionType = state.bundle?.metadata.detector?.motion_detector === 'press' ? 'press' : 'dwell';
-  if (legend.dataset.mode === `${mode}:${motionType}`) return;
-  legend.dataset.mode = `${mode}:${motionType}`;
-  const types = mode === 'gripper' ? ['grasp', 'release'] : mode === 'motion' ? [motionType] : ['grasp', 'release', motionType];
+  const types = eventTypes();
   legend.replaceChildren(...types.map((type) => {
-    const item = document.createElement(mode === 'motion' ? 'span' : 'label');
-    if (mode !== 'motion') {
+    const item = document.createElement(state.type === 'press' ? 'span' : 'label');
+    if (state.type === 'gripper') {
       const input = document.createElement('input');
       input.type = 'checkbox';
       input.id = `show-${type}`;
-      input.checked = state.pointTypes[mode].has(type);
+      input.checked = state.pointTypes.has(type);
       input.addEventListener('change', () => {
-        if (input.checked) state.pointTypes[mode].add(type);
-        else state.pointTypes[mode].delete(type);
+        if (input.checked) state.pointTypes.add(type);
+        else state.pointTypes.delete(type);
         refresh();
       });
       item.append(input);
     }
     const dot = document.createElement('i');
     dot.className = `dot ${type}`;
-    item.append(dot, `${EVENT_LABELS[type]}点`);
+    item.append(dot, `${eventLabel(type)}点`);
     return item;
   }));
+}
+
+function renderObjectChoices() {
+  const legend = $('object-legend');
+  legend.replaceChildren(...state.objects.map(({ name, label, color }) => {
+    const item = document.createElement('label');
+    item.className = 'checkbox';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = !state.hiddenObjects.has(name);
+    input.addEventListener('change', () => {
+      if (input.checked) state.hiddenObjects.delete(name);
+      else state.hiddenObjects.add(name);
+      refresh();
+    });
+    const dot = document.createElement('i');
+    dot.className = 'dot object-dot';
+    dot.style.backgroundColor = color;
+    item.append(input, dot, label);
+    return item;
+  }));
+  $('object-empty').hidden = state.objects.length > 0;
 }
 
 function details(event) {
   const demo = state.bundle?.metadata.demo;
   $('detail-title').textContent = event
-    ? `${EVENT_LABELS[event.event_type]} · ${event.side === 'left' ? '左手' : '右手'}`
+    ? `${eventLabel(event.event_type)} · ${event.side === 'left' ? '左手' : '右手'}`
     : '选择一个操作候选点';
   const reasons = event ? exclusionReasons(event, filters()) : [];
-  const motionEvidence = event?.event_type === 'press'
+  const evidence = event?.event_type === 'press'
     ? `下压 ${(event.press_depth_m * 1000).toFixed(1)} mm → 低点 → 抬起 ${(event.press_retract_m * 1000).toFixed(1)} mm，横向偏移 ${(event.press_lateral_m * 1000).toFixed(1)} mm`
-    : '持续低速且低加速度';
-  $('detail-evidence').textContent = event ? `依据：${(event.detection_sources ?? ['gripper']).map((s) => s === 'gripper' ? '夹爪开合' : motionEvidence).join(' + ')}${Number.isFinite(event.transition_start_s) ? ` · 区间 ${event.transition_start_s.toFixed(3)}–${event.transition_end_s.toFixed(3)} s` : ''}${reasons.length ? ` · 已排除：${reasons.join('、')}` : ''}` : '';
+    : '夹爪开合';
+  $('detail-evidence').textContent = event ? `依据：${evidence}${Number.isFinite(event.transition_start_s) ? ` · 区间 ${event.transition_start_s.toFixed(3)}–${event.transition_end_s.toFixed(3)} s` : ''}${reasons.length ? ` · 已排除：${reasons.join('、')}` : ''}` : '';
   $('detail-summary').textContent = event
     ? `${event.episode_id} · ${event.snapshot ? '已显示事件发生时的机器人姿态' : demo ? '合成示例点 · 机器人为参考姿态' : '无事件姿态快照，显示参考姿态'}`
     : '点位与机器人共享相同坐标和米制尺度。';
@@ -186,13 +219,43 @@ function details(event) {
     event.acceleration_m_s2 == null ? '—' : `${event.acceleration_m_s2.toFixed(4)} m/s²`,
   ] : ['—', '—', '—', '—'];
   $('event-detail').querySelectorAll('dd').forEach((node, i) => { node.textContent = values[i]; });
+  $('detail-object').replaceChildren();
+  if (event) {
+    const dot = document.createElement('i');
+    dot.className = 'dot object-dot';
+    dot.style.backgroundColor = state.objectColors.get(objectName(event)) ?? UNKNOWN_OBJECT_COLOR;
+    $('detail-object').append(dot, `交互物体：${objectName(event) ?? '未识别'}`);
+  }
+  const identification = event?.identification;
+  const source = identification?.source;
+  const choices = state.bundle?.metadata.task_config?.identification?.choices ?? {};
+  const probabilities = Object.entries(identification?.probabilities ?? {})
+    .filter(([, p]) => Number.isFinite(p) && p >= 0 && p <= 1)
+    .map(([key, p]) => `${choices[key] ?? key} ${(p * 100).toFixed(1)}%`).join(' · ');
+  $('detail-identification').textContent = [
+    Number.isFinite(source?.video_time_s) ? `原视频 ${source.video_time_s.toFixed(3)} s · 帧 ${source.video_frame_index}` : '',
+    probabilities, identification?.status === 'unknown' ? '未识别：结果未满足配置的置信度或差值要求' : '',
+    identification?.status === 'failed' ? `识别失败：${identification.error || '未知原因'}` : '',
+  ].filter(Boolean).join(' · ');
 }
 
-function select(event) {
+async function select(event) {
   state.selected = event;
   scene.select(event, state.frame);
   scene.pose(event?.snapshot ?? state.bundle.reference_snapshot, state.frame);
   details(event);
+  if (event?.snapshot_ref && !event.snapshot) {
+    const currentBundle = state.bundle;
+    try {
+      const snapshot = await loadSnapshot(event, currentBundle, currentBundle.source_url ?? window.location.href);
+      if (state.selected === event && state.bundle === currentBundle) {
+        event.snapshot = snapshot;
+        scene.pose(snapshot, state.frame);
+        details(event);
+      }
+    } catch (error) { if (state.selected === event) notice(error.message, true); }
+    if (state.selected !== event || state.bundle !== currentBundle) return;
+  }
   $('event-list').querySelectorAll('button').forEach((button) => {
     button.classList.toggle('selected', button.dataset.eventId === event?.event_id);
   });
@@ -211,7 +274,8 @@ function renderList() {
     kind.className = 'event-kind';
     const dot = document.createElement('span');
     dot.className = `dot ${event.event_type}`;
-    kind.append(dot, EVENT_LABELS[event.event_type]);
+    dot.style.backgroundColor = state.objectColors.get(objectName(event)) ?? UNKNOWN_OBJECT_COLOR;
+    kind.append(dot, eventLabel(event.event_type));
     const reasons = exclusionReasons(event, filters());
     if (reasons.length) {
       button.classList.add('excluded');
@@ -222,7 +286,8 @@ function renderList() {
     }
     const episode = document.createElement('span');
     episode.className = 'episode-name';
-    episode.textContent = event.episode_id;
+    episode.textContent = `${event.episode_id} · ${objectName(event) ?? '未识别'}`;
+    episode.title = episode.textContent;
     const side = document.createElement('span');
     side.textContent = event.side === 'left' ? '左手' : '右手';
     const time = document.createElement('time');
@@ -260,27 +325,24 @@ function refresh() {
   state.events = filterEvents(state.bundle.events, active);
   const counted = filterEvents(state.bundle.events, { ...active, includeExcluded: false });
   const excludedIds = new Set(state.events.filter((e) => exclusionReasons(e, active).length).map((e) => e.event_id));
-  $('exclusion-summary').textContent = state.bundle.schema_version === 1
-    ? '旧版文件缺少停留与初始阶段信息，请重新提取；不会把低速帧假定为停留。'
-    : `每只手离开初始位置 ${((state.bundle.metadata.detector?.initial_radius_m ?? .05) * 100).toFixed(0)} cm 并持续 ${state.bundle.metadata.detector?.initial_departure_duration_s ?? .15} s 后解除。${state.bundle.events.filter((e) => exclusionReasons(e, active).length).length} 个原始候选命中排除规则；灰色检查点不计入热力图。`;
-  const help = { gripper: '使用夹爪开合变化定位抓取与释放。', motion: '每次持续停留取一个点，不判断为抓取或真实接触。',
-    union: '合并两种候选；同侧关联的运动和开合点只计一次。' };
+  $('exclusion-summary').textContent = state.bundle.schema_version === 5
+    ? `分析选中 ${state.bundle.events.filter((event) => event.analysis_selected !== false).length} 个候选；视图筛选不修改已保存的分析结果。`
+    : !hasCandidateAnnotations(state.bundle)
+    ? '旧版文件缺少初始阶段信息，请重新提取。'
+    : `每只手离开初始位置 ${((state.bundle.metadata.detector?.initial_radius_m ?? .05) * 100).toFixed(0)} cm 并持续 ${state.bundle.metadata.detector?.initial_departure_duration_s ?? .15} s 后解除。${state.bundle.events.filter((e) => eventTypes().includes(e.event_type) && exclusionReasons(e, active).length).length} 个原始候选命中排除规则；灰色检查点不计入热力图。`;
   const detector = state.bundle.metadata.detector ?? {};
-  const press = detector.motion_detector === 'press';
-  if (press) help.motion = '每次下压到低点、随后抬起取一个候选点；不代表已确认接触。';
-  $('candidate-help').textContent = help[active.candidateMode] + (active.candidateMode === 'gripper' ? ''
-    : press ? ` 下压 ≥ ${detector.press_min_depth_m * 1000} mm，抬起 ≥ ${detector.press_min_retract_m * 1000} mm，横向偏移 ≤ ${detector.press_max_lateral_m * 1000} mm。`
-      : ` 停留阈值：v ≤ ${detector.speed_threshold_m_s ?? '—'} m/s，a ≤ ${detector.acceleration_threshold_m_s2 ?? '—'} m/s²，持续 ${detector.dwell_duration_s ?? '—'} s。`);
-  renderPointChoices(active.candidateMode);
+  $('operation-type').textContent = state.bundle.display?.operation_label ?? (state.type === 'press' ? '按压' : '夹爪开合');
+  $('candidate-help').textContent = state.bundle.display?.candidate_help ?? (state.type === 'press'
+    ? `每次下压到低点、随后抬起取一个候选点；不代表已确认接触。下压 ≥ ${(detector.press_min_depth_m ?? .02) * 1000} mm，抬起 ≥ ${(detector.press_min_retract_m ?? .015) * 1000} mm，横向偏移 ≤ ${(detector.press_max_lateral_m ?? .025) * 1000} mm。`
+    : '使用夹爪开合变化定位抓取与释放。');
   const mode = $('display-mode').value;
   const isField = mode.startsWith('field');
   $('field-control').hidden = $('field-help').hidden = !isField;
   document.querySelector('.density-legend').hidden = !isField;
-  scene.renderEvents(state.events, active.frame, mode, counted, excludedIds, Number($('bandwidth').value) / 100);
+  scene.renderEvents(state.events, active.frame, mode, counted, excludedIds, Number($('bandwidth').value) / 100,
+    state.objectColors);
   $('density-max').textContent = counted.length ? '100%' : '0%';
   $('bandwidth-label').textContent = `${$('bandwidth').value} cm`;
-  $('opacity-label').textContent = `${$('robot-opacity').value}%`;
-  scene.opacity(Number($('robot-opacity').value) / 100);
   scene.grid.visible = $('show-grid').checked;
   $('count-total').textContent = counted.length.toLocaleString();
   $('count-episodes').textContent = new Set(counted.map((event) => event.episode_id)).size.toLocaleString();
@@ -300,18 +362,24 @@ async function openBundle(bundle, modelUrl, sourceName, sourceId = 'external') {
   await scene.loadRobot(modelUrl, bundle.metadata, bundle.reference_snapshot);
   if (revision !== state.revision) return;
   state.bundle = bundle;
+  state.type = operationType(bundle);
+  state.pointTypes = new Set(bundle.display?.default_event_types ?? OPERATION_TYPES[state.type]);
+  renderPointChoices();
   state.modelUrl = modelUrl;
+  if (tasks.selected !== sourceId || (sourceId === 'external' && tasks.externalName !== sourceName)) {
+    state.hiddenObjects.clear();
+  }
+  state.objects = objectCatalog(bundle.events.filter((event) => eventTypes().includes(event.event_type)));
+  state.objectColors = new Map(state.objects.map(({ name, color }) => [name, color]));
+  state.hiddenObjects = new Set([...state.hiddenObjects].filter((name) => state.objectColors.has(name)));
+  renderObjectChoices();
   state.selected = null;
   state.limit = 60;
   $('ignore-seconds').value = String(bundle.metadata.detector?.initial_ignore_s ?? 1);
-  $('candidate-mode').querySelectorAll('option').forEach((option) => {
-    option.disabled = bundle.schema_version === 1 && option.value !== 'gripper';
-  });
-  if (bundle.schema_version === 1) $('candidate-mode').value = 'gripper';
-  else if (bundle.metadata.detector?.motion_detector === 'press') $('candidate-mode').value = 'motion';
-  $('candidate-mode').querySelector('option[value="motion"]').textContent = bundle.metadata.detector?.motion_detector === 'press'
-    ? '下压后抬起 · 按压候选' : '持续低速且低加速度 · 停留候选';
-  ['exclude-initial', 'ignore-seconds', 'include-excluded'].forEach((id) => { $(id).disabled = bundle.schema_version === 1; });
+  ['exclude-initial', 'ignore-seconds', 'include-excluded'].forEach((id) => { $(id).disabled = !hasCandidateAnnotations(bundle); });
+  if (bundle.schema_version === 5) {
+    ['exclude-initial', 'ignore-seconds'].forEach((id) => { $(id).disabled = true; $(id).title = '由离线分析配置确定'; });
+  }
   state.episodes = [...new Set([...(bundle.metadata.episodes ?? []).map((episode) => episode.episode_id),
     ...bundle.events.map((event) => event.episode_id)])].sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
   state.episodeStart = state.episodes.length ? 1 : 0;
@@ -365,7 +433,7 @@ try {
     refresh();
   }));
   ['coordinate-frame', 'display-mode', 'bandwidth',
-    'z-min', 'z-max', 'robot-opacity', 'show-grid', 'candidate-mode', 'exclude-initial',
+    'z-min', 'z-max', 'show-grid', 'exclude-initial',
     'ignore-seconds', 'include-excluded'].forEach((id) => $(id).addEventListener('input', refresh));
   for (const bound of ['start', 'end']) {
     $(`episode-${bound}-range`).addEventListener('input', (event) => updateEpisodeRange(bound, event.target.value));

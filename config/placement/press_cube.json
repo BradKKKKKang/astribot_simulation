@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "robot": {
+    "ref": "profiles/robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "profiles/scenes/press_cube.json"
+  },
+  "task": {
+    "ref": "profiles/tasks/press_cube.json"
+  },
+  "candidates": {
+    "ref": "profiles/candidates/press_cube.json"
+  },
+  "success": {
+    "ref": "profiles/success/unconfigured.json"
+  },
+  "jev": {
+    "ref": "profiles/jev/press_cube.json"
+  },
+  "source": {
+    "dataset_root": "/home/zihengkang/Datasets/real_eval/"
+  },
+  "runtime": {
+    "alignment": {
+      "max_gap_s": 0.1
+    }
+  },
+  "output": {}
+}

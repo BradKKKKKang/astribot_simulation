@@ -1,0 +1,21 @@
+{
+  "name": "astribot_lab",
+  "objects": {},
+  "regions": {},
+  "frames": {},
+  "simulation": {
+    "ground": {
+      "enabled": true
+    },
+    "light": {
+      "enabled": true,
+      "intensity": 3000.0,
+      "color": [
+        0.75,
+        0.75,
+        0.75
+      ]
+    },
+    "cameras": {}
+  }
+}
