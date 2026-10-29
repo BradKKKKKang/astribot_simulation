@@ -979,3 +979,18 @@ python tests/unit/test_camera_viewer.py \
   WBC solve, external model, or hardware was started. DDS/camera/native and
   end-to-end batch validation remain outstanding; these tests do not certify
   the runtime integration.
+
+## 2026-10-29 — Render managed Eval cameras only for model observations
+
+- Managed steps advance physics with `render=False`. Lab-owned camera render products
+  are reused and disabled outside snapshot capture, including GUI-only idle updates;
+  headless idle does not render. Snapshot capture restores camera updates only for
+  the three RGB inputs and disables them in `finally`. Replay restores live products.
+- Snapshot capture publishes its already-encoded JPEG bytes to the SDK camera topics,
+  so Atlas Console displays the same source images without additional rendering or
+  JPEG encoding. Existing streaming-switch and subscriber checks remain in place.
+- Validation: 39 managed-evaluation CPU tests passed in `astribot_simu_il`, including
+  physics-step count, cached snapshots, idle throttling, byte-identical Console/model
+  JPEGs, RGB/BGR preservation, failure cleanup and publication gating. No Isaac GPU,
+  ROS runtime, real model, hardware or speed benchmark was run. Existing resource
+  and message submodule changes were preserved.

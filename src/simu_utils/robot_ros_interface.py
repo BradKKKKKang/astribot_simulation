@@ -165,10 +165,16 @@ class MultiRobotRosInterface(object):
         if not success:
             astribot_simu_log(f'JPEG encoding failed for {camera_name}', 'ERROR')
             return
-        # A deactivate request may arrive while this frame is being encoded.
-        if self.sdk_camera_streaming:
+        self.publish_sdk_camera_jpeg(camera_name, jpeg.tobytes(), header)
+
+    def publish_sdk_camera_jpeg(self, camera_name, jpeg, header):
+        """Publish already-encoded RGB without re-encoding a model snapshot."""
+        publisher = self.camera_compressed_ros_pub.get(camera_name)
+        # A deactivate request may arrive while the snapshot is being encoded.
+        if (self.sdk_camera_streaming and publisher is not None
+                and publisher.get_subscription_count() > 0):
             publisher.publish(CompressedImage(
-                header=header, format='jpeg', data=jpeg.tobytes(),
+                header=header, format='jpeg', data=jpeg,
             ))
            
     def setup_sensor_interface(self, sensor_names):

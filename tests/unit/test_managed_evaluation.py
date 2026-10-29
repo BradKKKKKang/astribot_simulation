@@ -283,7 +283,7 @@ def test_isaac_managed_step_calls_exactly_one_physics_step_then_feedback():
                               update=lambda **kw: calls.append(('update', kw))),
         managed_publish_feedback=lambda: calls.append('feedback'))
     namespace['managed_step'](env, {'arm': {'position': [1., 2.], 'velocity': [.1, .2]}})
-    assert calls == ['apply', 'write', ('physics', {'render': True}), ('update', {'dt': .01}), 'feedback']
+    assert calls == ['apply', 'write', ('physics', {'render': False}), ('update', {'dt': .01}), 'feedback']
     assert env.joint_position_command_all == [1., 2.]
     calls.clear()
     env.sim.is_playing = lambda: False
@@ -430,6 +430,7 @@ def test_replay_lease_starts_with_measured_hold_and_clears_stale_reset():
                                 joint_torque_command=[2.], controller_mode=3)
     multi = SimpleNamespace(reset_flag=True, pose_tuple_list=['stale object reset'])
     env = SimpleNamespace(robot_dict={'arm': interface}, robot_joint_map={'arm': ['a']},
+                          _set_managed_camera_updates=lambda enabled: None,
                           multi_robot_ros_interface=multi, get_joint_positions=lambda names: [.25])
     namespace['set_managed_lease'](env, False)
     assert interface.joint_position_command == [.25]
@@ -525,3 +526,104 @@ def test_retired_cleanup_cannot_change_new_eval_owner(setup, old_owner):
     late['config_fingerprint'] = 'another-config'
     assert controller.submit(late)['error']['code'] == 'config_mismatch'
     assert controller.state() == before
+
+
+def _isaac_method(name):
+    import ast
+    from pathlib import Path
+    import time
+    path = Path(__file__).parents[2] / 'src/astribot_envs/astribot_isaaclab_env.py'
+    cls = next(n for n in ast.parse(path.read_text()).body
+               if isinstance(n, ast.ClassDef) and n.name == 'AstribotIsaacLabEnv')
+    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == name)
+    namespace = {'time': time}
+    exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), 'exec'), namespace)
+    return namespace[name]
+
+
+def test_idle_never_renders_headless_and_gui_only_pumps_without_camera_updates():
+    calls = []
+    idle = _isaac_method('managed_idle')
+    env = SimpleNamespace(render_mode='rgb_array', _managed_idle_deadline=0,
+                          sim=SimpleNamespace(render=lambda **kw: calls.append(kw),
+                                              RenderMode=SimpleNamespace(NO_RENDERING=0)))
+    for _ in range(20):
+        idle(env)
+    assert calls == []
+    env.render_mode = 'human'
+    idle(env)
+    idle(env)
+    assert calls == [{'mode': 0}]
+    toggles = []
+    env.camera_names = ['head_rgbd']
+    env._managed_render_products = [
+        (name, SimpleNamespace(hydra_texture=SimpleNamespace(
+            set_updates_enabled=lambda enabled, name=name: toggles.append((name, enabled)))))
+        for name in ('head_rgbd', 'third_person_camera')]
+    toggle = _isaac_method('_set_managed_camera_updates')
+    toggle(env, True)
+    toggle(env, False)
+    assert toggles == [('head_rgbd', True), ('third_person_camera', False),
+                       ('head_rgbd', False), ('third_person_camera', False)]
+
+
+def test_snapshot_reuses_model_jpegs_for_console_and_disables_rendering_on_error(monkeypatch):
+    import base64
+    import sys
+    import cv2
+    import numpy as np
+    monkeypatch.setitem(sys.modules, 'std_msgs', SimpleNamespace())
+    monkeypatch.setitem(sys.modules, 'std_msgs.msg', SimpleNamespace(Header=lambda **kw: kw))
+    calls, published = [], {}
+    names = ['head_rgbd', 'left_wrist_rgbd', 'right_wrist_rgbd']
+    rgb = np.zeros((12, 16, 3), dtype=np.uint8)
+    rgb[:, :, 0] = 230
+    env = SimpleNamespace(robot_profile_data={'parts': []}, render_mode='rgb_array',
+        camera_names=names, scene={name: SimpleNamespace(
+            update=lambda *a, name=name, **kw: calls.append(('refresh', name, kw))) for name in names},
+        sim=SimpleNamespace(render=lambda: calls.append('render')),
+        _set_managed_camera_updates=lambda enabled: calls.append(('enabled', enabled)),
+        render_single_camera=lambda name: {'rgb_img': rgb},
+        multi_robot_ros_interface=SimpleNamespace(get_timestamp=lambda: 1,
+            publish_sdk_camera_jpeg=lambda name, payload, header: published.update({name: payload})))
+    capture = _isaac_method('managed_snapshot')
+    assert capture(env, capture_images=False)['images'] == {}
+    assert not calls and not published
+    result = capture(env, capture_images=True)
+    assert calls[0:2] == [('enabled', True), 'render']
+    assert calls[-1] == ('enabled', False)
+    for name in names:
+        payload = base64.b64decode(result['images'][name]['data_base64'])
+        assert payload == published[name]
+        decoded = cv2.imdecode(np.frombuffer(payload, dtype=np.uint8), cv2.IMREAD_COLOR)
+        assert decoded[0, 0, 2] > 220 and decoded[0, 0, 0] < 10
+    published.clear()
+    env.render_single_camera = lambda name: (_ for _ in ()).throw(RuntimeError('sensor failed'))
+    with pytest.raises(RuntimeError, match='sensor failed'):
+        capture(env, capture_images=True)
+    assert calls[-1] == ('enabled', False)
+    assert not published
+
+
+def test_snapshot_jpeg_publication_respects_stream_switch_and_subscribers():
+    import ast
+    from pathlib import Path
+    path = Path(__file__).parents[2] / 'src/simu_utils/robot_ros_interface.py'
+    cls = next(n for n in ast.parse(path.read_text()).body
+               if isinstance(n, ast.ClassDef) and n.name == 'MultiRobotRosInterface')
+    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == 'publish_sdk_camera_jpeg')
+    namespace = {'CompressedImage': lambda **kw: kw}
+    exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), 'exec'), namespace)
+    published = []
+    publisher = SimpleNamespace(get_subscription_count=lambda: 1, publish=published.append)
+    interface = SimpleNamespace(sdk_camera_streaming=False, camera_compressed_ros_pub={'head': publisher})
+    publish = namespace['publish_sdk_camera_jpeg']
+    publish(interface, 'head', b'jpeg', 'header')
+    assert not published
+    interface.sdk_camera_streaming = True
+    publisher.get_subscription_count = lambda: 0
+    publish(interface, 'head', b'jpeg', 'header')
+    assert not published
+    publisher.get_subscription_count = lambda: 1
+    publish(interface, 'head', b'jpeg', 'header')
+    assert published == [{'header': 'header', 'format': 'jpeg', 'data': b'jpeg'}]

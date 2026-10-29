@@ -250,6 +250,26 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.setup_simulation_and_scene()
 
         self.setup_joint_mapping()
+        self._managed_render_products = []
+        self._managed_idle_deadline = 0.0
+        if param.get('managed_evaluation', False):
+            # Reuse Lab-owned render products; never create a second sensor.
+            import omni.replicator.core as rep
+            from pxr import UsdRender
+            names = list(self.camera_names)
+            if self.third_person_camera_cfg:
+                names.append('third_person_camera')
+            for name in names:
+                sensor = self.scene[name]
+                for path in sensor.render_product_paths:
+                    product = UsdRender.Product(self.sim.stage.GetPrimAtPath(path))
+                    camera = product.GetCameraRel().GetTargets()[0]
+                    handle = rep.create.render_product(str(camera),
+                        resolution=(sensor.cfg.width, sensor.cfg.height), force_new=False)
+                    if handle.path != path:
+                        raise RuntimeError('managed camera render product identity changed')
+                    self._managed_render_products.append((name, handle))
+            self._set_managed_camera_updates(False)
         if self.resolved_robot_placement is not None and self.node is not None:
             from std_msgs.msg import String
             self._placement_publisher = self.node.create_publisher(String, '/simulation/robot_placement', 10)
@@ -628,6 +648,11 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             self.joint_index_to_name[idx] = joint_name
 
     def step(self, action: np.ndarray) -> tuple:
+        # Replay keeps its existing live camera/video path.
+        if self._managed_render_products and self.render_mode == 'human':
+            self.sim.set_render_mode(self.sim.RenderMode.FULL_RENDERING)
+        for _name, product in self._managed_render_products:
+            product.hydra_texture.set_updates_enabled(True)
         self.update_reset_flag()
 
         if not self.reset_flag:
@@ -665,6 +690,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         return observation, reward, terminated, False, info
 
     def set_managed_lease(self, enabled):
+        self._set_managed_camera_updates(False)
         # Fence legacy callbacks while transitioning ownership. Replay starts
         # before its SDK is constructed, so its first free step must hold the
         # measured boundary rather than an old Eval/reset command buffer.
@@ -703,9 +729,13 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.joint_torque_command_all = [0.] * len(names)
         self._apply_control()
         self.scene.write_data_to_sim()
-        self.sim.step(render=True)
+        self.sim.step(render=False)
         self.scene.update(dt=self.dt)
         self.managed_publish_feedback()
+
+    def _set_managed_camera_updates(self, enabled):
+        for name, product in self._managed_render_products:
+            product.hydra_texture.set_updates_enabled(enabled and name in self.camera_names)
 
     def managed_publish_feedback(self):
         """Publish measured joints only after a completed reset or physics step."""
@@ -732,23 +762,43 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             'joint_names': ['astribot_chassis_x', 'astribot_chassis_y', 'astribot_chassis_z_rot'],
             'position': [0., 0., 0.], 'velocity': [0., 0., 0.]}
         images = {}
+        jpeg_payloads = {}
         if capture_images:
             # Rendering is allowed while physics is paused. Force sensor refresh,
             # including reset at the same simulation timestamp as the prior frame.
-            self.sim.render()
-            for camera in self.camera_names:
-                self.scene[camera].update(0.0, force_recompute=True)
-                rgb = self.render_single_camera(camera)['rgb_img'][:, :, :3]
-                ok, encoded = cv2.imencode('.jpg', cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-                if not ok:
-                    raise RuntimeError('snapshot JPEG encoding failed: ' + camera)
-                images[camera] = {'encoding': 'jpeg', 'data_base64': base64.b64encode(encoded).decode('ascii'),
-                                  'width': int(rgb.shape[1]), 'height': int(rgb.shape[0])}
+            self._set_managed_camera_updates(True)
+            try:
+                if self.render_mode == 'human':
+                    self.sim.set_render_mode(self.sim.RenderMode.FULL_RENDERING)
+                self.sim.render()
+                for camera in self.camera_names:
+                    self.scene[camera].update(0.0, force_recompute=True)
+                    rgb = self.render_single_camera(camera)['rgb_img'][:, :, :3]
+                    ok, encoded = cv2.imencode('.jpg', cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+                    if not ok:
+                        raise RuntimeError('snapshot JPEG encoding failed: ' + camera)
+                    jpeg_payloads[camera] = encoded.tobytes()
+                    images[camera] = {'encoding': 'jpeg', 'data_base64': base64.b64encode(encoded).decode('ascii'),
+                                      'width': int(rgb.shape[1]), 'height': int(rgb.shape[0])}
+                # Console receives the same JPEG bytes as the model snapshot.
+                # Publishing is display-only and cannot trigger another render.
+                from std_msgs.msg import Header
+                header = Header(stamp=self.multi_robot_ros_interface.get_timestamp(), frame_id='simulation')
+                for camera, payload in jpeg_payloads.items():
+                    self.multi_robot_ros_interface.publish_sdk_camera_jpeg(
+                        camera, payload, header)
+            finally:
+                self._set_managed_camera_updates(False)
         return {'joints': joints, 'images': images}
 
     def managed_idle(self):
-        """Pump Kit/GUI rendering without advancing the physics simulation."""
-        self.sim.render()
+        """Keep GUI events responsive with camera products disabled; no physics."""
+        if self.render_mode != 'human':
+            return
+        now = time.monotonic()
+        if now >= self._managed_idle_deadline:
+            self._managed_idle_deadline = now + 0.05
+            self.sim.render(mode=self.sim.RenderMode.NO_RENDERING)
 
     def _apply_control(self):
         import torch

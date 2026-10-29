@@ -310,6 +310,13 @@ episode, and owns batch scheduling. This mode requires explicit
 defaults, all batch values configurable). It retains the per-episode budget,
 disables velocity prediction based on wall-clock FPS during Eval, and requires
 the configured initial pose, success predicates and all three RGB cameras.
+
+Managed Eval renders the RGB cameras only for reset/model-observation snapshots.
+Intermediate physics steps use `render=False`; camera render products remain disabled
+while waiting for inference or pumping GUI events. Each snapshot publishes the same
+encoded JPEG bytes on the SDK camera topics for the Atlas Console, without a second
+render or JPEG encoding. Replay retains its normal live camera path. GUI viewports
+are suspended between snapshots; use headless mode when no Isaac window is needed.
 Use `--managed-evaluation --check-config` for CPU validation before launch.
 Reports are saved immediately under the output root in a directory named
 `run-<owner-hash>`, with `episode-000001.json`, etc., and `summary.json`.
