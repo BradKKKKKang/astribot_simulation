@@ -1,24 +1,119 @@
 {
   "name": "penholder",
-  "events": {
-    "grasp": {
-      "event_type": "grasp",
-      "role": "handled_object",
-      "exclude_initial": true
-    },
-    "release": {
-      "event_type": "release",
-      "role": "handled_object",
-      "exclude_initial": true
+  "instruction": "拿起笔放进笔筒",
+  "reset": {
+    "objects": [
+      "pen",
+      "penholder"
+    ],
+    "placement": {
+      "type": "empirical",
+      "surface": "table.tabletop",
+      "min_separation": 0.02,
+      "max_attempts": 100
     }
   },
+  "stage_order": [
+    "pick_pen",
+    "place_pen"
+  ],
   "stages": {
-    "transfer": {
-      "events": [
-        "grasp",
-        "release"
+    "pick_pen": {
+      "success": {
+        "predicates": [
+          {
+            "id": "pen_lifted",
+            "kind": "object_in_region",
+            "object": "pen",
+            "region": "lifted_pen"
+          }
+        ]
+      }
+    },
+    "place_pen": {
+      "success": {
+        "predicates": [
+          {
+            "id": "pen_inside_holder",
+            "kind": "object_relative_region",
+            "object": "pen",
+            "relative_to": "penholder",
+            "point": [
+              0,
+              0,
+              -0.075
+            ],
+            "min": [
+              -0.043,
+              -0.043,
+              -0.05
+            ],
+            "max": [
+              0.043,
+              0.043,
+              0.04
+            ],
+            "min_axis_dot": 0.8
+          }
+        ]
+      }
+    }
+  },
+  "success": {
+    "mode": "all",
+    "predicates": [
+      {
+        "id": "pick_pen",
+        "kind": "stage",
+        "stage": "pick_pen"
+      },
+      {
+        "id": "place_pen",
+        "kind": "stage",
+        "stage": "place_pen"
+      }
+    ]
+  },
+  "initial_pose": {
+    "joint_targets_rad": {
+      "astribot_torso": [
+        0.5508821521606445,
+        -1.1273713564453125,
+        0.5959540053100586,
+        0.03848532952880859
       ],
-      "ordered": true
+      "astribot_arm_left": [
+        -0.03856973126220703,
+        0.20329178228759764,
+        -1.2097984542236329,
+        1.5300517114257812,
+        -0.23898481353759765,
+        -0.1728835588989258,
+        0.3801938515118204
+      ],
+      "astribot_arm_right": [
+        0.07468031085205078,
+        0.19812313983154298,
+        1.210975633178711,
+        1.3953681739501953,
+        0.2469671401977539,
+        -0.09961634393310546,
+        -0.33234673150634764
+      ],
+      "astribot_head": [
+        -0.0055981115112304705,
+        0.8074807731323242
+      ]
+    },
+    "gripper_percent": {
+      "left": 0.02284954583385873,
+      "right": 0.2785220370853564
+    },
+    "source": {
+      "parquet": "/home/zihengkang/Datasets/real_eval/penholder_merged_clean/data/chunk-000/episode_000003.parquet",
+      "frame_index": 0,
+      "column": "joints_dict.joints_position_state",
+      "sha256": "4e3edcaf450ff5d4265aca948dd581417f9df67493e48686756b66476b5f4e26"
     }
   }
 }

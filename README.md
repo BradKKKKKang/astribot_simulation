@@ -184,8 +184,8 @@ Placement experiments live under `config/placement_distribution/` and reference
 `config/placement_distribution/jev/`. They do not require
 scene, evaluation task or success profiles. Dataset identity lives in `source`;
 startup filtering lives in `candidates.selection`. Evaluation experiments are
-separate under `config/experiments/evaluation/`, with independently replaceable
-`config/success/` profiles.
+separate under `config/experiments/evaluation/`. Schema 4 tasks own their instruction,
+reset selection, ordered stages and `success` predicates in `config/tasks/`.
 See [the placement architecture](docs/PLACEMENT_ARCHITECTURE.md) for configuration
 composition, cache dependencies, result schemas and extension points.
 
@@ -244,37 +244,139 @@ timeout does not invalidate model results, and changing confidence thresholds
 recomputes decisions from saved raw probabilities. Omit `--data-root` to reuse
 verified archived frames without reopening the dataset; an explicit `--data-root`
 always revalidates the requested source. `penholder.json` assigns the known object without a
-model call. `cap_pen.json` remains `needs_annotation`. The three migrated evaluation
-success profiles have deliberately unconfigured predicates, so task success remains
-`unknown` until explicit predicates are supplied; motion candidates are not contact evidence.
+model call. `cap_pen.json` remains `needs_annotation`. The `cap_pen` and `press_cube`
+evaluation tasks have unconfigured success predicates (`unknown`); motion candidates
+are not contact evidence.
 `python -m src.evaluation.placement --observations /path/to/evidence.json` supplies explicit per-episode observations
 to evaluation; its format is documented in the architecture guide.
 
-The `table_penholder` evaluation example combines a white table, red pen and
+The `penholder` evaluation task (also available as `table_penholder`) combines a white table, red pen and
 yellow penholder with the shared S1 robot. Asset profiles under `config/assets/`
 record source files, axis conversion, scale, collision and the tabletop frame.
-Update those source paths for your asset installation. Validate the composition
+The calibrated table GLB is included in the repository; update the pen and holder
+source paths for your asset installation. The table measures 1.40 × 0.70 × 0.75 m.
+Its tabletop center is 0.60 m in front of the robot base in the XY plane, with the
+long edge along world Y. Validate the composition
 without starting ROS or Isaac:
 
 ```bash
-python astribot_simulation.py \
-  --experiment config/experiments/evaluation/table_penholder.json --check-config
+python astribot_simulation_integrate.py \
+  --config config/experiments/evaluation/penholder.json --check-config
 ```
 
-Launching this evaluation consumes measured object poses after reset and each
-simulation step. Its success criterion checks the pen body origin in a tabletop target
-region; it does not assert contact or insertion. The sample stops after 1,000
-steps and writes `outputs/evaluation/table_penholder/evaluation.json`. It does not
-provide a movement policy. Missing object/contact evidence remains `unknown`.
+`astribot_simulation_integrate.py` is the evaluation entrypoint, copied from the
+original launcher and adapted to evaluation JSON. It defaults to `penholder.json`
+relative to the script, accepts `--experiment` as an alias for `--config`, and
+loads the robot, scene assets and task through the shared configuration resolver.
+In GUI mode it opens one resizable camera viewer: head on top, left and right
+wrists below. Missing frames retain labeled slots. The default 1280 × 1080
+combined image preserves sensor pixels and initially fits within a 900-pixel-high
+window. Press `q` or close the viewer to stop previews. `--no-viewer` hides those
+previews while retaining RGB rendering and ROS
+publication; `--headless` opens no preview windows; `--no-cameras` disables the
+camera sensors as well. Preview processes are stopped when the launcher exits.
+The robot profile references `config/astribot_s1/simulation_isaaclab_param.yaml`,
+which enables `head_rgbd` (1280 × 720), `left_wrist_rgbd` and `right_wrist_rgbd`
+(640 × 360 each). Raw images use `/astribot_whole_body/camera/<name>/image_raw`.
+The three link-relative camera poses are authored in
+`astribot_descriptions/usd/astribot_s1_usd/astribot_s1.usda` and inherited by the
+textured robot model. They use the penholder episode 3, frame 0 robot-image
+alignment, with unchanged camera intrinsics. All experiments using this USD
+inherit these poses; the head camera retains a visible alignment residual.
+The original `astribot_simulation.py` also retains its YAML and experiment modes.
+After activating the Isaac Lab environment and sourcing ROS and `env.sh`, launch:
 
-The penholder scene has a matte black enclosure with a 2 m × 2 m clear interior,
-a 2.2 m ceiling and a black ground plane. Its only enabled scene light is a
-downward white 0.5 m × 0.12 m ceiling strip above the robot at world XY (0, 0).
-The background asset is `config/scenes/backgrounds/penholder_enclosure.usda`;
-adjust `CeilingStripLight.inputs:intensity` (default 300, exposure 0) to tune
-brightness for the camera exposure, then restart the simulation. The enclosure
-panels are visual geometry; ground collision continues to use the ground plane.
+```bash
+python astribot_simulation_integrate.py --config config/experiments/evaluation/penholder.json
+# Continuous headless run; stop with Ctrl+C:
+python astribot_simulation_integrate.py --headless --no-cameras \
+  --output-dir /tmp/astribot_integrate_check
+```
 
+By default, the integrated launcher runs continuously until the GUI is closed or Ctrl+C is
+pressed. It has no `--max-steps` option and removes legacy configured step budgets
+from its resolved runtime. `--output-dir` overrides the report directory. Runtime
+and output changes are included in the resolved fingerprints.
+`--check-config` validates asset files and geometry without starting ROS or Isaac.
+The experiment's `runtime` section is optional and may be `{}`. Without runtime
+overrides, simulation settings come from the robot's referenced configuration;
+no separate runtime file is required.
+
+For Atlas synchronous batches, launch with `--managed-evaluation` (ROS2/Isaac Lab).
+Physics initially pauses; Atlas requests each complete 0.01 s step, resets each
+episode, and owns batch scheduling. This mode requires explicit
+`runtime.simulation: {"dt": 0.01, "frame_skip": 1}` and
+`runtime.evaluation: {"episodes": 10, "max_steps": 3000, "seed": 0}` (the penholder
+defaults, all batch values configurable). It retains the per-episode budget,
+disables velocity prediction based on wall-clock FPS during Eval, and requires
+the configured initial pose, success predicates and all three RGB cameras.
+Use `--managed-evaluation --check-config` for CPU validation before launch.
+Reports are saved immediately under the output root in a directory named
+`run-<owner-hash>`, with `episode-000001.json`, etc., and `summary.json`.
+Replay acquires an explicit mutually exclusive lease before using the ordinary
+ROS command path. See [managed evaluation protocol](docs/MANAGED_EVALUATION.md).
+
+Tasks can declare `initial_pose` with `joint_targets_rad` (part names to joint
+angle lists) and `gripper_percent` (`left`/`right`, 0–100). These targets override
+the robot profile's initial joints and are restored together with the control
+targets on reset. This requires an experiment `robot_placement`, which continues
+to determine the fixed base placement. The penholder task already stores the
+measured joint state from frame 0 of `penholder_merged_clean/episode_000003.parquet`,
+including source path and SHA-256; the dataset need not remain mounted to use
+the stored pose. Startup prints the pose, and the Isaac robot starts in it.
+
+To override a task pose from another LeRobot episode (requires PyArrow and the
+dataset's `meta/info.json` with joint names):
+
+```bash
+python astribot_simulation_integrate.py \
+  --initial-pose-parquet /path/to/dataset/data/chunk-000/episode_000000.parquet \
+  --initial-pose-frame 0
+```
+
+The frame is selected by `frame_index` from `joints_dict.joints_position_state`,
+not from control commands. Angular states use radians and grippers use percent;
+recorded chassis values are not applied to the fixed base. Add `--check-config`
+to inspect the imported pose without starting the simulator.
+
+The instruction is “拿起笔放进笔筒”. Creation and reset use `type: empirical` to draw
+one recorded pen/holder XY pair from the 310 rows stored as
+`placement.reset_xy_samples` in `config/scenes/penholder.json`. Pen rows come from
+grasp candidates and holder rows from release candidates in the same episode.
+This preserves observed spatial density and pairing. Each object's
+`reset_xy_bounds` remains its calibrated envelope. Pairs that violate support or
+the 2 cm separation rule are redrawn together. Recorded Z is discarded: each
+object's geometry rests 1 mm above the simulated tabletop with its configured
+orientation. `reset(seed=...)` is reproducible; runtime needs no dataset files.
+The red marker's asset profile (`config/assets/red_markpen.json`) calibrates the
+source GLB to the measured 15 cm length along local Z and the user-requested
+1.526 cm maximum diameter in X/Y, using separate axial and radial scales. The original
+`~/assets/red_markpen.glb` is unchanged. Restart the simulation to apply the size.
+The measured stages run in order: `pick_pen` checks that the pen body origin is at
+least 8 cm above the tabletop; `place_pen` checks that its lower endpoint lies in
+the holder's moving interior region and the pen's +Z axis has dot product ≥ 0.8
+with the holder's +Z axis. These are geometric criteria, without a contact,
+gripper-release or stability claim. Stage evidence is retained until reset.
+On exit, it writes `outputs/evaluation/penholder/evaluation.json`.
+It does not provide a movement policy. Missing measured evidence remains `unknown`.
+The holder asset's `material` override uses `metallic: 0` and `roughness: 0.55`
+for a nonmetallic ceramic appearance with broad highlights, preserving the source
+colors and decoration. Restart the simulation to apply material configuration changes.
+
+The penholder scene has a matte black enclosure with a 3 m × 3 m clear interior,
+a 2.2 m ceiling and a black ground plane. A downward white 0.5 m × 0.12 m ceiling
+strip above world XY (0, 0) uses intensity 30000. Two white 0.8 m × 0.6 m area
+lights at world `(1.1, +/-1.1, 1.45)` use intensity 8000 each and point toward
+`(0.25, 0, 1.05)`, making gripper mechanisms and arm joints visible from the
+front and sides. The dome remains disabled. All three lights use exposure 0
+and `normalize: false`. The background asset is
+`config/scenes/backgrounds/black_enclosure.usda`; adjust the `inputs:intensity`
+of `CeilingStripLight`, `FillLeft` and `FillRight`, then restart the simulation.
+The enclosure panels are visual geometry; ground collision continues to use
+the ground plane.
+The table is centered at world X = 0.60 m to clear the torso in the stored initial
+pose. Moving it back to X = 0.50 m overlaps the torso and pushes the robot away
+from that pose on the first physics update.
 Schema 5 `placement.json` is a manifest referencing shared immutable episode
 shards, event snapshots and robot geometry. New extraction does not duplicate a
 complete JSON/Parquet bundle or a robot GLB for every task. Web publication

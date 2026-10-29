@@ -233,13 +233,19 @@ def _placement_sections(sections):
 def _validate_evaluation_runtime(runtime):
     check_fields(runtime, {'simulation', 'evaluation'}, 'evaluation.runtime')
     simulation = runtime.get('simulation', {})
-    check_fields(simulation, {'dt', 'decimation'}, 'runtime.simulation')
+    check_fields(simulation, {'dt', 'decimation', 'frame_skip'}, 'runtime.simulation')
     if 'dt' in simulation:
         _positive(simulation['dt'], 'runtime.simulation.dt')
     if 'decimation' in simulation and (type(simulation['decimation']) is not int or simulation['decimation'] < 1):
         raise ValueError('runtime.simulation.decimation must be a positive integer')
+    if 'frame_skip' in simulation and (type(simulation['frame_skip']) is not int or simulation['frame_skip'] < 1):
+        raise ValueError('runtime.simulation.frame_skip must be a positive integer')
     evaluation = runtime.get('evaluation', {})
-    check_fields(evaluation, {'max_steps'}, 'runtime.evaluation')
+    check_fields(evaluation, {'max_steps', 'episodes', 'seed'}, 'runtime.evaluation')
+    if 'episodes' in evaluation and (type(evaluation['episodes']) is not int or evaluation['episodes'] < 1):
+        raise ValueError('runtime.evaluation.episodes must be a positive integer')
+    if 'seed' in evaluation and (type(evaluation['seed']) is not int or evaluation['seed'] < 0):
+        raise ValueError('runtime.evaluation.seed must be a nonnegative integer')
     if 'max_steps' in evaluation and (type(evaluation['max_steps']) is not int or evaluation['max_steps'] < 1):
         raise ValueError('runtime.evaluation.max_steps must be a positive integer')
 
@@ -251,18 +257,18 @@ def resolve_experiment(path, *, require_ready=True):
     if not isinstance(value, dict):
         raise ValueError('experiment must be a JSON object')
     version = value.get('schema_version')
-    if version is not None and (type(version) is not int or version not in (1, 2, 3)):
+    if version is not None and (type(version) is not int or version not in (1, 2, 3, 4)):
         raise ValueError('unsupported experiment schema_version')
-    if version in (2, 3):
+    if version in (2, 3, 4):
         kind = value.get('kind')
         if kind not in ('placement_test', 'evaluation'):
             raise ValueError('experiment.kind must be placement_test or evaluation')
         names = (('robot', 'candidates', 'jev', 'source', 'runtime', 'output')
                  if kind == 'placement_test' else ('robot', 'scene', 'task', 'output'))
-        if version == 3:
+        if version >= 3:
             names += ('robot_placement',)
             if kind == 'evaluation':
-                names += ('success', 'runtime')
+                names += (('success', 'runtime') if version == 3 else ('runtime',))
         allowed = {'schema_version', 'kind', 'name', *names}
         if kind == 'placement_test':
             allowed.add('status')
@@ -284,15 +290,24 @@ def resolve_experiment(path, *, require_ready=True):
             RobotProfile(sections['robot'])
             validate_scene(sections['scene'])
             task = sections['task']
-            check_fields(task, {'name', 'events', 'stages'} | ({'success'} if version == 2 else set()), 'evaluation.task')
+            check_fields(task, {'name', 'instruction', 'initial_pose', 'reset', 'events', 'stages', 'stage_order', 'success'}, 'evaluation.task')
             if not isinstance(task.get('name'), str) or not task['name']:
                 raise ValueError('evaluation.task requires name')
-            if version == 2:
-                if 'success' not in task:
-                    raise ValueError('v2 evaluation.task requires success')
-                sections['success'] = task.pop('success')
+            if version == 3:
+                if 'success' in task:
+                    raise ValueError('v3 cannot declare both task.success and success')
+                task['success'] = sections.pop('success')
+            if 'success' not in task:
+                raise ValueError('evaluation.task requires success')
+            from .task_reset import validate_task_reset
+            validate_task_reset(sections['scene'], task.get('reset'))
+            if 'initial_pose' in task:
+                from .initial_pose import initial_joint_positions
+                initial_joint_positions(task['initial_pose'], RobotProfile(sections['robot']))
+                if 'robot_placement' not in sections:
+                    raise ValueError('task.initial_pose requires robot_placement for initialization and reset')
             from src.evaluation.task_evaluation import validate_evaluation_config
-            validate_evaluation_config(sections['scene'], task, sections['success'])
+            validate_evaluation_config(sections['scene'], task, task['success'])
             _validate_evaluation_runtime(sections.get('runtime', {}))
             check_fields(sections['output'], {'root'}, 'evaluation.output')
             if 'root' in sections['output'] and (not isinstance(sections['output']['root'], str)
@@ -326,7 +341,7 @@ def resolve_experiment(path, *, require_ready=True):
     if detector_sections['candidates'].get('type') is not None:
         detector_sections['candidates'] = asdict(DetectorConfig(**detector_sections['candidates']))
         sections['candidates'] = copy.deepcopy(detector_sections['candidates'])
-        if version in (2, 3):
+        if version in (2, 3, 4):
             sections['candidates']['selection'] = copy.deepcopy(detector_sections['task']['event_rules'])
     fingerprints = {key: fingerprint(section) for key, section in sections.items()}
     robot = sections['robot']

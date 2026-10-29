@@ -18,6 +18,10 @@
       0.12
     ]
   },
+  "material": {
+    "metallic": 0.0,
+    "roughness": 0.55
+  },
   "physics": {
     "body_type": "dynamic",
     "collision": "sdf",

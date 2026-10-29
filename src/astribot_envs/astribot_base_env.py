@@ -48,6 +48,7 @@ class AstribotBaseEnv(gym.Env, ABC):
     def __init__(self, param):
 
         astribot_simu_log("Setup param from yaml")
+        self.managed_evaluation = bool(param.get('managed_evaluation', False))
         self.robot_name = param.get('robot_name', '')
         self.model_path = param.get('model_path', '')
         self.robot_list = param.get('robot_list', [])
@@ -72,6 +73,10 @@ class AstribotBaseEnv(gym.Env, ABC):
             self.frame_skip = max(1, int(os.getenv("ASTRIBOT_FRAME_SKIP", "3")))
         except ValueError:
             self.frame_skip = 3
+        if 'frame_skip' in param:
+            self.frame_skip = param['frame_skip']
+        if self.managed_evaluation and self.frame_skip != 1:
+            raise ValueError('managed evaluation requires frame_skip=1')
         self.vel_compensation_map = dict()
         self.robot_joint_map = dict()
         self.cv_bridge = CvBridge()
@@ -164,7 +169,10 @@ class AstribotBaseEnv(gym.Env, ABC):
     def setup_joint_interface(self):
         astribot_simu_log("Setup joint interface")
         self.multi_robot_ros_interface = MultiRobotRosInterface(self.node)
+        self.multi_robot_ros_interface.managed_evaluation = self.managed_evaluation
         self.robot_dict = self.multi_robot_ros_interface.setup_robot_joint_interface(self.robot_joint_map)
+        for interface in self.robot_dict.values():
+            interface.managed_evaluation = self.managed_evaluation
         self.multi_robot_ros_interface.setup_camera_interface(self.camera_names)
         self.multi_robot_ros_interface.setup_sensor_interface(self.sensor_names)
         self.multi_robot_ros_interface.setup_trajectory_and_com_psoe(self.update_trajectory_map)
@@ -415,6 +423,8 @@ class AstribotBaseEnv(gym.Env, ABC):
         return joint_names, controller_modes, joint_position_commands, joint_velocity_commands, joint_torque_commands
     
     def vel_compensation_ctrl(self, ctrl_position, ctrl_velocity=None,idx = None):
+        if self.managed_evaluation:
+            return [ctrl_position[idx]]
 
         ctrl_position_out = []
 

@@ -28,15 +28,17 @@ def configuration(sample, **changes):
         from src.simulation_config.experiment_config import resolve_experiment
         resolved = resolve_experiment(Path(__file__).parents[2] / 'config/experiments/evaluation/press_cube.json')
         sections = copy.deepcopy(resolved['sections'])
+        if 'task' in changes:
+            sections['task'].update(changes.pop('task'))
         if 'success' in changes:
-            sections['success'] = changes.pop('success')
+            sections['task']['success'] = changes.pop('success')
         kind = 'evaluation'
     else:
         sections = copy.deepcopy(sample['settings']['_resolved_sections'])
         kind = 'placement_test'
     sections.update(changes)
     path = sample['output'].parent / 'experiment.json'
-    path.write_text(json.dumps({'schema_version': 3, 'kind': kind, **sections}))
+    path.write_text(json.dumps({'schema_version': 4 if kind == 'evaluation' else 3, 'kind': kind, **sections}))
     return path
 
 

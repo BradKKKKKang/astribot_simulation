@@ -46,6 +46,7 @@ def load_env_class(monkeypatch):
 def env(monkeypatch):
     cls = load_env_class(monkeypatch)
     instance = object.__new__(cls)
+    instance.managed_evaluation = False
     names = ['astribot_arm_left_joint_1'] + [
         f'astribot_gripper_{side}_joint_{suffix}'
         for side in ('left', 'right') for suffix in SIGNS
@@ -142,3 +143,16 @@ def test_feedback_preserves_direction_and_excursions(env, value):
         assert env.get_joint_position(name) == pytest.approx(value)
         assert env.get_joint_velocity(name) == pytest.approx(value)
         assert env.get_joint_acceleration(name) == pytest.approx(value)
+
+
+def test_managed_eval_preserves_gripper_targets_despite_sdk_velocity(env):
+    env.managed_evaluation = True
+    env.joint_position_command_all = [.37, 50., 75.]
+    env.joint_velocity_command_all = [.2, 750., -320.]
+    env.real_time_fps = 2.
+    env._apply_control()
+    for side, percent in (('left', 50.), ('right', 75.)):
+        for suffix, direction in SIGNS.items():
+            name = f'astribot_gripper_{side}_joint_{suffix}'
+            idx = env.joint_name_to_index[name]
+            assert env.robot.targets[0, idx].item() == pytest.approx(percent * direction * .0093)

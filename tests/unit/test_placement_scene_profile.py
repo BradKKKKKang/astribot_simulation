@@ -23,7 +23,7 @@ def experiment(tmp_path, change=None):
     if change:
         change(resolved['sections'])
     path = tmp_path / 'experiment.json'
-    path.write_text(json.dumps({'schema_version': 3, 'kind': 'evaluation', **resolved['sections']}))
+    path.write_text(json.dumps({'schema_version': 4, 'kind': 'evaluation', **resolved['sections']}))
     return resolve_experiment(path), path
 
 
@@ -49,15 +49,15 @@ def test_nested_calibrated_frames_are_consumed_by_region_evaluation(tmp_path):
         sections['scene']['regions'] = {'destination': {'frame':'target','min':[-.1,-.1,-.1],'max':[.1,.1,.1]}}
         sections['task']['events'] = {'press':{'event_type':'press'}}
         sections['task']['stages'] = {}
-        sections['success'] = {'predicates':[{'id':'region','kind':'in_region','event':'press','region':'destination'}]}
+        sections['task']['success'] = {'predicates':[{'id':'region','kind':'in_region','event':'press','region':'destination'}]}
     resolved, _ = experiment(tmp_path, configure)
     sections = resolved['sections']
     event = {'event_id':'event', 'event_type':'press', 'tcp_pose_base':[1,2,0,1,0,0,0]}
-    result = evaluate_success([event],sections['scene'],sections['task'],sections['success'],{'events_complete':True})
+    result = evaluate_success([event],sections['scene'],sections['task'],sections['task']['success'],{'events_complete':True})
     assert result['status'] == 'passed'
     assert result['predicates'][0]['evidence']['positions'] == [[0.,0.,0.]]
     event['tcp_pose_base'][0] = 2
-    assert evaluate_success([event],sections['scene'],sections['task'],sections['success'],{'events_complete':True})['status'] == 'failed'
+    assert evaluate_success([event],sections['scene'],sections['task'],sections['task']['success'],{'events_complete':True})['status'] == 'failed'
     original = resolve_experiment(ROOT / 'config/experiments/evaluation/press_cube.json')
     assert resolved['fingerprints']['scene_simulation'] == original['fingerprints']['scene_simulation']
     assert 'extraction' not in resolved['fingerprints']

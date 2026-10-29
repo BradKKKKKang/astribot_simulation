@@ -6,7 +6,7 @@
 )
 
 def Xform "Enclosure" (
-    doc = "Penholder visual enclosure centered on the robot at world XY (0, 0). Clear interior: 2 x 2 m; ceiling underside: 2.2 m. Panels are visual only; the scene ground plane retains floor collision. One downward white strip light replaces the dome light."
+    doc = "Black visual enclosure centered at world XY (0, 0). Clear interior: 3 x 3 m; ceiling underside: 2.2 m. Panels are visual only; the scene ground plane retains floor collision. A white ceiling strip and two soft front-side fill lights illuminate the arm joints and grippers; no dome light is required."
 )
 {
     def "Looks"
@@ -53,8 +53,8 @@ def Xform "Enclosure" (
         rel material:binding = </Enclosure/Looks/MatteBlack>
         color3f[] primvars:displayColor = [(0, 0, 0)]
         double size = 1
-        float3 xformOp:scale = (0.05, 2.1, 2.2)
-        double3 xformOp:translate = (-1.025, 0, 1.1)
+        float3 xformOp:scale = (0.05, 3.1, 2.2)
+        double3 xformOp:translate = (-1.525, 0, 1.1)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
     }
 
@@ -65,8 +65,8 @@ def Xform "Enclosure" (
         rel material:binding = </Enclosure/Looks/MatteBlack>
         color3f[] primvars:displayColor = [(0, 0, 0)]
         double size = 1
-        float3 xformOp:scale = (0.05, 2.1, 2.2)
-        double3 xformOp:translate = (1.025, 0, 1.1)
+        float3 xformOp:scale = (0.05, 3.1, 2.2)
+        double3 xformOp:translate = (1.525, 0, 1.1)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
     }
 
@@ -77,8 +77,8 @@ def Xform "Enclosure" (
         rel material:binding = </Enclosure/Looks/MatteBlack>
         color3f[] primvars:displayColor = [(0, 0, 0)]
         double size = 1
-        float3 xformOp:scale = (2, 0.05, 2.2)
-        double3 xformOp:translate = (0, 1.025, 1.1)
+        float3 xformOp:scale = (3, 0.05, 2.2)
+        double3 xformOp:translate = (0, 1.525, 1.1)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
     }
 
@@ -89,8 +89,8 @@ def Xform "Enclosure" (
         rel material:binding = </Enclosure/Looks/MatteBlack>
         color3f[] primvars:displayColor = [(0, 0, 0)]
         double size = 1
-        float3 xformOp:scale = (2, 0.05, 2.2)
-        double3 xformOp:translate = (0, -1.025, 1.1)
+        float3 xformOp:scale = (3, 0.05, 2.2)
+        double3 xformOp:translate = (0, -1.525, 1.1)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
     }
 
@@ -101,7 +101,7 @@ def Xform "Enclosure" (
         rel material:binding = </Enclosure/Looks/MatteBlack>
         color3f[] primvars:displayColor = [(0, 0, 0)]
         double size = 1
-        float3 xformOp:scale = (2.1, 2.1, 0.05)
+        float3 xformOp:scale = (3.1, 3.1, 0.05)
         double3 xformOp:translate = (0, 0, 2.225)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
     }
@@ -131,17 +131,49 @@ def Xform "Enclosure" (
     }
 
     def RectLight "CeilingStripLight" (
-        doc = "Single 0.5 m x 0.12 m white area light above the robot, emitting downward (-Z). Moderate starting intensity 300, exposure 0; tune inputs:intensity for the active renderer/camera exposure."
+        doc = "0.5 m x 0.12 m white key light above the robot, emitting downward (-Z). Intensity 30000, exposure 0, complemented by the front-side fill lights."
     )
     {
         color3f inputs:color = (1, 1, 1)
         bool inputs:enableColorTemperature = 0
         float inputs:exposure = 0
         float inputs:height = 0.12
-        float inputs:intensity = 300
+        float inputs:intensity = 30000
         bool inputs:normalize = 0
         float inputs:width = 0.5
         double3 xformOp:translate = (0, 0, 2.165)
         uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+
+    def RectLight "FillRight" (
+        doc = "Soft white fill directed at world (0.25, 0, 1.05), lighting arm joints and gripper sides."
+    )
+    {
+        color3f inputs:color = (1, 1, 1)
+        bool inputs:enableColorTemperature = 0
+        float inputs:exposure = 0
+        float inputs:height = 0.6
+        float inputs:intensity = 8000
+        bool inputs:normalize = 0
+        float inputs:width = 0.8
+        double3 xformOp:translate = (1.1, -1.1, 1.45)
+        quatd xformOp:orient = (0.7560773669918278, 0.5692007693413534, 0.19429425677861634, 0.2580837869505979)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
+    }
+
+    def RectLight "FillLeft" (
+        doc = "Soft white fill directed at world (0.25, 0, 1.05), lighting arm joints and gripper sides."
+    )
+    {
+        color3f inputs:color = (1, 1, 1)
+        bool inputs:enableColorTemperature = 0
+        float inputs:exposure = 0
+        float inputs:height = 0.6
+        float inputs:intensity = 8000
+        bool inputs:normalize = 0
+        float inputs:width = 0.8
+        double3 xformOp:translate = (1.1, 1.1, 1.45)
+        quatd xformOp:orient = (0.258083786950598, 0.19429425677861625, 0.5692007693413532, 0.7560773669918278)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
     }
 }

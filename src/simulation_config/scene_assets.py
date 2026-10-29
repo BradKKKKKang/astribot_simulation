@@ -41,7 +41,7 @@ def transformed_primitives(asset, scale=(1., 1., 1.)):
 
 
 def validate_asset(asset):
-    _fields(asset, {'name', 'source', 'source_transform', 'physics', 'surfaces'}, 'asset')
+    _fields(asset, {'name', 'source', 'source_transform', 'material', 'physics', 'surfaces'}, 'asset')
     if not isinstance(asset.get('name'), str) or not asset['name']:
         raise ValueError('asset.name must be nonempty')
     source = asset.get('source', {})
@@ -57,6 +57,11 @@ def validate_asset(asset):
     pose_fields(transform, 'asset.source_transform')
     if any(v <= 0 for v in vector(transform['scale'], 3, 'asset.source_transform.scale')):
         raise ValueError('asset scale must be positive')
+    material = asset.get('material', {})
+    _fields(material, {'metallic', 'roughness'}, 'asset.material')
+    for key, value in material.items():
+        if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1:
+            raise ValueError(f'asset.material.{key} must be a finite number in [0, 1]')
     physics = asset.get('physics', {})
     _fields(physics, {'body_type', 'collision', 'mass', 'friction', 'restitution'}, 'asset.physics')
     if physics.get('body_type') not in ('static', 'dynamic'):
@@ -151,6 +156,23 @@ def expand_scene_assets(scene, directory):
     return result
 
 
+def validate_reset_xy_bounds(bounds):
+    """Validate object-origin XY limits in the object's placement frame, in meters."""
+    _fields(bounds, {'min', 'max'}, 'object.placement.reset_xy_bounds')
+    low, high = (np.array(vector(bounds.get(key), 2, 'reset_xy_bounds.' + key))
+                 for key in ('min', 'max'))
+    if np.any(low >= high):
+        raise ValueError('reset_xy_bounds requires min < max on both axes')
+    return low, high
+
+
+def validate_reset_xy_samples(samples):
+    """Preserve observation multiplicity and row order for paired empirical reset."""
+    if not isinstance(samples, list) or not samples:
+        raise ValueError('reset_xy_samples requires a nonempty list of XY observations')
+    return np.array([vector(xy, 2, 'reset_xy_samples') for xy in samples])
+
+
 def validate_scene_objects(scene):
     objects = scene.get('objects', {})
     if not isinstance(objects, dict):
@@ -169,7 +191,8 @@ def validate_scene_objects(scene):
         if any(v <= 0 for v in vector(obj.get('scale', [1, 1, 1]), 3, 'object.scale')):
             raise ValueError('object scale must be positive')
         placement = obj.get('placement', {})
-        _fields(placement, {'frame', 'xy', 'position', 'quaternion_wxyz', 'grounding', 'clearance'}, 'object.placement')
+        _fields(placement, {'frame', 'xy', 'position', 'quaternion_wxyz', 'grounding', 'clearance',
+                            'reset_xy_bounds', 'reset_xy_samples'}, 'object.placement')
         if not isinstance(placement.get('frame'), str):
             raise ValueError('object placement requires an explicit frame')
         pose_fields(placement, 'object.placement')
@@ -184,6 +207,14 @@ def validate_scene_objects(scene):
             raise ValueError('placement clearance must be finite and nonnegative')
         if 'xy' in placement and placement.get('grounding') != 'geometry_min':
             raise ValueError('xy placement requires geometry_min grounding')
+        if 'reset_xy_bounds' in placement:
+            validate_reset_xy_bounds(placement['reset_xy_bounds'])
+            if placement.get('grounding') != 'geometry_min':
+                raise ValueError('reset_xy_bounds requires geometry_min grounding')
+        if 'reset_xy_samples' in placement:
+            validate_reset_xy_samples(placement['reset_xy_samples'])
+            if placement.get('grounding') != 'geometry_min':
+                raise ValueError('reset_xy_samples requires geometry_min grounding')
 
 
 def resolve_scene_objects(scene):

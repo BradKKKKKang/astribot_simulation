@@ -19,6 +19,12 @@ def validate_evaluation_config(scene, task, success):
     stages = task.get('stages', {})
     if not isinstance(events, dict) or not isinstance(stages, dict):
         raise ValueError('task.events and task.stages must be named objects')
+    if 'instruction' in task and (not isinstance(task['instruction'], str) or not task['instruction'].strip()):
+        raise ValueError('task.instruction must be a nonempty string')
+    order = task.get('stage_order')
+    if order is not None and (not isinstance(order, list) or not all(isinstance(s, str) for s in order)
+                              or len(order) != len(set(order)) or set(order) != set(stages)):
+        raise ValueError('task.stage_order must list every stage exactly once')
     roles = {role for obj in scene.get('objects', {}).values() for role in obj.get('roles', [])}
     for name, selector in events.items():
         _fields(selector, {'event_type', 'side', 'object', 'role', 'exclude_initial'}, f'task event {name}')
@@ -33,7 +39,15 @@ def validate_evaluation_config(scene, task, success):
         if 'exclude_initial' in selector and type(selector['exclude_initial']) is not bool:
             raise ValueError('task event exclude_initial must be boolean')
     for name, stage in stages.items():
-        _fields(stage, {'events', 'ordered'}, f'task stage {name}')
+        _fields(stage, {'events', 'ordered', 'success'}, f'task stage {name}')
+        if 'success' in stage:
+            if set(stage) != {'success'} or order is None:
+                raise ValueError('predicate stages require stage_order and only success')
+            # Stage criteria cannot recursively reference other stages.
+            validate_evaluation_config(scene, {'events': events}, stage['success'])
+            if not stage['success'].get('predicates'):
+                raise ValueError('stage.success requires predicates')
+            continue
         if (not isinstance(stage.get('events'), list) or not stage['events']
                 or any(event not in events for event in stage['events'])
                 or type(stage.get('ordered', True)) is not bool):
@@ -46,12 +60,13 @@ def validate_evaluation_config(scene, task, success):
         raise ValueError('success.predicates must be a list')
     ids = []
     for predicate in predicates:
-        _fields(predicate, {'id', 'kind', 'event', 'stage', 'min_count', 'max_count', 'region', 'object', 'evidence', 'expected'}, 'success predicate')
+        _fields(predicate, {'id', 'kind', 'event', 'stage', 'min_count', 'max_count', 'region', 'object', 'evidence', 'expected',
+                            'relative_to', 'point', 'min', 'max', 'min_axis_dot'}, 'success predicate')
         if not isinstance(predicate.get('id'), str) or not predicate['id']:
             raise ValueError('success predicate id is required')
         ids.append(predicate['id'])
         kind = predicate.get('kind')
-        if kind not in ('event_count', 'stage', 'in_region', 'object_in_region', 'evidence', 'contact'):
+        if kind not in ('event_count', 'stage', 'in_region', 'object_in_region', 'object_relative_region', 'evidence', 'contact'):
             raise ValueError('unknown success predicate kind')
         if kind in ('event_count', 'in_region') and predicate.get('event') not in events:
             raise ValueError('success predicate requires a declared task event')
@@ -61,6 +76,19 @@ def validate_evaluation_config(scene, task, success):
             raise ValueError('success predicate references unknown region')
         if kind == 'object_in_region' and predicate.get('object') not in scene.get('objects', {}):
             raise ValueError('success predicate references unknown scene object')
+        if kind == 'object_relative_region':
+            if any(predicate.get(key) not in scene.get('objects', {}) for key in ('object', 'relative_to')):
+                raise ValueError('relative predicate requires two declared objects')
+            if predicate['object'] == predicate['relative_to']:
+                raise ValueError('relative predicate requires distinct objects')
+            from src.simulation_config.isaac_scene_config import vector
+            for key in ('point', 'min', 'max'):
+                vector(predicate.get(key), 3, 'relative predicate.' + key)
+            if any(a > b for a, b in zip(predicate['min'], predicate['max'])):
+                raise ValueError('relative predicate min must not exceed max')
+            dot = predicate.get('min_axis_dot', -1.)
+            if type(dot) not in (int, float) or not math.isfinite(dot) or not -1 <= dot <= 1:
+                raise ValueError('min_axis_dot must be in [-1, 1]')
         if kind in ('contact', 'evidence') and (not isinstance(predicate.get('evidence'), str) or not predicate['evidence']):
             raise ValueError('contact/evidence predicates require an explicit observation key')
         for bound in ('min_count', 'max_count'):
@@ -142,6 +170,12 @@ def evaluate_success(events, scene, task, success, observations=None):
                 status = 'failed'
         elif kind == 'stage':
             stage = task['stages'][predicate['stage']]
+            if 'success' in stage or predicate['stage'] in observations.get('stage_results', {}):
+                result = observations.get('stage_results', {}).get(predicate['stage'], {})
+                status = result.get('status', 'unknown')
+                evidence = result
+                results.append({'id': predicate['id'], 'kind': kind, 'status': status, 'evidence': evidence})
+                continue
             selected, cursor, uncertain = [], -math.inf, False
             for name in stage['events']:
                 candidates = [event for event, match in matches[name] if match is True]
@@ -192,6 +226,26 @@ def evaluate_success(events, scene, task, success, observations=None):
                     inside = all(lo <= value <= hi for value, lo, hi in zip(position, region['min'], region['max']))
                     status = 'passed' if inside == predicate.get('expected', True) else 'failed'
                     evidence.update(position=position, source=state['source'])
+        elif kind == 'object_relative_region':
+            from src.simulation_config.poses import compose_pose, relative_pose, rotate
+            objects = observations.get('objects', {})
+            states = [objects.get(predicate[key]) for key in ('object', 'relative_to')] if isinstance(objects, dict) else []
+            evidence = {'object': predicate['object'], 'relative_to': predicate['relative_to']}
+            def measured(state):
+                if not isinstance(state, dict) or not isinstance(state.get('source'), str) or not state['source']:
+                    return False
+                pose = state.get('pose_world')
+                return (isinstance(pose, (list, tuple)) and len(pose) == 7
+                        and all(type(v) in (int, float) and math.isfinite(v) for v in pose)
+                        and abs(sum(v*v for v in pose[3:]) - 1.) < 1e-4)
+            if len(states) == 2 and all(measured(state) for state in states):
+                relative = relative_pose(states[1]['pose_world'], states[0]['pose_world'])
+                point = compose_pose(relative, predicate['point'] + [1, 0, 0, 0])[:3]
+                axis_dot = float(rotate(relative[3:], [0, 0, 1])[2])
+                inside = all(lo <= v <= hi for v, lo, hi in zip(point, predicate['min'], predicate['max']))
+                inside = inside and axis_dot >= predicate.get('min_axis_dot', -1.)
+                status = 'passed' if inside == predicate.get('expected', True) else 'failed'
+                evidence.update(point=point.tolist(), axis_dot=axis_dot, sources=[s['source'] for s in states])
         else:
             key = predicate['evidence']
             observation = observations.get(key)
@@ -211,3 +265,38 @@ def evaluate_success(events, scene, task, success, observations=None):
         overall = 'passed' if 'passed' in statuses else 'unknown' if 'unknown' in statuses else 'failed'
     return {'status': overall, 'predicates': results,
             'reason': 'no success predicates configured' if not statuses else 'evaluated explicit evidence'}
+
+
+def evaluate_task(events, scene, task, observations=None, completed_stages=None):
+    """Evaluate ordered stages; the caller owns and clears episode history on reset.
+
+    Completed stages retain their measured evidence. At most one new stage can
+    finish per snapshot, so a final pose alone cannot prove an earlier pickup.
+    """
+    import copy
+    if observations is not None and not isinstance(observations, dict):
+        raise ValueError('observations must be an object')
+    validate_evaluation_config(scene, task, task['success'])
+    observations = copy.deepcopy(observations if observations is not None else {})
+    observations.pop('stage_results', None)  # Stage progress is evaluator-owned.
+    history = {} if completed_stages is None else completed_stages
+    stage_results, active = {}, True
+    for name in task.get('stage_order', []):
+        if name in history:
+            stage_results[name] = copy.deepcopy(history[name])
+            continue
+        stage = task['stages'][name]
+        if not active:
+            stage_results[name] = {'status': 'unknown', 'reason': 'waiting for preceding stage'}
+            continue
+        criteria = stage.get('success', {'predicates': [{'id': name, 'kind': 'stage', 'stage': name}]})
+        result = evaluate_success(events, scene, task, criteria, observations)
+        stage_results[name] = result
+        if result['status'] == 'passed':
+            history[name] = copy.deepcopy(result)
+        active = False
+    observations['stage_results'] = stage_results
+    result = evaluate_success(events, scene, task, task['success'], observations)
+    if stage_results:
+        result['stages'] = stage_results
+    return result

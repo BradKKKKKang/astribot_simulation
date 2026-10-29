@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "kind": "evaluation",
   "name": "press_cube",
   "robot": {
@@ -20,9 +20,6 @@
     ],
     "yaw": 0.0,
     "grounding": "geometry_min"
-  },
-  "success": {
-    "ref": "../../success/press_cube.json"
   },
   "runtime": {}
 }

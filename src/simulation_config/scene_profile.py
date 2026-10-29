@@ -68,6 +68,16 @@ def build_experiment_simulation_config(resolved):
     """Compose an Isaac config without importing the factory, ROS or Isaac Lab."""
     sections = resolved['sections']
     profile = RobotProfile(sections['robot'])
+    if 'initial_pose' in sections.get('task', {}):
+        from .initial_pose import initial_joint_positions
+        if 'robot_placement' not in sections:
+            raise ValueError('task.initial_pose requires robot_placement for initialization and reset')
+        robot = profile.as_dict()
+        robot['initial_joint_positions'] = {
+            **robot.get('initial_joint_positions', {}),
+            **initial_joint_positions(sections['task']['initial_pose'], profile),
+        }
+        profile = RobotProfile(robot)
     config = build_simulation_config(profile)
     if config.get('simulator_type') != 'IsaacLab':
         raise ValueError('experiment scene composition currently supports IsaacLab only')
@@ -101,7 +111,10 @@ def build_experiment_simulation_config(resolved):
     validate_scene_objects(scene)
     objects, frames = resolve_scene_objects(scene)
     config['scene_objects'] = objects
-    config['robot_profile'] = copy.deepcopy(sections['robot'])
+    if sections.get('task', {}).get('reset') is not None:
+        config['task_reset'] = copy.deepcopy(sections['task']['reset'])
+        config['task_scene'] = copy.deepcopy(scene)
+    config['robot_profile'] = profile.as_dict()
     if 'robot_placement' in sections:
         config['robot_placement'] = copy.deepcopy(sections['robot_placement'])
     config.update(copy.deepcopy(sections.get('runtime', {}).get('simulation', {})))

@@ -86,6 +86,33 @@ def test_read_glb_applies_node_transforms_and_rejects_changed_source(tmp_path):
         validate_asset(asset)
 
 
+@pytest.mark.parametrize('material', [{'metallic': -0.1}, {'roughness': 1.1},
+                                     {'roughness': True}, {'roughness': float('nan')}, {'gloss': .5}])
+def test_material_override_rejects_invalid_fields_and_values(tmp_path, material):
+    asset = profile(tmp_path/'material.glb')
+    asset['material'] = material
+    with pytest.raises(ValueError, match='asset.material'):
+        validate_asset(asset)
+
+
+def test_material_override_is_written_to_usd_without_changing_geometry(tmp_path):
+    Usd = pytest.importorskip('pxr.Usd')
+    from pxr import UsdShade
+    from src.simulation_config.isaac_scene_objects import author_scene_object
+    asset = profile(tmp_path/'material.glb', static=True)
+    asset['material'] = {'metallic': 0., 'roughness': .55}
+    validate_asset(asset)
+    scene = {'objects': {'vessel': {'asset': asset, 'placement': {
+        'frame': 'world', 'xy': [0, 0], 'grounding': 'geometry_min'}}}}
+    obj = resolve_scene_objects(scene)[0][0]
+    stage = Usd.Stage.CreateInMemory()
+    author_scene_object(stage, obj, tmp_path)
+    shader = UsdShade.Shader(stage.GetPrimAtPath('/World/SceneObjects/vessel/Materials/material_0/Surface'))
+    assert shader.GetInput('metallic').Get() == 0.
+    assert shader.GetInput('roughness').Get() == pytest.approx(.55)
+    assert tuple(shader.GetInput('diffuseColor').Get()) == (1., 1., 1.)
+
+
 def test_rotated_height_uses_vertices_instead_of_aabb_corners(tmp_path):
     asset = profile(tmp_path/'triangle.glb', [[1,0,1],[0,1,0],[0,0,0]])
     q = [math.cos(math.pi/8),0,math.sin(math.pi/8),0]
@@ -154,9 +181,9 @@ def test_pure_asset_resolution_never_imports_runtime(monkeypatch, scene):
 
 
 def real_scene():
-    if not (Path.home()/'assets/white_table.glb').is_file():
+    if not all((Path.home()/'assets'/name).is_file() for name in ('red_markpen.glb', 'yellow_penholder.glb')):
         pytest.skip('user-supplied GLB assets are not installed')
-    path = ROOT/'config/scenes/table_penholder.json'
+    path = ROOT/'config/scenes/penholder.json'
     return _section(read_json(path),path.parent,scene_assets=True)
 
 
@@ -166,10 +193,200 @@ def test_real_white_panel_geometry_and_scaled_objects():
     table, pen, holder = (objects[key] for key in ('table','pen','penholder'))
     assert table['bounds_world']['min'][2] == pytest.approx(0,abs=1e-7)
     top = table['bounds_world']['max'][2]
-    assert top == pytest.approx(.736,abs=1e-7)
+    assert top == pytest.approx(.75,abs=1e-7)
+    assert np.subtract(table['bounds_world']['max'], table['bounds_world']['min']) == pytest.approx([.7, 1.4, .75])
+    assert np.linalg.norm(scene['frames']['table']['position'][:2]) == pytest.approx(.6)
     assert pen['bounds_world']['min'][2] == pytest.approx(top+.001)
     assert holder['bounds_world']['min'][2] == pytest.approx(top+.001)
     assert holder['asset']['physics']['collision'] == 'sdf'
+
+
+def test_penholder_reset_is_seeded_supported_and_separated():
+    from src.simulation_config.experiment_config import resolve_experiment
+    from src.simulation_config.task_reset import sample_task_objects
+    real_scene()  # Skip when the external pen/holder assets are not installed.
+    resolved = resolve_experiment(ROOT/'config/experiments/evaluation/penholder.json')
+    scene, task = resolved['sections']['scene'], resolved['sections']['task']
+    assert task['reset']['placement']['type'] == 'empirical'
+    assert all(len(scene['objects'][name]['placement']['reset_xy_samples']) == 310
+               for name in task['reset']['objects'])
+    before = copy.deepcopy(scene)
+    first = sample_task_objects(scene, task['reset'], np.random.default_rng(42))
+    again = sample_task_objects(scene, task['reset'], np.random.default_rng(42))
+    assert first == again
+    assert scene == before
+    positions = []
+    for seed in range(30):
+        sampled = sample_task_objects(scene, task['reset'], np.random.default_rng(seed))
+        assert set(sampled) == {'pen', 'penholder'}
+        pen, holder = sampled['pen'], sampled['penholder']
+        paired_rows = np.ones(310, dtype=bool)
+        for name, item in sampled.items():
+            low, high = np.array(item['bounds_world']['min']), np.array(item['bounds_world']['max'])
+            assert low[2] == pytest.approx(.751)
+            assert np.all(low[:2] >= [.27, -.68])
+            assert np.all(high[:2] <= [.93, .68])
+            # Independently undo the table's world XY [0.6, 0] and +90 degree yaw.
+            x, y = item['pose_world'][:2]
+            xy = np.array([y, .6 - x])
+            limits = scene['objects'][name]['placement']['reset_xy_bounds']
+            assert np.all(xy >= limits['min']) and np.all(xy <= limits['max'])
+            observed = scene['objects'][name]['placement']['reset_xy_samples']
+            paired_rows &= np.all(np.isclose(observed, xy, atol=1e-9, rtol=0), axis=1)
+        assert paired_rows.any()  # Both objects must come from the same episode.
+        a, b = pen['bounds_world'], holder['bounds_world']
+        assert (np.any(np.array(a['max'])[:2] + .02 <= np.array(b['min'])[:2])
+                or np.any(np.array(b['max'])[:2] + .02 <= np.array(a['min'])[:2]))
+        positions.append(pen['pose_world'][:2])
+    assert len({tuple(x) for x in positions}) > 20
+
+
+@pytest.mark.parametrize('bounds', [
+    {}, {'min': [0, 0], 'max': [1]}, {'min': [0, 0], 'max': [1, float('nan')]},
+    {'min': [0, 0], 'max': [1, True]}, {'min': [0, 0], 'max': [1, 0]},
+    {'min': [1, 0], 'max': [0, 1]}, {'min': [0, 0], 'max': [1, 1], 'z': .75},
+])
+def test_reset_xy_bounds_reject_invalid_limits(scene, bounds):
+    scene['objects']['pen']['placement']['reset_xy_bounds'] = bounds
+    with pytest.raises(ValueError, match='reset_xy_bounds'):
+        expand_scene_assets(scene, ROOT)
+
+
+def test_bounded_reset_requires_limits_and_never_falls_back_to_whole_table(scene):
+    from src.simulation_config.task_reset import sample_task_objects, validate_task_reset
+    reset = {'objects': ['pen'], 'placement': {'type': 'uniform_in_bounds', 'surface': 'table.tabletop'}}
+    with pytest.raises(ValueError, match='requires placement.reset_xy_bounds'):
+        validate_task_reset(scene, reset)
+    scene['objects']['pen']['placement']['reset_xy_bounds'] = {'min': [2, 2], 'max': [3, 3]}
+    with pytest.raises(ValueError, match='no supported placement'):
+        sample_task_objects(scene, reset, np.random.default_rng(1))
+    reset['placement']['type'] = 'uniform_on_surface'
+    with pytest.raises(ValueError, match='requires uniform_in_bounds'):
+        validate_task_reset(scene, reset)
+
+
+def test_bounded_reset_clips_support_without_shrinking_origin_bounds_twice(scene):
+    from src.simulation_config.task_reset import sample_task_objects
+    reset = {'objects': ['pen'], 'placement': {'type': 'uniform_in_bounds', 'surface': 'table.tabletop'}}
+    scene['objects']['pen']['placement']['reset_xy_bounds'] = {'min': [.70, .30], 'max': [.85, .39]}
+    calls = []
+    def uniform(low, high):
+        calls.append((low.copy(), high.copy()))
+        return high.copy()
+    # The scaled/rotated pen footprint is [-.15, .15] x [-.01, .02].
+    # Support permits origins up to [.75, .38], while the requested lower bound stays [.70, .30].
+    result = sample_task_objects(scene, reset, SimpleNamespace(uniform=uniform))['pen']
+    assert len(calls) == 1
+    assert calls[0][0] == pytest.approx([.70, .30])
+    assert calls[0][1] == pytest.approx([.75, .38])
+    assert result['pose_world'][:2] == pytest.approx([1 - .38, 2 + .75])
+    assert result['bounds_world']['min'][2] == pytest.approx(.801)
+    assert result['pose_world'][3:] == pytest.approx([.5, -.5, .5, .5])
+    # Changing the table height changes only the grounded Z, not the calibrated XY.
+    scene['objects']['table']['scale'] = [1, 1, 2]
+    taller = sample_task_objects(scene, reset, SimpleNamespace(uniform=uniform))['pen']
+    assert taller['pose_world'][:2] == pytest.approx(result['pose_world'][:2])
+    assert taller['bounds_world']['min'][2] == pytest.approx(1.601)
+
+
+def test_bounded_reset_keeps_pair_separation_and_attempt_limit(scene):
+    from src.simulation_config.task_reset import sample_task_objects
+    scene['objects']['holder'] = copy.deepcopy(scene['objects']['pen'])
+    for obj in ('pen', 'holder'):
+        scene['objects'][obj]['placement']['reset_xy_bounds'] = {'min': [0, 0], 'max': [.001, .001]}
+    reset = {'objects': ['pen', 'holder'], 'placement': {'type': 'uniform_in_bounds',
+             'surface': 'table.tabletop', 'min_separation': .02, 'max_attempts': 2}}
+    with pytest.raises(ValueError, match='max_attempts'):
+        sample_task_objects(scene, reset, np.random.default_rng(1))
+
+
+@pytest.fixture
+def empirical_scene(scene):
+    scene['objects']['holder'] = copy.deepcopy(scene['objects']['pen'])
+    for name, frequent, rare in [('pen', [-.45, -.2], [.45, -.2]),
+                                  ('holder', [.45, .2], [-.45, .2])]:
+        scene['objects'][name]['placement'].update(
+            reset_xy_bounds={'min': [-.6, -.3], 'max': [.6, .3]},
+            reset_xy_samples=[frequent[:] for _ in range(9)] + [rare[:]])
+    reset = {'objects': ['pen', 'holder'], 'placement': {'type': 'empirical',
+             'surface': 'table.tabletop', 'min_separation': .02, 'max_attempts': 10}}
+    return scene, reset
+
+
+def test_empirical_reset_retains_density_pairing_and_support(empirical_scene):
+    from src.simulation_config.task_reset import sample_task_objects
+    scene, reset = empirical_scene
+    before = copy.deepcopy(scene)
+    rng = np.random.default_rng(123)
+    frequent_count = 0
+    for _ in range(1000):
+        sampled = sample_task_objects(scene, reset, rng)
+        p, h = sampled['pen'], sampled['holder']
+        # Independently invert world XY [1, 2], yaw +90 degrees.
+        pen_xy = np.array([p['pose_world'][1] - 2, 1 - p['pose_world'][0]])
+        holder_xy = np.array([h['pose_world'][1] - 2, 1 - h['pose_world'][0]])
+        assert abs(pen_xy[0]) == pytest.approx(.45)
+        assert pen_xy[1] == pytest.approx(-.2)
+        assert holder_xy == pytest.approx(-pen_xy)
+        assert p['bounds_world']['min'][2] == pytest.approx(.801)
+        frequent_count += pen_xy[0] < 0
+    # 9 observations in one cluster and 1 in the other must retain their mass.
+    assert .85 < frequent_count / 1000 < .95
+    assert scene == before
+
+
+@pytest.mark.parametrize('samples', [None, [], [[0]], [[0, 0, 0]],
+                                    [[True, 0]], [[0, float('inf')]], [[.7, 0]], [[0, 0]]])
+def test_empirical_reset_rejects_invalid_or_unpaired_samples(empirical_scene, samples):
+    from src.simulation_config.task_reset import validate_task_reset
+    scene, reset = empirical_scene
+    scene['objects']['pen']['placement']['reset_xy_samples'] = samples
+    with pytest.raises(ValueError, match='reset_xy_samples|equal sample counts'):
+        validate_task_reset(scene, reset)
+
+
+def test_empirical_reset_redraws_whole_pair_on_overlap(empirical_scene):
+    from src.simulation_config.task_reset import sample_task_objects
+    scene, reset = empirical_scene
+    scene['objects']['pen']['placement']['reset_xy_samples'] = [[0, 0], [-.45, -.2]]
+    scene['objects']['holder']['placement']['reset_xy_samples'] = [[0, 0], [.45, .2]]
+    rows = iter([0, 1])
+    sampled = sample_task_objects(scene, reset, SimpleNamespace(integers=lambda n: next(rows)))
+    assert sampled['pen']['pose_world'][:2] == pytest.approx([1.2, 1.55])
+    assert sampled['holder']['pose_world'][:2] == pytest.approx([.8, 2.45])
+    with pytest.raises(ValueError, match='max_attempts'):
+        sample_task_objects(scene, reset, SimpleNamespace(integers=lambda n: 0))
+
+
+def test_empirical_reset_rejects_unsupported_row_without_clipping(scene):
+    from src.simulation_config.task_reset import sample_task_objects
+    scene['objects']['pen']['placement'].update(
+        reset_xy_bounds={'min': [.7, 0], 'max': [.85, .2]},
+        reset_xy_samples=[[.8, 0], [.7, .1]])
+    reset = {'objects': ['pen'], 'placement': {'type': 'empirical', 'surface': 'table.tabletop'}}
+    rows = iter([0, 1])
+    sampled = sample_task_objects(scene, reset, SimpleNamespace(integers=lambda n: next(rows)))
+    assert sampled['pen']['pose_world'][:2] == pytest.approx([.9, 2.7])
+
+
+def test_empirical_samples_cannot_silently_use_uniform_sampling(empirical_scene):
+    from src.simulation_config.task_reset import validate_task_reset
+    scene, reset = empirical_scene
+    reset['placement']['type'] = 'uniform_in_bounds'
+    with pytest.raises(ValueError, match='requires empirical'):
+        validate_task_reset(scene, reset)
+
+
+def test_reset_rejects_static_selection_and_impossible_sampling(scene):
+    from src.simulation_config.task_reset import sample_task_objects, validate_task_reset
+    reset = {'objects': ['table'], 'placement': {'type': 'uniform_on_surface', 'surface': 'table.tabletop'}}
+    with pytest.raises(ValueError, match='dynamic'):
+        validate_task_reset(scene, reset)
+    reset['objects'] = ['pen']
+    scene['objects']['obstacle'] = copy.deepcopy(scene['objects']['pen'])
+    reset['placement'].update(min_separation=100., max_attempts=2)
+    with pytest.raises(ValueError, match='max_attempts'):
+        sample_task_objects(scene, reset, np.random.default_rng(1))
 
 
 def test_usd_authoring_independent_bodies_and_open_vessel_collision(tmp_path):
@@ -209,6 +426,24 @@ def test_reset_restores_pose_and_velocity():
     assert np.array_equal(calls[0][1],state[:,:7])
     assert np.array_equal(calls[1][1],state[:,7:])
     assert calls[2][0]=='reset'
+
+
+def test_sampled_reset_writes_selected_pose_and_zero_velocity_only():
+    torch = pytest.importorskip('torch')
+    from src.simulation_config.isaac_scene_objects import reset_scene_objects
+    state = torch.ones((1, 13))
+    calls = []
+    body = SimpleNamespace(data=SimpleNamespace(default_root_state=state),
+        write_root_pose_to_sim=lambda value:calls.append(('pose',value.clone())),
+        write_root_velocity_to_sim=lambda value:calls.append(('velocity',value.clone())),
+        reset=lambda:calls.append(('reset',None)))
+    pose = [.4, .2, .8, 1, 0, 0, 0]
+    reset_scene_objects({'pen':body}, {'dynamic':{'pen':'pen','unselected':'absent'}},
+                        sampled={'pen':{'pose_world':pose}})
+    assert calls[0][1][0].tolist() == pytest.approx(pose)
+    assert torch.count_nonzero(calls[1][1]) == 0
+    assert calls[2][0] == 'reset'
+    assert torch.equal(state, torch.ones((1, 13)))
 
 
 def test_static_evidence_reads_current_stage_transform(monkeypatch):

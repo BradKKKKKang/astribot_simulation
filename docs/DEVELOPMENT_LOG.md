@@ -425,6 +425,128 @@ python tests/unit/test_camera_viewer.py \
   call or physical hardware operation was performed. Optional-backend skips
   do not establish runtime coverage for those backends.
 
+## 2026-10-27 — Task-owned success and calibrated penholder reset
+
+- Added evaluation schema 4: `task` owns `instruction`, `reset`, `stage_order`,
+  stage criteria and `success`. Migrated every checked-in evaluation entry and
+  removed the independent success profiles. V2/v3 evaluation readers normalize
+  their existing criteria into `task.success`; task fingerprints include criteria.
+- Referenced x2real's `object_to_cup/vnext_dag.yaml` ownership of instruction,
+  runtime sampling targets and ordered stages. The JSON implementation retains
+  this repository's measured-evidence predicates and does not import x2real.
+- Added a calibrated repository GLB for the table, preserving its original mesh
+  topology/materials with a source-scene scale transform. Measured bounds are
+  1.40 × 0.70 × 0.75 m. Tabletop height is 0.75 m; its origin's XY distance from
+  the configured robot base is 0.50 m. The original external GLB is unchanged.
+- `penholder` now contains the complete three-object scene. Creation/reset samples
+  pen and holder positions reproducibly from the environment RNG, checks their
+  complete footprints and 2 cm separation, and writes selected poses with zero
+  velocity. The `table_penholder` entry reuses this scene/task.
+- Added ordered `pick_pen` / `place_pen` geometric criteria, measured moving-holder
+  coordinates, retained stage evidence and reset clearing. Thresholds are explicit
+  task parameters, not calibrated contact/grasp/release or stable-insertion claims.
+- Validation: all four evaluation entries resolve and compose without ROS/Isaac;
+  `penholder --check-config` passes. In the existing `astribot_simu_il` environment,
+  the nine focused configuration/asset/evaluation/robot-placement/import test files
+  pass (108 passed, 7 skipped), using `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` and
+  `-o addopts=''`. Skips cover unavailable standalone USD/PhysX modules and optional
+  MuJoCo/Genesis/ManiSkill imports. Earlier system-Python import checks exposed a
+  missing Gymnasium package and unrelated pytest-plugin incompatibility; no
+  environment packages were installed or modified. `git diff --check` passes.
+- Coverage: CPU geometry, mock runtime state/tensor writes and import checks only.
+  No Isaac physics launch, ROS graph, movement policy or real hardware operation
+  was performed in this change.
+
+## 2026-10-27 — Integrated evaluation launcher
+
+- Copied `astribot_simulation.py` into the adjacent
+  `astribot_simulation_integrate.py`, then adapted config selection to evaluation
+  JSON. The default is the script-relative penholder evaluation entry; `--config`
+  and `--experiment` select another evaluation file. The original launcher is
+  unchanged. Shared composition supplies the robot, resolved GLB assets, physical
+  scene, reset sampling and task evaluator to the existing environment factory.
+- Added positive `--max-steps` and `--output-dir` overrides, updating the affected
+  fingerprints, plus CPU-only `--check-config`. Preserved headless/camera switches,
+  main-thread Isaac creation and stop handlers. Reports and ROS cleanup occur
+  before closing Kit: an initial live run showed that app shutdown can terminate
+  the process before code placed after `env.close()` executes.
+- Validation: 28 launcher, online-evaluation and scene-profile unit tests passed
+  in `astribot_simu_il` with pytest plugin autoload disabled and `-o addopts=''`.
+  All four checked-in evaluation entries passed launcher preflight. Tests cover
+  runtime-free config checks, default paths outside the repository working
+  directory, input rejection, asset handoff and report persistence before close.
+- Actual runtime verification used the existing Isaac environment, ROS2 domain
+  183 and localhost-only discovery, with a 180-second timeout. The sandbox launch
+  could not access CUDA; the authorized run outside the sandbox initialized the
+  real Isaac Lab environment on CUDA, loaded the table/pen/penholder, reset them,
+  advanced five physics/control steps and exited with code 0. The report contains
+  `isaac_usd_stage` table state and `isaaclab_rigid_object` pen/holder states.
+  Evidence: `/tmp/astribot_integrate_smoke.log` and
+  `/tmp/astribot_integrate_smoke/evaluation.json`.
+- This smoke used `--headless --no-cameras`; GUI/camera rendering was not exercised.
+  Task success was correctly `failed` because no pickup policy was run. No SDK
+  control-right request or physical robot operation was performed.
+
+## 2026-10-27 — Ceramic penholder and automatic camera previews
+
+- The source holder contains 22 visual materials, with metallic factors up to
+  0.56 and roughness as low as 0.24. Added validated asset-level `material`
+  overrides and configured the holder with metallic 0 and roughness 0.55.
+  The USD author applies these values to every visual material while retaining
+  colors, decoration, topology, collision and the immutable source GLB.
+- Confirmed that the robot JSON references the Isaac YAML camera configuration:
+  head RGB 1280 × 720 and left/right wrist RGB 640 × 360. Previously the integrated
+  launcher rendered/published these images but never started a preview process.
+- Per the user's selected behavior, GUI launch now opens the existing ROS camera
+  viewer for the resolved camera list. Headless mode opens no preview; disabling
+  cameras also suppresses previews. Added `--no-viewer` for GUI without camera
+  windows while retaining image output. The launcher stops only its owned viewer
+  before shutting down ROS and Kit, including when environment creation fails.
+- Validation: 57 launcher/config tests passed in `astribot_simu_il`; 18 asset tests
+  passed with the existing CPU USD dependency path, with two skips for standalone
+  PhysXSchema/PyTorch availability. The material test verified actual authored USD
+  shader inputs. `git diff --check` passes.
+- An isolated CUDA headless run (ROS domain 183, localhost-only, 180-second limit,
+  five steps) verified all 22 live shader overrides and nonconstant RGB tensors
+  at all three configured resolutions. Evidence is in
+  `/tmp/astribot_ceramic_camera_smoke.json` and the matching log.
+- An isolated GUI run of the integrated entrypoint completed 50 steps with exit
+  code 0. The automatic viewer received and displayed all three camera streams;
+  its log records native resolutions. It was terminated by launcher cleanup.
+  Evidence: `/tmp/astribot_ceramic_camera_gui.log` and
+  `/tmp/astribot_ceramic_camera_gui/evaluation.json`. These checks do not execute
+  a pickup policy or any physical robot operation.
+
+## 2026-10-27 — Continuous integrated GUI and orderly viewer shutdown
+
+- Removed the integrated launcher's `--max-steps` option and the checked-in
+  evaluation runtime's default step budget. The integrated launcher also removes
+  legacy `runtime.evaluation.max_steps` from externally supplied configurations,
+  updates the runtime fingerprint and keeps evaluating until the user closes the
+  GUI or sends an interrupt. Finite budgets remain supported by the general
+  evaluator for other callers.
+- Traced the reported `Thread-1 (spin)` failure to the camera viewer's
+  MultiThreadedExecutor: ROS's default SIGTERM handler could invalidate its context
+  while the background thread was constructing a wait set. The viewer now disables
+  ROS-owned signal handling, translates SIGINT/SIGTERM into a stop event, uses
+  bounded `spin_once`, joins the spin thread, shuts down the executor, then destroys
+  its node and ROS context. The launcher allows eight seconds for graceful viewer
+  exit before its existing owned-process kill fallback.
+- Validation: 19 focused launcher/evaluation/viewer-lifecycle tests passed, including
+  continuous evaluation beyond 1,000 observations despite a legacy two-step limit,
+  preservation of valid context until spin completion, and no context destruction
+  when a spin thread cannot stop. CLI help no longer exposes `--max-steps`;
+  `git diff --check` passes.
+- Actual isolated GUI verification used ROS domain 183, localhost-only discovery
+  and a 180-second external test timeout. A temporary config deliberately retained
+  a two-step limit; the real GUI and three previews stayed active through 50 steps.
+  Only then did the test harness send SIGTERM. The viewer logged `Camera Viewer
+  Stopped`, the report was saved, and the process exited with code 0 without a
+  traceback, RCLError or invalid-context error. This 50-step signal belongs solely
+  to the test harness, not the persistent launcher. Evidence:
+  `/tmp/astribot_continuous_shutdown_smoke.log` and
+  `/tmp/astribot_continuous_shutdown/evaluation.json`.
+
 ## 2026-10-27 — Remove the factory's implicit Gym episode limit
 
 - The GUI shutdown at exactly 300 steps came from Gymnasium's registered
@@ -439,6 +561,41 @@ python tests/unit/test_camera_viewer.py \
   tests passed in `astribot_simu_il`; the three factory cases passed again after
   tightening the stop-event assertion. `git diff --check` passed. No ROS, Isaac
   GUI, GPU or hardware runtime was started by these tests.
+
+## 2026-10-27 — Combined camera viewer and task initial robot posture
+
+- Replaced per-camera preview windows with one resizable viewer: head above,
+  left/right wrists below, stable labeled slots while frames arrive. The default
+  composite is 1280 × 1080 with native source pixels; its initial display fits
+  within 900 pixels of height. Other image sizes retain their aspect ratio.
+  Closing this viewer or pressing `q` stops previews and preserves ordered ROS
+  cleanup; the simulation retains its independent lifetime.
+- Added evaluation `task.initial_pose`, containing SDK part angle lists in
+  radians and left/right gripper percentages. Composition expands gripper joints
+  through the shared robot mapping and overrides profile initial joints without
+  mutating the shared profile. Existing grounding, creation and reset consume
+  this effective pose and restore its joint control targets. Explicit
+  `robot_placement` is required and remains authoritative for the fixed base.
+- Stored the measured `joints_dict.joints_position_state` from frame_index 0 of
+  `penholder_merged_clean/data/chunk-000/episode_000000.parquet` in the penholder
+  task, together with source path and SHA-256. This snapshot does not require the
+  original parquet at launch. The integrated CLI accepts `--initial-pose-parquet`
+  and `--initial-pose-frame`, validates metadata joint names and units, updates
+  task fingerprints and prints the imported posture before starting Isaac.
+- Validation: 95 focused tests passed, two standalone USD tests skipped in the
+  CPU test environment. Tests cover reordered metadata, frame identity, invalid
+  states, gripper conversion, task override and reset, mosaic positions, partial
+  arrival and single-window cleanup. The default CLI preflight passes, the stored
+  pose exactly matches the source parquet, and `git diff --check` passes.
+- A real GPU/GUI run used ROS domain 187 with localhost-only discovery and an
+  external 180-second timeout. Initial measured joints matched the snapshot
+  within 4.6e-8 radians (angular joints); all three RGB streams rendered, and the
+  1280 × 1080 composite was inspected. At step 40 the harness sent SIGTERM and
+  both viewer and simulator exited normally with code 0. Control targets remained
+  equal to the snapshot, while measured torso posture drifted up to 0.126 rad
+  under physics; this change initializes posture, not controller tuning or
+  trajectory replay. Evidence: `/tmp/astribot_pose_viewer_fix/smoke.json`,
+  `camera_grid.png`, `smoke.log` and `evaluation/evaluation.json` in that directory.
 
 ## 2026-10-27 — Penholder black enclosure and ceiling strip
 
@@ -465,3 +622,360 @@ python tests/unit/test_camera_viewer.py \
 - Validation: CPU USD inspection verified the light width, diffuser/housing
   world bounds and center, and retained intensity. git diff --check passed.
   No renderer or ROS runtime was started.
+
+## 2026-10-27 — Penholder initial-pose collision diagnosis
+
+- Reproduced the integrated penholder configuration in bounded headless Isaac
+  runs with localhost-only ROS domain 193. Creation/reset exactly restored joint
+  targets, but the first environment step displaced torso joint 2 by 0.1244 rad;
+  sustained error was 0.1263 rad. Contact reporting identified torso link 2,
+  with first-step normal forces approximately (-27.9, -0.007, -33.6) kN.
+  Disabling self-collision did not remove the error; removing scene objects did.
+- Moved the penholder table center from world X = 0.50 m to 0.60 m. The robot
+  initial pose remains unchanged. The shifted scene has no measured robot
+  contacts over the sampled 50-step run; the largest settled angular error is
+  0.00863 rad at an arm joint, rather than the torso contact-induced jump.
+- Validation: 33 existing initial-pose, gripper control and placement tests passed;
+  integrated --check-config and git diff --check passed. Diagnostic artifacts
+  are under `/tmp/penholder-pose-diagnosis/`, including baseline/table-shift
+  contact records and camera images. No hardware was accessed.
+- The separately reported gripper linkage appearance remains under diagnosis.
+  Measured primary/follower pivot gaps at the stored initial pose and after
+  settling were below 0.02 mm; local USD mesh bounds match source STL bounds.
+  A lit close-up was captured with temporary diagnostic illumination, without
+  changing the configured enclosure light. No gripper geometry or joint mapping
+  has been changed based on this evidence.
+
+## 2026-10-27 — Penholder posture from episode 3
+
+- Updated the penholder task's stored initial pose to measured frame 0 of
+  `penholder_merged_clean` episode 3, replacing episode 0. All 20 angular joints
+  and both gripper percentages are copied without rounding; source provenance
+  includes the new parquet SHA-256. Updated the README's source episode.
+- Inspected all 442 frames and 10 parquet columns: joint command/state vectors
+  have 25 values, Cartesian command/state vectors have 34, and all numeric
+  entries are finite. The fixed base continues to use `robot_placement`; dataset
+  chassis coordinates are not imported into the simulation world frame.
+- Validation: exact source-to-config comparison passed for every imported value
+  and the hash, including expansion to 32 model joints. With system Python 3.10
+  and external pytest plugin autoload disabled, the focused import/validation
+  tests passed (9 passed, 1 reset test skipped for missing Torch, 2 integration
+  cases deselected). `git diff --check` passed.
+- Full integrated `--check-config` is blocked by the pre-existing deleted
+  `config/runtime/evaluation.json`, still referenced by the penholder experiment.
+  No runtime configuration was changed, and no simulator or ROS run was performed.
+
+## 2026-10-27 — Remove penholder's obsolete runtime reference
+
+- Replaced the penholder experiment's reference to the deleted runtime file
+  with an empty runtime section. Runtime overrides are optional; the robot's
+  simulation configuration supplies defaults. Documented this in the README.
+- The integrated `--check-config` now passes and selects episode 3 frame 0.
+  Focused initial-pose and integrated-launcher tests returned 17 passed,
+  1 skipped (missing Torch), and 7 failures because their existing shared fixture
+  reads the separately deleted `config/scenes/table_penholder.json`. These fixture
+  failures do not occur in the successful penholder launcher preflight.
+- No simulator or ROS run was performed. The remaining fixture failures were
+  left outside this configuration fix; no local commit was created with failing
+  checks.
+
+## 2026-10-27 — Penholder static hold and reset clearance
+
+- Disabled the penholder enclosure background and enabled the inherited dome
+  light. Kept the background asset and physical ground available.
+- In isolated GPU runs, unchanged initial targets and zero robot contact forces
+  still produced a 0.008684 rad arm error. Existing feedforward compensated only
+  the first three torso joints. Added an opt-in `whole_body` gravity compensation
+  mode for position/velocity-controlled DOFs, including gripper followers, and
+  selected it in the penholder experiment. Other configurations retain the
+  calibrated `torso` mode. The whole-body path preserves explicit torque commands
+  and clears feedforward when compensation is disabled.
+- A second reproducible issue was object placement: seed 8 placed the holder at
+  approximately world XY (0.4435, -0.2254), causing robot contact and gripper
+  displacement even with gravity compensated. Restricted the scene-local table
+  usable bounds to object footprints within world X [0.55, 0.93] and Y
+  [-0.68, 0.68], away from the initial hands. Moved the declared holder position
+  inside this region; shared table geometry and assets are unchanged.
+- Updated the real-scene test fixture to the current penholder scene and checked
+  the restricted bounds across 30 random seeds. Focused control, initial-pose,
+  launcher and asset tests: 82 passed, 3 skipped (standalone USD unavailable),
+  1 existing failure from the separate table_penholder experiment still referencing
+  its deleted scene. Syntax and `git diff --check` passed; penholder launcher
+  `--check-config` passed. No local commit was made with that remaining failure.
+- Real Isaac GPU validation used localhost-only ROS domain 197 and a 240-second
+  timeout per run. The fixed configuration held for 500 steps with zero robot
+  contact force, maximum source-pose error 4.53e-8 rad (float32 conversion), and
+  maximum measured joint speed 4.66e-8 rad/s. A further three-camera run received
+  40 ROS head commands requesting a 0.05 rad yaw change, reached the target within
+  8.95e-8 rad, then reset with seed 48 and held the original pose again. All three
+  RGB streams rendered, captured images were inspected, and both final runs
+  exited normally. No hardware was accessed.
+- Evidence is under `/tmp/penholder-hold-episode3/`: baseline and comparison
+  logs, per-joint states/contact forces, the `fixed_seed8` and `visual` runs,
+  camera snapshots and `summary.json`. Evaluation reports mark the manipulation
+  task failed because these diagnostics deliberately do not pick/place the pen;
+  they verify holding, reset, camera output and ROS command response.
+
+## 2026-10-27 — Roll back the static-hold changes at user request
+
+- Restored the pre-diagnosis background/lighting, object placement and sampling
+  bounds, controller implementation, experiment overrides, tests and README.
+  The preceding static-hold entry describes a reverted implementation.
+- Preserved episode 3 frame 0 as the penholder initial pose, the earlier empty
+  runtime section, and all unrelated pre-existing working-tree changes.
+- Compared restored files with the pre-change backups and checked the penholder
+  configuration without starting ROS or the simulator.
+
+## 2026-10-28 — Penholder episode 3 camera extrinsic alignment
+
+- Added `config/calibration/penholder_cameras.usda` and selected it only through
+  the penholder experiment's robot model override. The layer inherits the
+  textured S1 model and overrides the three cameras' link-relative translations
+  and OpenGL orientations. Shared model files, optics, geometry, controllers,
+  initial joints and scene configuration were not changed by this task.
+- Reference: `penholder_merged_clean`, episode 3, decoded video frame 0, with the
+  existing measured-state task initial pose. Used depth-backed finger/wrist
+  landmarks for a bounded head-camera fit and depth-backed finger contours for
+  regularized wrist-camera fits. Only robot features entered fitting; the scene
+  objects and background were excluded. This is single-frame image alignment,
+  not an independently established physical camera calibration.
+- Local translation change magnitudes: head 36.74 mm, left wrist 9.68 mm, right
+  wrist 9.80 mm. Rotation magnitudes: 3.13, 4.64 and 3.99 degrees respectively.
+  The bounded head fit remains approximate; its finger/wrist landmarks cannot
+  all be made coincident within the selected adjustment bounds.
+- Added `scripts/compare_penholder_cameras.py`: native-resolution, fixed-ROI
+  finger contours with neutral/dark pixel filtering, largest-component selection,
+  image-border exclusion and symmetric nearest-contour distance. Head scores
+  cover upper fingers; wrists cover visible fingers. Chromatic pixels are
+  excluded to prevent a projected red marker from joining a finger component.
+  This diagnostic requires the documented posture/exposure and is not a general
+  segmentation benchmark. Updated the README and testing guide.
+- Fresh Isaac Lab GPU launch from the modified experiment passed. USD attribute
+  comparison found exactly six changed attributes: translate/orient on the three
+  cameras. Intrinsics and reset joint positions matched the baseline exactly.
+  Both bounded runs used localhost-only ROS domain 198 and exited with code 0.
+  At reset the maximum joint error was zero; at step 40 it was 0.008684 rad in
+  both runs. No real hardware was accessed. GUI windows were not exercised;
+  the same three sensor streams were rendered and published headlessly.
+- Reset-frame symmetric mean contour distance, before -> after (native pixels):
+  head 11.24 -> 6.22; left wrist 9.55 -> 2.93; right wrist 8.76 -> 2.95.
+  At step 40: head 10.31 -> 6.56; left wrist 11.25 -> 3.18; right wrist
+  10.11 -> 2.83. These scores reuse the calibration reference and do not constitute
+  held-out accuracy. Visible head residual remains.
+- Evidence: `outputs/evaluation/penholder_camera_calibration/` contains real,
+  baseline and final RGB images, simulated depths, camera/joint metadata,
+  `calibration.json`, `metrics.json`, `comparison.png`, the step-40 comparison,
+  and USD attribute validation. Temporary capture/fitting harnesses and logs
+  are under `/tmp/penholder-camera-calibration/`. The evaluation reports mark the
+  manipulation task failed because these camera checks do not execute pick/place.
+- CPU `--check-config` passed. Focused existing initial-pose/launcher tests:
+  17 passed, 1 skipped (standalone USD absent), 6 failed because `real_scene()`
+  still reads the already-deleted `config/scenes/table_penholder.json`, and
+  1 table_penholder case was deselected. No unrelated fixtures were changed.
+  System pytest's incompatible auto-loaded anyio plugin required
+  `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`; no dependencies were installed or changed.
+
+## 2026-10-28 — Promote camera calibration into the robot USD
+
+- At the user's request, moved the validated head/left-wrist/right-wrist camera
+  translations and orientations directly into the existing camera prims in
+  `astribot_descriptions/usd/astribot_s1_usd/astribot_s1.usda`. Preserved all
+  unrelated pre-existing submodule edits. The textured model inherits these
+  values, so all experiments using that model now share the calibration.
+- Removed the penholder model-path override, the temporary calibration USD,
+  `scripts/compare_penholder_cameras.py`, its testing documentation, the generated
+  `outputs/evaluation/penholder_camera_calibration/` directory, and this task's
+  `/tmp/penholder-camera-calibration/` harnesses/logs. Other pre-existing outputs
+  were preserved. The preceding entry records historical evidence; its temporary
+  artifacts have now been intentionally removed.
+- Before deleting the overlay, a CPU USD composition comparison confirmed that
+  all composed model attributes and relationship targets matched between the
+  textured model and the calibrated overlay. All three cameras matched,
+  including optics and transforms. Penholder configuration validation and
+  whitespace checks passed. No new simulation run was needed for this equivalent
+  relocation of already-rendered values.
+
+## 2026-10-28 — Candidate-calibrated penholder XY reset bounds
+
+- Calibrated separate pen/grasp and penholder/release origin rectangles from all
+  310 left-hand pairs in `results/placement/penholder/placement.json` (SHA-256
+  `bb5515dc3bc18d0a36cf7ab7dca2421492cc882ecdad3f7c8d54424462c06b7f`).
+  With the current base XY/yaw and table XY `[0.6, 0]`, yaw 90 degrees, projected
+  base coordinates using `x_table = y_base`, `y_table = 0.6 - x_base`. Rounded
+  bounds outward to six decimal places: pen min `[-0.043112, -0.230502]`, max
+  `[0.509455, 0.197223]`; holder min `[-0.029945, -0.138122]`, max
+  `[0.514546, 0.050187]`. Recorded Z is not used. Static default XY placements
+  use the episode 3 candidate pair, inside the calibrated rectangles.
+- The scene stores these `placement.reset_xy_bounds`; the task selects
+  `uniform_in_bounds`. Each object is sampled independently inside its rectangle
+  intersected with the supported origin range. Geometry-minimum grounding and
+  1 mm clearance determine Z; configured orientations, full footprint support,
+  2 cm separation, bounded retries and seeded reproducibility are retained.
+  Missing/invalid bounds and impossible placement fail explicitly; no fallback
+  to whole-table sampling is allowed. Runtime needs no replay/dataset files.
+- Updated the existing real-scene test fixture to use `scenes/penholder.json`
+  and the current 0.60 m table placement. Added checks for calibrated bounds,
+  support clipping without double footprint subtraction, invalid/missing bounds,
+  changed tabletop height, and exhausted overlap retries. Updated README and
+  architecture documentation with the reset contract and calibration frame.
+- Validation: `astribot_simulation_integrate.py --check-config` passed on CPU;
+  a separate read-only calculation reproduced both configured envelopes from
+  the saved candidates. In `astribot_simu_il` (Python 3.10.22, pytest 9.1.1),
+  `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -B -m pytest -o addopts='' -p
+  no:cacheprovider tests/unit/test_scene_assets.py
+  tests/unit/test_simulation_integrate.py` reported 39 passed, 3 skipped (USD
+  modules not loaded), and 1 existing failure: the separate `table_penholder`
+  evaluation entry references the already-deleted `scenes/table_penholder.json`.
+  The penholder entry and all new tests passed. No simulator, ROS or hardware
+  run was performed. Changes remain uncommitted alongside the pre-existing
+  working-tree changes; the unrelated broken alias was not modified.
+
+## 2026-10-28 — Preserve penholder candidate density with paired empirical reset
+
+- Replaced penholder's rectangle-uniform reset with `type: empirical`. Scene
+  `placement.reset_xy_samples` arrays contain all 310 paired observations in
+  episode order 000000 through 000309: pen uses grasp XY, holder uses release XY.
+  Source is the same candidate bundle and SHA-256 recorded above. The sampler
+  draws one shared row for both objects, retaining observation multiplicity,
+  density peaks and pair relationships. No Gaussian fit, jitter or runtime
+  dataset dependency is introduced. Existing XY envelopes remain enforced.
+- Verified every configured observation by transforming its tabletop XY back
+  into the current robot base frame. Maximum discrepancy against the original
+  candidate XY is below 5e-10 m after rounding sample coordinates to nine decimal
+  places. The table/base conversion and object mapping were already correct;
+  the previous rectangle-uniform policy changed the spatial density.
+- Kept geometry-minimum Z, 1 mm clearance, configured orientations, full support
+  and 2 cm separation. An invalid draw rejects the whole pair without clipping
+  or replacing either object independently. Under the current model footprints,
+  297 of 310 pairs satisfy support/separation; the other 13 are rejected by the
+  separation condition. Sampling therefore preserves the empirical distribution
+  conditioned on feasible placement, rather than claiming identical raw mass.
+- A CPU check exercised 1,000 calls to the actual reset sampler through resolved
+  runtime configuration with RNG seed 20261028. Every result matched one intact
+  feasible source pair and both geometry minima were Z=0.751 m. Pen base-X
+  medians were 0.520496 m (all source points), 0.514577 m (feasible source pairs)
+  and 0.513687 m (sampled resets); holder medians were 0.652452, 0.652689 and
+  0.652689 m. Pen mass at base X < 0.55 m was 63.23%, 64.98% and 66.0%,
+  respectively. These are CPU sampling checks, not simulation motion results.
+- Added regression coverage for a 9:1 density mixture, shared-row pairing,
+  invalid or mismatched samples, whole-pair retries, unsupported-point rejection
+  without clipping and preventing accidental uniform sampling. Updated the real
+  scene reset test for discrete sampling, plus README and architecture docs.
+  In `astribot_simu_il` (Python 3.10.22, pytest 9.1.1), the scene-assets and
+  integrated-launcher tests with plugin auto-loading disabled, empty pytest
+  addopts and `-k 'not table_penholder'` reported 51 passed, 3 skipped (USD
+  modules not loaded), 1 deselected (the previously documented broken alias).
+  CPU launcher configuration, syntax and whitespace checks passed. No simulator,
+  ROS or hardware run was performed; pre-existing working-tree changes remain.
+
+## 2026-10-28 — Use the 3 m black enclosure in penholder
+
+- Enabled `config/scenes/backgrounds/black_enclosure.usda` in the penholder
+  scene at the world origin with identity rotation. Disabled the inherited dome
+  light and selected a black ground plane, using the background's existing
+  downward white ceiling strip (0.5 x 0.12 m, intensity 300, exposure 0).
+- Expanded the clear horizontal interior from 2 x 2 m to 3 x 3 m by moving the
+  wall centers to +/-1.525 m and extending the wall spans and ceiling. Retained
+  5 cm wall thickness, 2.2 m ceiling underside, strip geometry and lighting
+  attributes. Panels remain visual-only; floor collision uses the ground plane.
+  Updated README to the current background path and dimensions.
+- Validation: CPU launcher `--check-config` and whitespace checks passed.
+  All 14 `test_placement_scene_profile.py` tests passed in `astribot_simu_il`
+  with plugin auto-loading disabled and pytest addopts cleared. A CPU USD
+  composition check referenced the asset at `/World/scene_background`, verified
+  the 3 m clear width/depth and 2.2 m ceiling, and compared the strip housing,
+  diffuser and light attributes with their pre-change values. Resolved scene
+  settings select this background, disable the dome and retain the black floor.
+  No simulation, rendered-image validation, ROS or hardware run was performed.
+
+## 2026-10-29 — Illuminate penholder grippers and arm joints
+
+- Increased the enclosure ceiling strip from intensity 300 to 30000 and added
+  two white rectangular fill lights at world `(1.1, +/-1.1, 1.45)`, each
+  0.8 x 0.6 m and intensity 8000. Both point toward `(0.25, 0, 1.05)` to illuminate
+  gripper sides, wrist mechanisms and shoulder/elbow contours. All lights retain
+  exposure 0 and unnormalized intensity. Dome lighting remains disabled; existing
+  enclosure geometry, materials and source robot attributes were not changed.
+- Compared several intensity settings in two bounded headless Isaac Lab/CUDA
+  sessions on the RTX 3090. Both used localhost-only ROS domain 196, checked that
+  the domain had no other nodes before launch, and exited with code 0. The
+  preview harness reset with seed 42 and rendered a frozen initial pose without
+  task stepping or SDK commands. Three robot cameras and a temporary overview
+  camera were inspected; the overview camera is not part of the saved scene.
+- Selected the 30000/8000/8000 setting after inspecting the rendered gripper
+  holes, links and arm joint contours. In matched dark gripper pixels of the
+  head image, median mean-RGB rose from 24 to 59.67 (left) and 58.0 (right).
+  The final head image's maximum channel value was 237; no pixels had all three
+  channels at or above 250. This is visual evidence for the stored initial pose,
+  not a lighting guarantee for every future pose or camera exposure.
+- Before/after head and overview images plus the capture settings are saved in
+  `outputs/evaluation/penholder_lighting_20261029/`. Temporary harnesses and
+  additional comparison images are under `/tmp/penholder-lighting-zvwdwyip/`.
+  CPU USD comparison verified that final intensities match the selected rendered
+  variant, fill directions point into the workspace and existing geometry/material
+  attributes remain unchanged. Launcher configuration, whitespace checks and
+  all 14 scene-profile tests passed. No real hardware was accessed. Updated
+  README with the three-light configuration and tuning fields.
+
+## 2026-10-29 — Calibrate the red marker to physical dimensions
+
+- Measured the source GLB bounds as 0.10899999737739563 x
+  0.10899999737739563 x 1.0, with the pen axis along local Z. The previous
+  uniform 0.14 scale produced a 14 cm length and 1.526 cm maximum diameter.
+  Set `config/assets/red_markpen.json` X/Y scales to 0.11009174576813847
+  and Z scale to 0.15 for the user's measured 15 cm length and approximately
+  1.2 cm diameter. The external GLB, digest, materials and physical parameters
+  remain unchanged; visual and collision geometry consume the same transform.
+- Updated the penholder insertion predicate's local endpoint from Z=-0.07 m
+  to -0.075 m to match the calibrated geometry. Documented the calibration
+  and restart requirement in README.
+- Validation in `astribot_simu_il` (Python 3.10.22, NumPy 1.26.4): CPU checks
+  verified local and loaded-instance extents of 0.012 x 0.012 x 0.15 m,
+  endpoint alignment, source SHA-256 and a 1 mm tabletop clearance. The
+  integrated launcher's `--check-config` passed. Existing scene-asset and
+  task-evaluation tests reported 48 passed and 3 skipped (standalone USD
+  unavailable), with plugin auto-loading disabled, pytest addopts cleared and
+  cacheprovider disabled. Whitespace checks passed. No simulation, rendering,
+  ROS or hardware run was performed; existing working-tree edits were preserved.
+
+## 2026-10-29 — Restore the red marker's maximum diameter
+
+- At the user's request, restored the red marker's X/Y scales to 0.14,
+  yielding a maximum diameter of approximately 1.526 cm. Retained the Z scale
+  of 0.15 for the 15 cm length and the insertion endpoint at local Z=-0.075 m.
+  Updated the asset description and README to distinguish the requested
+  diameter from the measured length.
+- CPU geometry checks verified loaded extents of 1.526 x 1.526 x 15 cm,
+  endpoint alignment, source SHA-256 and 1 mm tabletop clearance. Existing
+  scene-asset tests passed (39 passed, 3 skipped: standalone USD unavailable)
+  in `astribot_simu_il`, with plugin auto-loading disabled, pytest addopts
+  cleared and cacheprovider disabled. Whitespace checks passed. No simulation,
+  rendering, ROS or hardware run was performed.
+
+## 2026-10-29 — Add Atlas-managed synchronous evaluation
+
+- Added the explicit `--managed-evaluation` ROS2/Isaac Lab mode, a queued
+  RawRequest control service, run/episode/step identity, retry receipts and
+  immutable completed snapshots carrying all seven feedback parts and three
+  RGB JPEGs. Atlas alone schedules episodes; Replay uses an exclusive lease.
+- Managed steps execute exactly one 0.01 s physics step with complete six-part
+  commands and no wall-clock FPS prediction. Idle GUI rendering and periodic
+  measured feedback keep the process/SDK responsive without advancing physics.
+  Reset restores zero joint velocity, holding modes, configured robot/objects
+  and evaluator history; the continuous loop also observes later ROS resets.
+- Declared configurable penholder defaults: 10 episodes, 3000 steps per episode,
+  base seed 0, physics dt 0.01 and frame_skip 1. Added explicit config preflight,
+  per-step success latching, timeouts, abort/error outcomes, per-episode reports
+  and a batch summary. Unknown evidence is recorded separately from outcomes.
+- Validation used an exact current-worktree staging copy with read-only asset
+  links, `astribot_simu_il` Python 3.10.22, NumPy 1.26.4 and pytest 9.1.1.
+  The focused 11-module CPU/mock regression run reported 125 passed, 2 skipped
+  (standalone pxr/USD unavailable), 1 deselected. A subsequent focused run with
+  the added managed gripper, snapshot-failure, report-failure, heartbeat and
+  lease-retirement regressions passed 49 tests. Syntax checks passed.
+  The deselected existing table_penholder launcher case fails identically in
+  the untouched baseline because its scene file is already deleted; that user
+  deletion was preserved. No ROS graph, real Isaac runtime/rendering, native
+  WBC solve, external model, or hardware was started. DDS/camera/native and
+  end-to-end batch validation remain outstanding; these tests do not certify
+  the runtime integration.

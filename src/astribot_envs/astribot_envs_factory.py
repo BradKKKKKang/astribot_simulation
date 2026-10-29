@@ -94,6 +94,8 @@ class AstribotEnvsFactory:
             return rclpy.ok()
         
     def simu_env_loop(self):
+        if getattr(self, 'managed_controller', None) is not None:
+            return self.managed_env_loop()
         observation, info = self.astribot_simu_env.reset()
         self._evaluate_state(reset=True)
 
@@ -152,8 +154,39 @@ class AstribotEnvsFactory:
 
         # The entrypoint owns cleanup after stopping the ROS executor.
 
+    def managed_env_loop(self):
+        """Physics advances only for an accepted step or an explicit Replay lease."""
+        env = self.astribot_simu_env.unwrapped
+        if ros_version != '2' or not hasattr(env, 'simulation_app'):
+            raise ValueError('managed evaluation requires ROS2 and IsaacLab')
+        controller = self.managed_controller
+        env.set_managed_lease(False)
+        env.reset()
+        env.multi_robot_ros_interface.setup_evaluation_control(controller)
+        self.running()  # Start the ROS executor independently of physics.
+        next_feedback = 0.0
+        try:
+            while env.simulation_app.is_running() and not self.stop_event.is_set() and rclpy.ok():
+                handled = controller.process_one(env)
+                if controller.phase == 'replay':
+                    env.step(None)
+                else:
+                    env.managed_idle()
+                    now = time.monotonic()
+                    if now >= next_feedback:
+                        env.managed_publish_feedback()
+                        next_feedback = now + .05
+                    if not handled:
+                        controller.wake.wait(.005)
+        finally:
+            controller.shutdown(env)
+
     def _evaluate_state(self, *, reset=False):
         evaluator = getattr(self, 'evaluator', None)
+        generation = getattr(self.astribot_simu_env.unwrapped, 'reset_generation', None)
+        if generation is not None:
+            reset = reset or generation != getattr(self, '_evaluated_reset_generation', None)
+            self._evaluated_reset_generation = generation
         if evaluator is not None and evaluator.observe(self.astribot_simu_env.unwrapped, reset=reset):
             self.stop_event.set()
 

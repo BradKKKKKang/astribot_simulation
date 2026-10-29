@@ -24,6 +24,13 @@ tests/
 
 ## Running Tests
 
+Managed evaluation queue, identity, atomic batch validation, terminal latch,
+reporting, reset cancellation, Replay exclusivity and fixed-step tests run on CPU:
+`python -m pytest tests/unit/test_managed_evaluation.py -o addopts='' -q`.
+They use mock environments and extracted backend methods. They do not verify
+DDS delivery, native WBC, Isaac physics or rendered image correctness.
+
+
 Placement publication tests run without ROS or USD:
 `python -m pytest tests/unit/test_placement_web_publish.py -o addopts='' -q`.
 In `web/placement-viewer`, run `npm test` for data/filter tests and
@@ -96,6 +103,19 @@ missing optional backends are skips, not successful backend execution.
 
 The geometry and runtime-state coverage is split by dependency:
 
+- `test_simulation_integrate.py` checks all evaluation launcher configurations,
+  runtime-free preflight, default paths, continuous operation past legacy step
+  budgets, asset handoff and report
+  persistence before closing Isaac. Factory tests use mocks; actual rendering
+  and physics require a separate isolated Isaac run.
+- `test_camera_viewer_lifecycle.py` exercises a real thread with mocked ROS/GUI
+  dependencies, checking that context shutdown follows spin-thread termination
+  and executor shutdown. `test_camera_viewer.py` itself remains the live viewer.
+- `test_camera_grid.py` verifies head/wrist layout, partial frame arrival, pixel
+  preservation, aspect ratio and one-window cleanup without a graphical desktop.
+- `test_initial_pose.py` checks measured parquet frame selection and named joint
+  mapping, task overrides, CLI display and reset of joint state/control targets.
+  Parquet fixtures need PyArrow; the backend reset mock also needs PyTorch.
 - `test_robot_placement.py` checks complete-geometry grounding at nonzero initial
   joints, world-fixed USD anchors, local TCP/camera invariance, placement evidence
   and capture-window validity. CPU PyTorch mocks exercise the actual backend reset

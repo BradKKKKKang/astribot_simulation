@@ -270,7 +270,7 @@ def test_evaluation_and_placement_reject_each_others_fields(tmp_path):
     assert 'candidates' not in resolved['sections'] and 'settings' not in resolved
     with pytest.raises(ValueError, match='placement_test'):
         load_task_config(evaluation)
-    value = {'schema_version': 3, 'kind': 'evaluation', **resolved['sections'], 'jev': {}}
+    value = {'schema_version': 4, 'kind': 'evaluation', **resolved['sections'], 'jev': {}}
     with pytest.raises(ValueError, match='unknown fields'):
         resolve(tmp_path, value)
 
@@ -319,21 +319,59 @@ def test_v2_evaluation_success_adapts_without_changing_criteria(tmp_path):
              'scene': {'objects': {}, 'regions': {}},
              'task': {'name': 'legacy', 'events': {}, 'success': success}, 'output': {}}
     old = resolve(tmp_path, value)
-    assert old['sections']['success'] == success
-    assert 'success' not in old['sections']['task']
+    assert old['sections']['task']['success'] == success
+    assert 'success' not in old['sections']
     assert 'robot_placement' not in old['sections']
     value['schema_version'] = 3
     value['success'] = value['task'].pop('success')
     current = resolve(tmp_path, value)
     assert current['sections']['task'] == old['sections']['task']
-    assert current['sections']['success'] == old['sections']['success']
+    assert current['sections']['task']['success'] == old['sections']['task']['success']
     value['success'] = {'predicates': []}
     changed = resolve(tmp_path, value)
-    assert changed['fingerprints']['task'] == current['fingerprints']['task']
-    assert changed['fingerprints']['success'] != current['fingerprints']['success']
+    assert changed['fingerprints']['task'] != current['fingerprints']['task']
+    assert 'success' not in changed['fingerprints']
     value.pop('success')
     with pytest.raises(ValueError, match='missing experiment sections'):
         resolve(tmp_path, value)
+
+
+def test_v4_success_is_owned_and_fingerprinted_by_task(tmp_path):
+    value = {'schema_version': 4, 'kind': 'evaluation', 'name': 'task',
+             'robot': default_robot_profile().as_dict(), 'scene': {},
+             'task': {'name': 'task', 'instruction': 'Pick and place', 'success': {'predicates': []}}}
+    before = resolve(tmp_path, value)
+    value['task']['success'] = {'predicates': [{'id': 'touch', 'kind': 'contact', 'evidence': 'touch'}]}
+    after = resolve(tmp_path, value)
+    assert before['fingerprints']['task'] != after['fingerprints']['task']
+    assert before['fingerprints']['scene_simulation'] == after['fingerprints']['scene_simulation']
+    assert 'success' not in after['sections']
+    value['success'] = value['task'].pop('success')
+    with pytest.raises(ValueError, match='unknown fields'):
+        resolve(tmp_path, value)
+
+
+def test_penholder_reset_reaches_runtime_configuration():
+    from src.simulation_config.scene_profile import build_experiment_simulation_config
+    from tests.unit.test_scene_assets import real_scene
+    real_scene()
+    root = Path(__file__).parents[2]
+    resolved = resolve_experiment(root/'config/experiments/evaluation/penholder.json')
+    config = build_experiment_simulation_config(resolved)
+    assert config['task_reset']['objects'] == ['pen', 'penholder']
+    assert config['task_scene'] == resolved['sections']['scene']
+    assert resolved['sections']['task']['instruction'] == '拿起笔放进笔筒'
+    assert resolved['sections']['task']['stage_order'] == ['pick_pen', 'place_pen']
+    assert 'success' not in resolved['sections']
+
+
+@pytest.mark.parametrize('order', [['pick', 'pick'], ['unknown'], []])
+def test_stage_order_rejects_duplicates_missing_and_unknown(order):
+    from src.evaluation.task_evaluation import validate_evaluation_config
+    task = {'stage_order': order, 'stages': {'pick': {'success': {
+        'predicates': [{'id': 'touch', 'kind': 'contact', 'evidence': 'touch'}]}}}}
+    with pytest.raises(ValueError, match='stage_order'):
+        validate_evaluation_config({}, task, {'predicates': []})
 
 
 @pytest.mark.parametrize('placement', [
@@ -355,7 +393,7 @@ def test_invalid_explicit_robot_placement_is_rejected(tmp_path, placement):
 def test_evaluation_runtime_has_distinct_validated_contract(tmp_path, runtime):
     path = DEFAULT_DETECTOR_CONFIG.parent.parent / 'experiments/evaluation/press_cube.json'
     resolved = resolve_experiment(path)
-    value = {'schema_version': 3, 'kind': 'evaluation', **resolved['sections'], 'runtime': runtime}
+    value = {'schema_version': 4, 'kind': 'evaluation', **resolved['sections'], 'runtime': runtime}
     with pytest.raises(ValueError):
         resolve(tmp_path, value)
 

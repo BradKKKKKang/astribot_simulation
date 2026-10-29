@@ -38,8 +38,9 @@ def author_scene_object(stage, specification, texture_directory):
         color = pbr.get('baseColorFactor', [1., 1., 1., 1.])
         shader.CreateInput('diffuseColor', Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color[:3]))
         shader.CreateInput('opacity', Sdf.ValueTypeNames.Float).Set(float(color[3]))
-        shader.CreateInput('roughness', Sdf.ValueTypeNames.Float).Set(float(pbr.get('roughnessFactor', 1.)))
-        shader.CreateInput('metallic', Sdf.ValueTypeNames.Float).Set(float(pbr.get('metallicFactor', 1.)))
+        overrides = asset.get('material', {})
+        shader.CreateInput('roughness', Sdf.ValueTypeNames.Float).Set(float(overrides.get('roughness', pbr.get('roughnessFactor', 1.))))
+        shader.CreateInput('metallic', Sdf.ValueTypeNames.Float).Set(float(overrides.get('metallic', pbr.get('metallicFactor', 1.))))
         if vertex_colors:
             reader = UsdShade.Shader.Define(stage, material_path + '/Color')
             reader.CreateIdAttr('UsdPrimvarReader_float3')
@@ -153,10 +154,15 @@ def attach_scene_objects(scene_cfg, specifications):
         raise
 
 
-def reset_scene_objects(scene, runtime):
-    for key in runtime['dynamic'].values():
+def reset_scene_objects(scene, runtime, *, sampled=None):
+    for name, key in runtime['dynamic'].items():
+        if sampled is not None and name not in sampled:
+            continue
         body = scene[key]
         state = body.data.default_root_state.clone()
+        if sampled is not None:
+            state[:, :7] = state.new_tensor(sampled[name]['pose_world'])
+            state[:, 7:] = 0.
         body.write_root_pose_to_sim(state[:, :7])
         body.write_root_velocity_to_sim(state[:, 7:])
         body.reset()

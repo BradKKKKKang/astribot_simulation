@@ -3,7 +3,7 @@
   "source": {
     "path": "~/assets/red_markpen.glb",
     "sha256": "8e4fa441b4e7a0de2fc4eee410cb739e453c04fe3154fb5751b70f6f3f1c44c3",
-    "description": "User-supplied GLB; source remains unchanged. Dimensions are explicit example choices, not measured physical calibration."
+    "description": "User-supplied GLB; source remains unchanged. Calibrated to the user-measured 0.15 m length along local Z; maximum cross-section diameter in local X/Y restored to approximately 0.01526 m at the user's request. Source bounds are 0.10899999737739563 x 0.10899999737739563 x 1.0; source_transform.scale maps them to meters."
   },
   "source_transform": {
     "quaternion_wxyz": [
@@ -15,7 +15,7 @@
     "scale": [
       0.14,
       0.14,
-      0.14
+      0.15
     ]
   },
   "physics": {

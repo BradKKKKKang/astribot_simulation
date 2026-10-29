@@ -5,7 +5,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from .task_evaluation import evaluate_success
+from .task_evaluation import evaluate_task
 
 
 class OnlineEvaluator:
@@ -21,10 +21,12 @@ class OnlineEvaluator:
         self.events = []
         self.observations = {}
         self.result = None
+        self.completed_stages = {}
 
     def observe(self, env, *, reset=False):
         if reset:
             self.steps, self.events = 0, []
+            self.completed_stages.clear()
         else:
             self.steps += 1
         reader = getattr(env, 'evaluation_state', None)
@@ -39,15 +41,15 @@ class OnlineEvaluator:
         self.events.extend(copy.deepcopy(events))
         # Replace the snapshot each step: disappearing observations must become unknown.
         self.observations = {**copy.deepcopy(observations), 'objects': copy.deepcopy(state.get('objects', {}))}
-        self.result = evaluate_success(self.events, self.sections['scene'], self.sections['task'],
-                                       self.sections['success'], self.observations)
+        self.result = evaluate_task(self.events, self.sections['scene'], self.sections['task'],
+                                   self.observations, self.completed_stages)
         return self.max_steps is not None and self.steps >= self.max_steps
 
     def report(self):
         return {'schema_version': 1, 'kind': 'online_evaluation', 'name': self.sections['name'],
                 'steps': self.steps, 'result': copy.deepcopy(self.result),
                 'events': copy.deepcopy(self.events), 'observations': copy.deepcopy(self.observations),
-                'config': {key: copy.deepcopy(self.sections[key]) for key in ('scene', 'task', 'success')},
+                'config': {key: copy.deepcopy(self.sections[key]) for key in ('scene', 'task')},
                 'fingerprints': self.fingerprints}
 
     def write_report(self):

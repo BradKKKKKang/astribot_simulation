@@ -1,0 +1,125 @@
+{
+  "isolation": {
+    "domain": 196,
+    "localhost_only": true
+  },
+  "seed": 42,
+  "physics_steps": 0,
+  "variants": {
+    "before": {
+      "lights": {
+        "CeilingStripLight": 300.0,
+        "FillRight": 0.0,
+        "FillLeft": 0.0
+      },
+      "cameras": {
+        "head_rgbd": {
+          "shape": [
+            720,
+            1280,
+            3
+          ],
+          "mean": 90.86438404224538,
+          "bright_pixel_fraction": 0.0
+        },
+        "left_wrist_rgbd": {
+          "shape": [
+            360,
+            640,
+            3
+          ],
+          "mean": 36.99915943287037,
+          "bright_pixel_fraction": 0.0
+        },
+        "right_wrist_rgbd": {
+          "shape": [
+            360,
+            640,
+            3
+          ],
+          "mean": 47.28078559027778,
+          "bright_pixel_fraction": 0.0
+        },
+        "third_person_camera": {
+          "shape": [
+            768,
+            1024,
+            3
+          ],
+          "mean": 37.67713377210829,
+          "bright_pixel_fraction": 0.0
+        }
+      }
+    },
+    "after": {
+      "lights": {
+        "CeilingStripLight": 30000.0,
+        "FillRight": 8000.0,
+        "FillLeft": 8000.0
+      },
+      "cameras": {
+        "head_rgbd": {
+          "shape": [
+            720,
+            1280,
+            3
+          ],
+          "mean": 157.59168619791666,
+          "bright_pixel_fraction": 0.0
+        },
+        "left_wrist_rgbd": {
+          "shape": [
+            360,
+            640,
+            3
+          ],
+          "mean": 64.24514756944444,
+          "bright_pixel_fraction": 0.0
+        },
+        "right_wrist_rgbd": {
+          "shape": [
+            360,
+            640,
+            3
+          ],
+          "mean": 84.96694444444445,
+          "bright_pixel_fraction": 0.0
+        },
+        "third_person_camera": {
+          "shape": [
+            768,
+            1024,
+            3
+          ],
+          "mean": 60.54365030924479,
+          "bright_pixel_fraction": 0.0
+        }
+      }
+    }
+  },
+  "gripper_roi_comparison": {
+    "left": {
+      "roi_xyxy": [
+        300,
+        410,
+        535,
+        560
+      ],
+      "mask": "baseline mean RGB between 5 and 60; same pixels in both images",
+      "before_median": 24.0,
+      "after_median": 59.666666666666664
+    },
+    "right": {
+      "roi_xyxy": [
+        665,
+        410,
+        890,
+        565
+      ],
+      "mask": "baseline mean RGB between 5 and 60; same pixels in both images",
+      "before_median": 24.0,
+      "after_median": 58.0
+    }
+  },
+  "after_head_rgb_max": 237
+}

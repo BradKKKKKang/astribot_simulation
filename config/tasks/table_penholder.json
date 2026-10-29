@@ -1,5 +1,6 @@
 {
-  "name": "Move the red pen into the tabletop target region",
-  "events": {},
-  "stages": {}
+  "ref": "penholder.json",
+  "overrides": {
+    "name": "table_penholder"
+  }
 }

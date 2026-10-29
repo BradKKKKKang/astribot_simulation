@@ -5,7 +5,7 @@ from pathlib import Path
 
 from src.placement_analysis.artifact_store import atomic_write, json_bytes
 from src.placement_analysis.bundle import load_bundle, save_bundle_revision, store_for_manifest
-from .task_evaluation import evaluate_success
+from .task_evaluation import evaluate_task
 
 
 def _evaluate_bundle(path, *, task_config=None, dry_run=False, observations=None):
@@ -21,8 +21,11 @@ def _evaluate_bundle(path, *, task_config=None, dry_run=False, observations=None
         sections = resolved['sections']
     else:
         sections = metadata.get('task_config', {}).get('_resolved_sections', {})
-        if not {'scene', 'task', 'success'} <= sections.keys():
+        if not {'scene', 'task'} <= sections.keys():
             raise ValueError('an explicit evaluation experiment is required for this placement bundle')
+        if 'success' not in sections['task']:
+            sections = copy.deepcopy(sections)
+            sections['task']['success'] = sections['success']
     if isinstance(observations, (str, Path)):
         from src.simulation_config.experiment_config import read_json
         observations = read_json(Path(observations).expanduser())
@@ -43,14 +46,14 @@ def _evaluate_bundle(path, *, task_config=None, dry_run=False, observations=None
         evidence = observations['episodes'].get(episode, {})
         if not isinstance(evidence, dict) or 'events_complete' in evidence:
             raise ValueError('episode observations must be an object; events_complete is pipeline-owned')
-        result = evaluate_success(events, sections['scene'], sections['task'], sections['success'],
+        result = evaluate_task(events, sections['scene'], sections['task'],
                                   observations={**evidence, 'events_complete': metadata.get('status') == 'complete'
                                                 or episode in complete_shards})
         results.append({'episode_id': episode, **result})
     report = {'schema_version': 1, 'episodes': results,
               'summary': {status: sum(row['status'] == status for row in results)
                           for status in ('passed', 'failed', 'unknown')},
-              'config': {name: copy.deepcopy(sections[name]) for name in ('scene', 'task', 'success')},
+              'config': {name: copy.deepcopy(sections[name]) for name in ('scene', 'task')},
               'observations': copy.deepcopy(observations)}
     if not dry_run:
         if bundle['schema_version'] == 5:

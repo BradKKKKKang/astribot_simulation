@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "kind": "evaluation",
   "name": "cap_pen",
   "robot": {
@@ -20,9 +20,6 @@
     ],
     "yaw": 0.0,
     "grounding": "geometry_min"
-  },
-  "success": {
-    "ref": "../../success/cap_pen.json"
   },
   "runtime": {}
 }

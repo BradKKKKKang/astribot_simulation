@@ -5,6 +5,7 @@
 ## 目录与入口
 
 - [astribot_simulation.py](astribot_simulation.py)：命令行入口，接收 --config 与 --headless，负责退出信号和运行资源清理。
+- [astribot_simulation_integrate.py](astribot_simulation_integrate.py)：评测 JSON 入口，--config 默认加载 penholder 评测配置，通过共享解析器创建机器人、场景资产和任务。
 - [src/astribot_envs/](src/astribot_envs/)：Gymnasium 基类、工厂及 MuJoCo、Genesis、ManiSkill、Isaac Lab 后端；工厂按 simulator_type 选择实现。
 - [src/simu_utils/](src/simu_utils/)：ROS1/ROS2 接口、运动学和通用工具；[src/sim_assets_tools/](src/sim_assets_tools/)：模型、网格和纹理转换。
 - [config/astribot_s1/](config/astribot_s1/)：各后端与机器人配置；[astribot_descriptions/](astribot_descriptions/) 和 [astribot_msgs/](astribot_msgs/) 是模型资源和 ROS 消息的 Git 子模块。

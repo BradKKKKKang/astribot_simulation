@@ -187,6 +187,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         astribot_simu_log("Initializing Isaac Lab environment...")
         self.scene_simulation = normalize_scene_simulation(param.get('scene_simulation'))
         self.scene_object_specs = param.get('scene_objects', [])
+        self.task_reset = param.get('task_reset')
+        self.task_scene = param.get('task_scene')
         self.scene_object_keys = {'dynamic': {}, 'static': {}, 'resources': None}
         self.robot_placement_declaration = param.get('robot_placement')
         self.robot_profile_data = param.get('robot_profile')
@@ -202,6 +204,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         super().__init__(param)
 
         self.dt = param.get('dt', 0.01)
+        if self.managed_evaluation and self.dt != 0.01:
+            raise ValueError('managed evaluation requires dt=0.01')
         self.decimation = param.get('decimation', 1)
         self.physics_device = param.get("physics_device")
         self.use_fabric = param.get("use_fabric", True)
@@ -660,6 +664,92 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         return observation, reward, terminated, False, info
 
+    def set_managed_lease(self, enabled):
+        # Fence legacy callbacks while transitioning ownership. Replay starts
+        # before its SDK is constructed, so its first free step must hold the
+        # measured boundary rather than an old Eval/reset command buffer.
+        self.multi_robot_ros_interface.managed_evaluation = True
+        for interface in self.robot_dict.values():
+            interface.managed_evaluation = True
+        self.multi_robot_ros_interface.reset_flag = False
+        self.multi_robot_ros_interface.pose_tuple_list.clear()
+        if not enabled:
+            for part, interface in self.robot_dict.items():
+                values = list(self.get_joint_positions(self.robot_joint_map[part]))
+                interface.controller_mode = 1
+                interface.joint_position_command = values
+                interface.joint_velocity_command = [0.] * len(values)
+                interface.joint_torque_command = [0.] * len(values)
+        self.managed_evaluation = bool(enabled)
+        self.multi_robot_ros_interface.managed_evaluation = bool(enabled)
+        for interface in self.robot_dict.values():
+            interface.managed_evaluation = bool(enabled)
+
+    def managed_step(self, commands):
+        """Execute one validated whole-body batch on the Isaac main thread."""
+        if not self.managed_evaluation:
+            raise RuntimeError('managed stepping is disabled')
+        if not self.sim.is_playing():
+            raise RuntimeError('Isaac timeline is paused or stopped; managed step cannot execute')
+        names, positions, velocities = [], [], []
+        for part, command in commands.items():
+            names.extend(self.robot_joint_map[part])
+            positions.extend(command['position'])
+            velocities.extend(command['velocity'])
+        self.joint_names_all = names
+        self.controller_mode = [1] * len(names)
+        self.joint_position_command_all = positions
+        self.joint_velocity_command_all = velocities
+        self.joint_torque_command_all = [0.] * len(names)
+        self._apply_control()
+        self.scene.write_data_to_sim()
+        self.sim.step(render=True)
+        self.scene.update(dt=self.dt)
+        self.managed_publish_feedback()
+
+    def managed_publish_feedback(self):
+        """Publish measured joints only after a completed reset or physics step."""
+        for part, names in self.robot_joint_map.items():
+            self.robot_dict[part].publish_joint_states(
+                self.get_joint_positions(names), self.get_joint_velocities(names),
+                self.get_joint_accelerations(names), self.get_joint_torques(names))
+        self._publish_robot_placement()
+
+    def managed_snapshot(self, *, capture_images):
+        """Capture cameras and joints at the same paused physics boundary."""
+        import base64
+        import cv2
+        joints = {}
+        for part in self.robot_profile_data['parts']:
+            name = part['name']
+            if name not in self.robot_joint_map:
+                continue
+            model = self.robot_joint_map[name]
+            joints[name] = {'joint_names': part['feedback_joints'],
+                            'position': list(self.get_joint_positions(model)),
+                            'velocity': list(self.get_joint_velocities(model))}
+        joints['astribot_chassis'] = {
+            'joint_names': ['astribot_chassis_x', 'astribot_chassis_y', 'astribot_chassis_z_rot'],
+            'position': [0., 0., 0.], 'velocity': [0., 0., 0.]}
+        images = {}
+        if capture_images:
+            # Rendering is allowed while physics is paused. Force sensor refresh,
+            # including reset at the same simulation timestamp as the prior frame.
+            self.sim.render()
+            for camera in self.camera_names:
+                self.scene[camera].update(0.0, force_recompute=True)
+                rgb = self.render_single_camera(camera)['rgb_img'][:, :, :3]
+                ok, encoded = cv2.imencode('.jpg', cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+                if not ok:
+                    raise RuntimeError('snapshot JPEG encoding failed: ' + camera)
+                images[camera] = {'encoding': 'jpeg', 'data_base64': base64.b64encode(encoded).decode('ascii'),
+                                  'width': int(rgb.shape[1]), 'height': int(rgb.shape[0])}
+        return {'joints': joints, 'images': images}
+
+    def managed_idle(self):
+        """Pump Kit/GUI rendering without advancing the physics simulation."""
+        self.sim.render()
+
     def _apply_control(self):
         import torch
 
@@ -744,6 +834,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        self.reset_generation = getattr(self, 'reset_generation', 0) + 1
 
         self.scene.reset()
         self._restore_initial_state()
@@ -769,6 +860,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             self.robot.write_root_velocity_to_sim(root[:, 7:])
             joints = self.robot.data.default_joint_pos.clone()
             velocity = self.robot.data.default_joint_vel.clone()
+            velocity.zero_()
             self.robot.write_joint_state_to_sim(joints, velocity)
             self.robot.set_joint_position_target(joints)
             initial = self.resolved_robot_placement['initial_joint_positions']
@@ -779,11 +871,17 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                     gripper = grippers[part]
                     measured = self.robot_joint_map[part][0]
                     values = [values[0] / (gripper['model_joints'][measured] * gripper['radians_per_percent'])]
+                interface.controller_mode = 1
                 interface.joint_position_command = values
                 interface.joint_velocity_command = [0.] * len(values)
                 interface.joint_torque_command = [0.] * len(values)
         from src.simulation_config.isaac_scene_objects import reset_scene_objects
-        reset_scene_objects(self.scene, self.scene_object_keys)
+        sampled = None
+        if self.task_reset is not None:
+            from src.simulation_config.task_reset import sample_task_objects
+            sampled = sample_task_objects(self.task_scene, self.task_reset, self.np_random)
+        self.last_reset_layout = sampled
+        reset_scene_objects(self.scene, self.scene_object_keys, sampled=sampled)
         self.scene.write_data_to_sim()
         if self.resolved_robot_placement is not None:
             self.sim.physics_sim_view.update_articulations_kinematic()

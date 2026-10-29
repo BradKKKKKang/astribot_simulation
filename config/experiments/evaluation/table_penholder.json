@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "kind": "evaluation",
   "name": "table_penholder",
   "robot": {
@@ -19,9 +19,6 @@
   },
   "task": {
     "ref": "../../tasks/table_penholder.json"
-  },
-  "success": {
-    "ref": "../../success/table_penholder.json"
   },
   "runtime": {
     "ref": "../../runtime/evaluation.json"

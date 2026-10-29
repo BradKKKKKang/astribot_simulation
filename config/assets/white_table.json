@@ -1,9 +1,9 @@
 {
   "name": "white_table",
   "source": {
-    "path": "~/assets/white_table.glb",
-    "sha256": "bcb8838f413362375138913724eeba40a27bde3ff4886a58191d868696cfb80c",
-    "description": "User-supplied GLB. Current source has a continuous off-white panel and no tabletop frame. Source Y-up, X long edge, Z short edge; +90 degrees around X maps Y to Z. Scale 1.6 gives 1.6 m length and 0.736 m total height."
+    "path": "meshes/white_table.glb",
+    "sha256": "7323f4bd819c34c8ec02a8c1ffe03a5cee83c4a484607e3c1c31a09298f78c39",
+    "description": "Calibrated GLB: length 1.40 m (source X), width 0.70 m (source Z), height 0.75 m (source Y). Rotate +90 degrees about X into Z-up."
   },
   "source_transform": {
     "quaternion_wxyz": [
@@ -13,9 +13,9 @@
       0
     ],
     "scale": [
-      1.6,
-      1.6,
-      1.6
+      1,
+      1,
+      1
     ]
   },
   "physics": {
@@ -29,7 +29,7 @@
       "position": [
         0,
         0,
-        0.36800000667572025
+        0.375
       ],
       "quaternion_wxyz": [
         1,
@@ -54,12 +54,12 @@
       ],
       "usable_bounds": {
         "min": [
-          -0.78,
-          -0.3527999925613403
+          -0.68,
+          -0.33
         ],
         "max": [
-          0.78,
-          0.3527999925613403
+          0.68,
+          0.33
         ]
       },
       "geometry_node": "Tabletop flat continuous off-white surface",

@@ -143,6 +143,7 @@ def test_reset_restores_resolved_root_joints_commands_and_refreshes_actual_fk(mo
                  'write_joint_state_to_sim', 'set_joint_position_target'):
         setattr(env.robot, name, record(name))
     env.scene_object_keys = {'dynamic': {}}
+    env.task_reset = None
     env.scene = SimpleNamespace(write_data_to_sim=record('write'), update=record('update'))
     env.sim = SimpleNamespace(physics_sim_view=SimpleNamespace(update_articulations_kinematic=record('fk')),
                               forward=record('forward'))

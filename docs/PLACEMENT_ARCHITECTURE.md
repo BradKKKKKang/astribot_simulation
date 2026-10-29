@@ -28,22 +28,29 @@ flowchart TB
 
 ## Configuration composition
 
-Experiments use `schema_version: 3` and explicit `kind`:
+Placement experiments use `schema_version: 3`; new evaluation experiments use
+`schema_version: 4`. Both declare an explicit `kind`:
 
 - `placement_test`: `name`, optional `status` (default `ready`), `robot`,
   `candidates`, `jev`, `source`, optional `robot_placement`, `runtime` and `output`.
-- `evaluation`: `name`, `robot`, `scene`, `task`, `success`, optional
+- `evaluation`: `name`, `robot`, `scene`, `task`, optional
   `robot_placement`, `runtime` and `output`. Runtime supports physics `dt` and
   `decimation` under `simulation`, and `max_steps` under `evaluation`.
+
+The interactive `astribot_simulation_integrate.py` entrypoint removes legacy
+`max_steps` from its resolved runtime and runs continuously until closed or
+interrupted. The checked-in evaluation runtime has no step limit. The general
+evaluator retains finite-budget support for other callers.
 
 The three placement entries are `config/placement_distribution/{press_cube,
 penholder,cap_pen}.json`, with `candidates/` and `jev/` in the same directory.
 Evaluation entries live under `config/experiments/evaluation/` and reference shared
-`config/robots/`, `assets/`, `scenes/`, `tasks/`, `success/` and `runtime/` profiles.
+`config/robots/`, `assets/`, `scenes/`, `tasks/` and `runtime/` profiles.
 Placement rejects `scene`, `task` and `success`; evaluation rejects placement
-candidate/JEV/source settings. Success is independent of the task's event selectors
-and stages. The three migrated task criteria remain unconfigured (`unknown`);
-`table_penholder` demonstrates a measured object-region criterion.
+candidate/JEV/source settings. Success belongs to `task.success`, alongside its
+instruction, reset and stages. `cap_pen` and `press_cube` criteria remain
+unconfigured (`unknown`); `penholder` and its `table_penholder` alias provide an
+ordered pick/place task with measured geometric predicates.
 
 Each section is inline or uses `{ "ref": "relative/profile.json", "overrides":
 { ... } }`. References resolve relative to the declaring file. Object overrides
@@ -57,8 +64,10 @@ absolute paths are also supported. Existing backend YAML files remain in
 
 `src/simulation_config/` owns CPU-only resolution, robot mapping, scene adapters
 and configuration validation. It does not import placement runtime modules.
-Legacy flat and modular v1/v2 inputs remain explicit read adapters. V2 evaluation
-`task.success` is adapted into the same independent resolved success section. The normalized
+Legacy flat and modular v1 inputs remain explicit read adapters. V2 evaluation
+already contains `task.success`; v3 evaluation's top-level `success` is moved into
+the resolved task. V4 rejects a top-level `success`. Task fingerprints include
+the criteria, instruction, reset and stages. The normalized
 internal `settings.task` record retains name/dataset/readiness for existing capture
 and bundle readers; it is not a reference to an evaluation task. Authored v2/v3 placement experiments and their
 `_resolved_sections` do not contain that legacy task section.
@@ -73,8 +82,7 @@ and bundle readers; it is not a reference to an evaluation task. Authored v2/v3 
 | runtime | Placement alignment/replay cadence, or evaluation physics settings and step budget |
 | output | Placement capture/bundle paths and publication; evaluation reserves `root` |
 | scene (evaluation) | Object labels/roles, calibrated frames/regions and supported physical scene settings |
-| task (evaluation) | Event selectors and ordered stages |
-| success (evaluation) | Independent predicates over events and explicit measured evidence |
+| task (evaluation) | Instruction, reset selection, event selectors, ordered stages and success predicates |
 
 A placement config may omit `source.dataset_root`: replay then requires an explicit
 input path or `--data-root`. Identification requires a root only when the original
@@ -178,14 +186,80 @@ measure object body origins and do not imply contact, stability or completed ins
 The report retains the measured snapshot, success configuration and fingerprints.
 
 Asset profiles define the source GLB digest, Z-up conversion, explicit scale,
-static/dynamic collision and support surfaces. `scene.objects` references assets
+static/dynamic collision and support surfaces. Optional `asset.material.metallic`
+and `roughness` values in [0, 1] override the corresponding GLB material channels
+on every authored USD visual material, preserving colors, textures and geometry.
+`scene.objects` references assets
 and initial `placement.frame` (for example `table.tabletop`). Geometry minimum
 height is computed after the object's rotation and scaling. The tabletop frame
 is centered on the actual white panel's top surface. Object bodies become
-independent after spawning, and reset restores their initial states. Regions may
+independent after spawning. Without `task.reset`, reset restores initial states. Regions may
 use world/base or static calibrated frames; frames attached to dynamic objects
 represent initial placement only and are rejected as region anchors. See the
-`table_penholder` scene and evaluation entry for the complete composition.
+`penholder` scene and evaluation entry for the complete composition.
+
+The task layout follows the ownership used by x2real's
+`manaenv/defination/x2real/task/bimanual_collaboration/object_to_cup/vnext_dag.yaml`:
+task instructions, explicit runtime sampling targets and ordered stage nodes with
+their own success criteria. This repository keeps its JSON predicate vocabulary;
+it does not load x2real component factories. `task.reset.objects` selects dynamic
+objects; `reset.placement` declares a static asset `surface`, `min_separation` in
+meters and a bounded `max_attempts`. `type: uniform_on_surface` samples the usable
+surface. `type: uniform_in_bounds` instead requires each selected scene object's
+`placement.reset_xy_bounds`, with finite two-element `min`/`max` vectors and
+strictly positive area. The limits are object-origin coordinates in meters in
+the object's placement frame, which must equal the selected support surface.
+They do not contain Z and are not scaled by the sampled object's size. A reset
+with configured bounds cannot silently use `uniform_on_surface`.
+
+Bounded sampling intersects these limits with the surface's feasible origin
+rectangle after accounting for the full rotated/scaled object footprint; it
+does not subtract the footprint from the calibrated limits again. Empty
+intersections and exhausted collision retries fail without falling back to the
+whole table. All modes preserve configured orientation and use `geometry_min`
+plus `clearance` for Z. Only selected object poses and velocities are reset.
+The existing environment reset also restores robot joints and clears task progress.
+
+`type: empirical` requires the same bounds plus a nonempty `reset_xy_samples`
+array of finite XY observations on every selected object's placement. All arrays
+must have equal length; a shared row index represents one joint observation of
+all selected objects. The sampler draws a row with equal probability, keeping
+duplicate observations and thus their empirical mass. Every selected object
+uses that row. Invalid support/overlap draws reject the whole row and retry;
+points are never clipped or replaced with uniform samples. The resulting
+distribution is the empirical distribution conditioned on feasible placement.
+Bounds and samples are in meters in the shared support frame. Samples must lie
+within the configured bounds, and cannot be used with a uniform reset mode.
+
+Penholder stores 310 paired observations ordered by episode 000000 through
+000309: pen is the grasp TCP XY and penholder is the release TCP XY. Equal row
+sampling preserves the density peaks and the episode's relative layout, with no
+Gaussian fit or positional jitter. Calibration projects saved `tcp_pose_base`
+XY through the configured robot base placement into `table.tabletop`; recorded
+candidate Z is discarded.
+With base XY `[0, 0]`, yaw zero and table XY `[0.6, 0]`, yaw 90 degrees, the mapping
+is `x_table = y_base`, `y_table = 0.6 - x_base`. These are static calibrated limits:
+recalibrate them if the table/base horizontal placement changes. Runtime reset
+does not read replay artifacts or require the dataset.
+
+`task.stage_order` explicitly lists every stage once, independent of JSON key order.
+A stage declares either existing `events`/`ordered` or its own `success` predicates.
+Online evaluation retains passed stage evidence, advances at most one new stage
+per snapshot and clears that history on reset. A lone offline final snapshot cannot
+establish the history of the two-stage task. `task.success` combines stage results.
+The `object_relative_region` predicate transforms an object's local `point` into
+the measured `relative_to` object's frame, tests `min`/`max` bounds and optionally
+checks `min_axis_dot` between their +Z axes. Both measured world poses and sources
+are required; a configured dynamic spawn frame is never substituted.
+
+The calibrated table GLB has source axes X/Y/Z of 1.40/0.75/0.70 m and is rotated
+to Z-up. The table placement is world XY `[0.6, 0]`, yaw 90 degrees, with its feet
+grounded at Z=0 and tabletop at Z=0.75 m. The robot base placement is `[0, 0]`.
+The pen tip proxy is local `[0, 0, -0.07]` m. The holder interior acceptance box is
+`[-0.043, -0.043, -0.05]` to `[0.043, 0.043, 0.04]` m in the current holder frame,
+with `min_axis_dot: 0.8`. These tunable geometric proxies do not establish grasp,
+release, contact or stable insertion. Pen/holder dimensions retain their prior
+asset scales; only the table dimensions were supplied as physical calibration.
 
 Extraction uses bounded process workers and one manifest coordinator. Each
 completed episode writes a shard/checkpoint; a failed run can resume without

@@ -71,6 +71,17 @@ class MultiRobotRosInterface(object):
 
             self.qos_list=[qos_profile_pub, qos_profile_sub]
 
+    def setup_evaluation_control(self, controller):
+        if ros_version != '2':
+            raise ValueError('managed evaluation requires ROS2')
+        self.evaluation_controller = controller
+        self.evaluation_service = self.node.create_service(
+            RawRequest, '/simulation/evaluation/control', self.handle_evaluation_control)
+
+    def handle_evaluation_control(self, request, response):
+        response.response = self.evaluation_controller.submit_json(request.request)
+        return response
+
     def handle_safe_mode(self, request, response):
         response.response = 'simulation'
         return response
@@ -199,6 +210,9 @@ class MultiRobotRosInterface(object):
         return self.reset_flag
     
     def reset_ros_server(self, request, response):
+        if getattr(self, 'managed_evaluation', False):
+            self.node.get_logger().warning('managed evaluation owns reset; use /simulation/evaluation/control')
+            return response
         self.reset_flag = True
 
         if ros_version=='1':
@@ -208,6 +222,8 @@ class MultiRobotRosInterface(object):
     
     def handle_object_pose_command(self, req: Any, response=None):
         try:
+            if getattr(self, 'managed_evaluation', False):
+                raise ValueError('managed evaluation owns scene reset')
             data: Dict[str, List[float]] = json.loads(req.request)
 
             for key, value in data.items():
@@ -357,6 +373,8 @@ class RobotRosInterface(object):
         return 'chassis' in self.robot_name and self.dof == 2
 
     def joint_command_callback(self, msg):
+        if getattr(self, 'managed_evaluation', False):
+            return
         joint_position_command = [0 for i in range(self.dof)]
         joint_velocity_command = [0 for i in range(self.dof)]
         joint_torque_command = [0 for i in range(self.dof)]
@@ -442,6 +460,8 @@ class RobotRosInterface(object):
             self.chassis_pose_ros_pub.publish(msg)
 
     def joint_states_callback(self, msg):
+        if getattr(self, 'managed_evaluation', False):
+            return
         if self.simu_running:
             if (msg.header.frame_id != 'simulation') & ('gripper' not in self.robot_name):
                 self.simu_running = False
