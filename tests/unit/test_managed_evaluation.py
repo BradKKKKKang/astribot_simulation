@@ -554,17 +554,17 @@ def test_idle_never_renders_headless_and_gui_only_pumps_without_camera_updates()
     idle(env)
     idle(env)
     assert calls == [{'mode': 0}]
-    toggles = []
-    env.camera_names = ['head_rgbd']
-    env._managed_render_products = [
-        (name, SimpleNamespace(hydra_texture=SimpleNamespace(
-            set_updates_enabled=lambda enabled, name=name: toggles.append((name, enabled)))))
-        for name in ('head_rgbd', 'third_person_camera')]
+    modes = []
+    env.sim.set_render_mode = modes.append
+    env.sim.RenderMode.FULL_RENDERING = 2
     toggle = _isaac_method('_set_managed_camera_updates')
     toggle(env, True)
     toggle(env, False)
-    assert toggles == [('head_rgbd', True), ('third_person_camera', False),
-                       ('head_rgbd', False), ('third_person_camera', False)]
+    assert modes == [2, 0]
+    env.render_mode = 'rgb_array'
+    toggle(env, True)
+    toggle(env, False)
+    assert modes == [2, 0]
 
 
 def test_snapshot_reuses_model_jpegs_for_console_and_disables_rendering_on_error(monkeypatch):
@@ -603,6 +603,16 @@ def test_snapshot_reuses_model_jpegs_for_console_and_disables_rendering_on_error
         capture(env, capture_images=True)
     assert calls[-1] == ('enabled', False)
     assert not published
+
+    # An unavailable image must report the camera and shape, never publish a
+    # partial snapshot or try to repair the frame by advancing physics.
+    for missing in names:
+        env.render_single_camera = lambda name: {'rgb_img': (
+            np.empty((0,), dtype=np.uint8) if name == missing else rgb)}
+        with pytest.raises(RuntimeError, match=f'snapshot RGB unavailable: {missing}'):
+            capture(env, capture_images=True)
+        assert calls[-1] == ('enabled', False)
+        assert not published
 
 
 def test_snapshot_jpeg_publication_respects_stream_switch_and_subscribers():

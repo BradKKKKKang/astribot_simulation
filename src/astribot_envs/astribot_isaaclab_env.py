@@ -250,25 +250,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.setup_simulation_and_scene()
 
         self.setup_joint_mapping()
-        self._managed_render_products = []
         self._managed_idle_deadline = 0.0
         if param.get('managed_evaluation', False):
-            # Reuse Lab-owned render products; never create a second sensor.
-            import omni.replicator.core as rep
-            from pxr import UsdRender
-            names = list(self.camera_names)
-            if self.third_person_camera_cfg:
-                names.append('third_person_camera')
-            for name in names:
-                sensor = self.scene[name]
-                for path in sensor.render_product_paths:
-                    product = UsdRender.Product(self.sim.stage.GetPrimAtPath(path))
-                    camera = product.GetCameraRel().GetTargets()[0]
-                    handle = rep.create.render_product(str(camera),
-                        resolution=(sensor.cfg.width, sensor.cfg.height), force_new=False)
-                    if handle.path != path:
-                        raise RuntimeError('managed camera render product identity changed')
-                    self._managed_render_products.append((name, handle))
             self._set_managed_camera_updates(False)
         if self.resolved_robot_placement is not None and self.node is not None:
             from std_msgs.msg import String
@@ -649,10 +632,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
     def step(self, action: np.ndarray) -> tuple:
         # Replay keeps its existing live camera/video path.
-        if self._managed_render_products and self.render_mode == 'human':
-            self.sim.set_render_mode(self.sim.RenderMode.FULL_RENDERING)
-        for _name, product in self._managed_render_products:
-            product.hydra_texture.set_updates_enabled(True)
+        self._set_managed_camera_updates(True)
         self.update_reset_flag()
 
         if not self.reset_flag:
@@ -734,8 +714,12 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.managed_publish_feedback()
 
     def _set_managed_camera_updates(self, enabled):
-        for name, product in self._managed_render_products:
-            product.hydra_texture.set_updates_enabled(enabled and name in self.camera_names)
+        # Keep Lab's render products/annotators alive. Toggling Hydra texture
+        # updates invalidates their RGB render vars in Isaac Sim 4.5.
+        # Headless idle never renders; GUI idle only pumps UI in NO_RENDERING.
+        if self.render_mode == 'human':
+            mode = self.sim.RenderMode.FULL_RENDERING if enabled else self.sim.RenderMode.NO_RENDERING
+            self.sim.set_render_mode(mode)
 
     def managed_publish_feedback(self):
         """Publish measured joints only after a completed reset or physics step."""
@@ -768,12 +752,14 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             # including reset at the same simulation timestamp as the prior frame.
             self._set_managed_camera_updates(True)
             try:
-                if self.render_mode == 'human':
-                    self.sim.set_render_mode(self.sim.RenderMode.FULL_RENDERING)
                 self.sim.render()
                 for camera in self.camera_names:
                     self.scene[camera].update(0.0, force_recompute=True)
-                    rgb = self.render_single_camera(camera)['rgb_img'][:, :, :3]
+                    rgb = self.render_single_camera(camera)['rgb_img']
+                    if (rgb.ndim != 3 or min(rgb.shape[:2]) <= 0
+                            or rgb.shape[2] not in (3, 4)):
+                        raise RuntimeError(f'snapshot RGB unavailable: {camera}, shape={rgb.shape}')
+                    rgb = rgb[:, :, :3]
                     ok, encoded = cv2.imencode('.jpg', cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
                     if not ok:
                         raise RuntimeError('snapshot JPEG encoding failed: ' + camera)
@@ -792,7 +778,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         return {'joints': joints, 'images': images}
 
     def managed_idle(self):
-        """Keep GUI events responsive with camera products disabled; no physics."""
+        """Keep GUI events responsive without sensor rendering or physics."""
         if self.render_mode != 'human':
             return
         now = time.monotonic()

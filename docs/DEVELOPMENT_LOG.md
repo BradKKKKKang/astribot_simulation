@@ -2,6 +2,14 @@
 
 本日志供agent记录工作内容。最新改动放在文档最前面。
 
+## 2026-10-30: Fix empty RGB on managed Eval reset
+
+- Reproduced Atlas `INIT_MOVE_FAILED` during the first managed reset with the actual headless Isaac environment: disabling/re-enabling Lab-owned Hydra textures caused all three previously valid RGB annotators to return empty arrays, followed by a three-dimensional indexing error. Five and forty render-only warmup frames did not restore the render variables; the warmup-only candidate was discarded.
+- Keep Lab render products/annotators alive and use simulation render modes for GUI idle/capture/Replay transitions. Headless idle still performs no render; snapshots use one render without a physics step, validate RGB shape before encoding, and publish the same complete JPEG set to the model and Console. No new cameras, dummy images, physics advancement, configuration/schema changes or SDK/model changes.
+- In the existing `astribot_simu_il` environment, 80 focused CPU tests passed across managed/online evaluation, continuous factory behavior, and Isaac gripper/torso control. Tests cover render-mode transitions, no headless idle rendering, JPEG reuse, missing images on each stream, and cleanup on capture failure.
+- Isolated localhost DDS/GPU comparison reproduced the original failure and validated the final backend file with two reset runs and repeated captures. Head RGB was 1280x720 and both wrists 640x360; all JPEGs decoded successfully. A guard rejected any `sim.step()` during reset/capture, and each completed reset remained at step/time zero. Evidence: `/tmp/atlas-sim-reset-evidence/final/result.json`; test logs: `/tmp/atlas-sim-reset-final.log`. Kit exits with status zero even for the failing baseline, so acceptance uses the result artifact, not process exit alone.
+- Existing model/message submodule edits and user evaluation output were preserved. Full policy inference, Atlas end-to-end batches, GUI GPU behavior, other simulator backends and real hardware were not validated.
+
 ## 2026-10-26: Fixed robot opacity in the placement viewer
 
 - Fixed robot materials at 65% opacity and removed the opacity slider, percentage output, input handler and unused material-update method.

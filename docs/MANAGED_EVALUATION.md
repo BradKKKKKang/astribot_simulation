@@ -78,6 +78,12 @@ measured `joints` (names, position, velocity), actual initial object
 `images` maps `cam_high`, `cam_left_wrist`, `cam_right_wrist` to
 `{encoding: "jpeg", data_base64, width, height}`, or is empty for a step without
 image capture. Images and joints belong to the same paused physics boundary.
+Camera render products and annotators stay allocated throughout the managed
+session. Headless idle does not render; GUI idle uses `NO_RENDERING` to pump
+events, and snapshots temporarily restore rendering. Do not disable/re-enable
+the underlying Hydra textures: this invalidates RGB render variables on the
+supported Isaac Sim 4.5 path. Snapshot capture validates RGB shape before JPEG
+encoding and publishes nothing if any camera is unavailable.
 Atlas retains its desired/WBC observation-state semantics and associates that
 state with the matching acknowledged boundary. Repeated ROS feedback while
 paused keeps SDK liveness; it is not a new snapshot or physics step.
