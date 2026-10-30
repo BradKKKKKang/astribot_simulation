@@ -1022,3 +1022,15 @@ python tests/unit/test_camera_viewer.py \
   System Python 3.10 required disabling unrelated pytest plugin autoload because
   the installed AnyIO plugin is incompatible with system pytest 6.2.5.
   No Isaac/ROS runtime or hardware was started; visual validation remains unrun.
+
+
+## 2026-10-30 — Set red marker maximum diameter to 18.25 mm
+
+- Set the shared red marker asset X/Y scales to 0.1674311966890439,
+  giving a maximum cross-section diameter of 18.25 mm while retaining the
+  150 mm length. Visual and convex-hull collision geometry use the same
+  transformed vertices; friction, mass and the source GLB are unchanged.
+- Validation: measured transformed source bounds are exactly
+  0.01825 x 0.01825 x 0.15 m within 1e-10 m; integrated launcher
+  `--check-config` passed; focused scene-asset tests reported 48 passed,
+  4 skipped (optional dependencies). No Isaac/ROS runtime was started.
