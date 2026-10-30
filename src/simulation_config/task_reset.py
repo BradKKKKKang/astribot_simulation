@@ -6,8 +6,10 @@ import numpy as np
 
 from .experiment_config import check_fields
 from .glb_geometry import rotation_matrix
+from .poses import quaternion_multiply
 from .scene_assets import (resolve_scene_objects, transformed_primitives,
-                           validate_reset_xy_bounds, validate_reset_xy_samples)
+                           validate_reset_xy_bounds, validate_reset_xy_samples,
+                           validate_reset_yaw_range_degrees)
 
 
 def validate_task_reset(scene, reset):
@@ -36,6 +38,8 @@ def validate_task_reset(scene, reset):
             raise ValueError('task.reset objects must be dynamic scene assets')
         if obj.get('placement', {}).get('frame') != surface or obj['placement'].get('grounding') != 'geometry_min':
             raise ValueError('task.reset objects must use geometry_min on the selected surface')
+        if 'reset_yaw_range_degrees' in obj['placement']:
+            validate_reset_yaw_range_degrees(obj['placement']['reset_yaw_range_degrees'])
         bounds = obj['placement'].get('reset_xy_bounds')
         if placement['type'] in ('uniform_in_bounds', 'empirical'):
             if bounds is None:
@@ -62,13 +66,14 @@ def validate_task_reset(scene, reset):
 
 
 def sample_task_objects(scene, reset, rng):
-    """Return sampled bodies; retain orientations, full support and clear footprints.
+    """Return sampled bodies with full support and clear rotated footprints.
 
     Sampling is bounded and completes before any simulator state is written.
     Unselected objects on the same support act as fixed footprint obstacles.
     Calibrated bounds constrain object origins, not the enclosing geometry.
     Empirical reset draws one shared row per attempt, retaining observation
     density and object pairing; rejected rows are redrawn without clipping.
+    Optional yaw offsets rotate about support-frame Z from the base orientation.
     """
     validate_task_reset(scene, reset)
     sampled = copy.deepcopy(scene)
@@ -81,24 +86,14 @@ def sample_task_objects(scene, reset, rng):
     surface = support['asset']['surfaces'][surface_name]
     bounds = {k: np.array(surface['usable_bounds'][k]) * np.array(support.get('scale', [1, 1, 1]))[:2]
               for k in ('min', 'max')}
-    footprints = {}
+    footprints, base_vertices = {}, {}
     for name, obj in scene['objects'].items():
         if obj.get('placement', {}).get('frame') != config['surface'] or 'asset' not in obj:
             continue
         vertices = np.concatenate([p['vertices'] for p in transformed_primitives(obj['asset'], obj.get('scale', [1, 1, 1]))])
         vertices = vertices @ rotation_matrix(obj['placement'].get('quaternion_wxyz', [1, 0, 0, 0])).T
+        base_vertices[name] = vertices
         footprints[name] = (vertices[:, :2].min(0), vertices[:, :2].max(0))
-    limits = {}
-    for name in names:
-        low, high = footprints[name]
-        minimum, maximum = bounds['min'] - low, bounds['max'] - high
-        if config['type'] in ('uniform_in_bounds', 'empirical'):
-            calibrated = scene['objects'][name]['placement']['reset_xy_bounds']
-            minimum = np.maximum(minimum, calibrated['min'])
-            maximum = np.minimum(maximum, calibrated['max'])
-        if np.any(minimum > maximum):
-            raise ValueError(f'{name} has no supported placement within the reset range')
-        limits[name] = (minimum, maximum)
     occupied = []
     for name, (low, high) in footprints.items():
         if name not in names:
@@ -111,8 +106,26 @@ def sample_task_objects(scene, reset, rng):
         occupied = list(fixed)
         row = int(rng.integers(len(samples[names[0]]))) if empirical else None
         for name in names:
+            original = scene['objects'][name]['placement']
+            placement = sampled['objects'][name]['placement']
             low, high = footprints[name]
-            minimum, maximum = limits[name]
+            yaw_range = original.get('reset_yaw_range_degrees')
+            if yaw_range is not None:
+                half_angle = math.radians(rng.uniform(*yaw_range)) / 2
+                yaw = [math.cos(half_angle), 0, 0, math.sin(half_angle)]
+                placement['quaternion_wxyz'] = quaternion_multiply(
+                    yaw, original.get('quaternion_wxyz', [1, 0, 0, 0])).tolist()
+                rotated = base_vertices[name] @ rotation_matrix(yaw).T
+                low, high = rotated[:, :2].min(0), rotated[:, :2].max(0)
+            minimum, maximum = bounds['min'] - low, bounds['max'] - high
+            if config['type'] in ('uniform_in_bounds', 'empirical'):
+                calibrated = original['reset_xy_bounds']
+                minimum = np.maximum(minimum, calibrated['min'])
+                maximum = np.minimum(maximum, calibrated['max'])
+            if np.any(minimum > maximum):
+                if yaw_range is None:
+                    raise ValueError(f'{name} has no supported placement within the reset range')
+                break
             xy = samples[name][row] if empirical else rng.uniform(minimum, maximum)
             if np.any(xy < minimum) or np.any(xy > maximum):
                 break
@@ -121,7 +134,6 @@ def sample_task_objects(scene, reset, rng):
                    for other in occupied):
                 break
             occupied.append(box)
-            placement = sampled['objects'][name]['placement']
             placement.pop('position', None)
             placement['xy'] = xy.tolist()
         else:

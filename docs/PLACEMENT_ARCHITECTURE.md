@@ -216,8 +216,15 @@ Bounded sampling intersects these limits with the surface's feasible origin
 rectangle after accounting for the full rotated/scaled object footprint; it
 does not subtract the footprint from the calibrated limits again. Empty
 intersections and exhausted collision retries fail without falling back to the
-whole table. All modes preserve configured orientation and use `geometry_min`
-plus `clearance` for Z. Only selected object poses and velocities are reset.
+whole table. All modes use `geometry_min` plus `clearance` for Z and preserve
+configured orientation unless `placement.reset_yaw_range_degrees: [min, max]`
+is present. This optional finite, strictly increasing range samples a uniform
+yaw offset in degrees about the placement frame's Z axis, left-multiplied onto
+the configured quaternion. Each attempt starts from that base orientation;
+footprints and feasible origin limits are recomputed for the rotated geometry.
+Rejected draws retry both position and yaw within `max_attempts`, so accepted
+headings are conditioned on support and separation. The same seeded RNG controls
+both draws. Only selected object poses and velocities are reset.
 The existing environment reset also restores robot joints and clears task progress.
 
 `type: empirical` requires the same bounds plus a nonempty `reset_xy_samples`

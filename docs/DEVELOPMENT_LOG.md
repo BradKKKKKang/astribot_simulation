@@ -1002,3 +1002,23 @@ python tests/unit/test_camera_viewer.py \
   JPEGs, RGB/BGR preservation, failure cleanup and publication gating. No Isaac GPU,
   ROS runtime, real model, hardware or speed benchmark was run. Existing resource
   and message submodule changes were preserved.
+
+
+## 2026-10-30 — Random pen heading in penholder resets
+
+- Added optional `placement.reset_yaw_range_degrees` and enabled `[-180, 180]`
+  for the pen. Each reset draws a support-frame yaw offset from its configured
+  flat orientation using the existing seeded RNG; the holder retains its pose
+  orientation and empirical XY rows remain paired.
+- Recompute rotated footprints and feasible origin limits before support and
+  separation checks. Rejected position/heading draws retry within the existing
+  attempt budget; geometry-based grounding retains the 1 mm table clearance.
+- Validation: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest
+  tests/unit/test_scene_assets.py -o addopts='' -q` reported 48 passed, 4 skipped
+  (optional USD/Torch dependencies unavailable). Coverage includes real asset
+  sampling across 30 seeds, reproducibility, flat headings, paired positions,
+  support, separation, invalid ranges, retry exhaustion and scene immutability.
+  The penholder launcher `--check-config` and `git diff --check` passed.
+  System Python 3.10 required disabling unrelated pytest plugin autoload because
+  the installed AnyIO plugin is incompatible with system pytest 6.2.5.
+  No Isaac/ROS runtime or hardware was started; visual validation remains unrun.

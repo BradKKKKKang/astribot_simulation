@@ -215,11 +215,15 @@ def test_penholder_reset_is_seeded_supported_and_separated():
     again = sample_task_objects(scene, task['reset'], np.random.default_rng(42))
     assert first == again
     assert scene == before
-    positions = []
+    positions, headings = [], []
     for seed in range(30):
         sampled = sample_task_objects(scene, task['reset'], np.random.default_rng(seed))
         assert set(sampled) == {'pen', 'penholder'}
         pen, holder = sampled['pen'], sampled['penholder']
+        axis = rotation_matrix(pen['pose_world'][3:])[:, 2]
+        assert axis[2] == pytest.approx(0, abs=1e-7)  # Pen stays flat on the table.
+        headings.append(math.atan2(axis[1], axis[0]))
+        assert holder['pose_world'][3:] == pytest.approx(first['penholder']['pose_world'][3:])
         paired_rows = np.ones(310, dtype=bool)
         for name, item in sampled.items():
             low, high = np.array(item['bounds_world']['min']), np.array(item['bounds_world']['max'])
@@ -239,6 +243,49 @@ def test_penholder_reset_is_seeded_supported_and_separated():
                 or np.any(np.array(b['max'])[:2] + .02 <= np.array(a['min'])[:2]))
         positions.append(pen['pose_world'][:2])
     assert len({tuple(x) for x in positions}) > 20
+    assert len(set(headings)) == 30
+    assert max(headings) - min(headings) > 5  # Covers both sides of the table.
+
+
+@pytest.mark.parametrize('yaw_range', [None, [], [0], [0, 0], [90, -90],
+                                       [True, 180], [0, float('inf')], [0, float('nan')]])
+def test_reset_yaw_rejects_invalid_ranges(scene, yaw_range):
+    from src.simulation_config.task_reset import validate_task_reset
+    scene['objects']['pen']['placement']['reset_yaw_range_degrees'] = yaw_range
+    reset = {'objects': ['pen'], 'placement': {'type': 'uniform_on_surface', 'surface': 'table.tabletop'}}
+    with pytest.raises(ValueError, match='reset_yaw_range_degrees'):
+        expand_scene_assets(scene, ROOT)
+    with pytest.raises(ValueError, match='reset_yaw_range_degrees'):
+        validate_task_reset(scene, reset)
+
+
+@pytest.mark.parametrize('obstacle', [False, True])
+def test_reset_yaw_rechecks_support_and_fixed_obstacle_before_accepting(scene, obstacle):
+    from src.simulation_config.task_reset import sample_task_objects
+    # At the edge, the initial long footprint is unsupported. Near a fixed
+    # object, it overlaps. Turning 90 degrees makes either placement feasible.
+    xy = [0, 0] if obstacle else [.8, 0]
+    if obstacle:
+        scene['objects']['holder'] = copy.deepcopy(scene['objects']['pen'])
+        scene['objects']['holder']['placement']['xy'] = [.25, 0]
+    scene['objects']['pen']['placement'].update(
+        reset_yaw_range_degrees=[0, 180],
+        reset_xy_bounds={'min': [-.1, -.1], 'max': [.85, .1]},
+        reset_xy_samples=[xy])
+    reset = {'objects': ['pen'], 'placement': {'type': 'empirical',
+             'surface': 'table.tabletop', 'min_separation': .02, 'max_attempts': 2}}
+    before = copy.deepcopy(scene)
+    angles = iter([0, 90])
+    sampled = sample_task_objects(scene, reset, SimpleNamespace(
+        integers=lambda n: 0, uniform=lambda low, high: next(angles)))['pen']
+    assert scene == before
+    assert sampled['pose_world'][:2] == pytest.approx([1, 2 + xy[0]])
+    # Table yaw +90 plus sampled yaw +90: local pen +Z points along world -X.
+    assert rotation_matrix(sampled['pose_world'][3:])[:, 2] == pytest.approx([-1, 0, 0])
+    assert sampled['bounds_world']['min'][2] == pytest.approx(.801)
+    with pytest.raises(ValueError, match='max_attempts'):
+        sample_task_objects(scene, reset, SimpleNamespace(
+            integers=lambda n: 0, uniform=lambda low, high: 0))
 
 
 @pytest.mark.parametrize('bounds', [

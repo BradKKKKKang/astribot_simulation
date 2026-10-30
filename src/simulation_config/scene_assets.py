@@ -173,6 +173,14 @@ def validate_reset_xy_samples(samples):
     return np.array([vector(xy, 2, 'reset_xy_samples') for xy in samples])
 
 
+def validate_reset_yaw_range_degrees(value):
+    """Yaw offsets about placement-frame Z, left-multiplied onto the base quaternion."""
+    low, high = vector(value, 2, 'reset_yaw_range_degrees')
+    if low >= high:
+        raise ValueError('reset_yaw_range_degrees requires min < max')
+    return low, high
+
+
 def validate_scene_objects(scene):
     objects = scene.get('objects', {})
     if not isinstance(objects, dict):
@@ -192,7 +200,7 @@ def validate_scene_objects(scene):
             raise ValueError('object scale must be positive')
         placement = obj.get('placement', {})
         _fields(placement, {'frame', 'xy', 'position', 'quaternion_wxyz', 'grounding', 'clearance',
-                            'reset_xy_bounds', 'reset_xy_samples'}, 'object.placement')
+                            'reset_xy_bounds', 'reset_xy_samples', 'reset_yaw_range_degrees'}, 'object.placement')
         if not isinstance(placement.get('frame'), str):
             raise ValueError('object placement requires an explicit frame')
         pose_fields(placement, 'object.placement')
@@ -215,6 +223,10 @@ def validate_scene_objects(scene):
             validate_reset_xy_samples(placement['reset_xy_samples'])
             if placement.get('grounding') != 'geometry_min':
                 raise ValueError('reset_xy_samples requires geometry_min grounding')
+        if 'reset_yaw_range_degrees' in placement:
+            validate_reset_yaw_range_degrees(placement['reset_yaw_range_degrees'])
+            if placement.get('grounding') != 'geometry_min':
+                raise ValueError('reset_yaw_range_degrees requires geometry_min grounding')
 
 
 def resolve_scene_objects(scene):

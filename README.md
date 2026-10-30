@@ -353,8 +353,13 @@ grasp candidates and holder rows from release candidates in the same episode.
 This preserves observed spatial density and pairing. Each object's
 `reset_xy_bounds` remains its calibrated envelope. Pairs that violate support or
 the 2 cm separation rule are redrawn together. Recorded Z is discarded: each
-object's geometry rests 1 mm above the simulated tabletop with its configured
-orientation. `reset(seed=...)` is reproducible; runtime needs no dataset files.
+object's geometry rests 1 mm above the simulated tabletop. The pen stays flat
+and draws a yaw offset from `placement.reset_yaw_range_degrees: [-180, 180]`
+about the tabletop normal on each creation/reset. Adjust this range in the scene
+JSON to restrict its heading, or remove it to retain the configured orientation.
+The holder keeps its configured orientation. Support and separation checks use
+the rotated geometry; infeasible position/heading combinations are redrawn.
+`reset(seed=...)` is reproducible; runtime needs no dataset files.
 The red marker's asset profile (`config/assets/red_markpen.json`) calibrates the
 source GLB to the measured 15 cm length along local Z and the user-requested
 1.526 cm maximum diameter in X/Y, using separate axial and radial scales. The original

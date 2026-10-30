@@ -50,6 +50,7 @@
         },
         "placement": {
           "frame": "table.tabletop",
+          "reset_yaw_range_degrees": [-180, 180],
           "xy": [
             0.371904,
             0.153386
