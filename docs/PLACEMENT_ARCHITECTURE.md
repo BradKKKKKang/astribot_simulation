@@ -256,17 +256,28 @@ per snapshot and clears that history on reset. A lone offline final snapshot can
 establish the history of the two-stage task. `task.success` combines stage results.
 The `object_relative_region` predicate transforms an object's local `point` into
 the measured `relative_to` object's frame, tests `min`/`max` bounds and optionally
-checks `min_axis_dot` between their +Z axes. Both measured world poses and sources
+checks `min_axis_dot` / `max_axis_dot` between their +Z axes (defaults -1 / 1).
+Both bounds must be finite, in [-1, 1], and ordered. Both measured world poses and sources
 are required; a configured dynamic spawn frame is never substituted.
 
 The calibrated table GLB has source axes X/Y/Z of 1.40/0.75/0.70 m and is rotated
 to Z-up. The table placement is world XY `[0.6, 0]`, yaw 90 degrees, with its feet
 grounded at Z=0 and tabletop at Z=0.75 m. The robot base placement is `[0, 0]`.
-The pen tip proxy is local `[0, 0, -0.07]` m. The holder interior acceptance box is
-`[-0.043, -0.043, -0.05]` to `[0.043, 0.043, 0.04]` m in the current holder frame,
-with `min_axis_dot: 0.8`. These tunable geometric proxies do not establish grasp,
-release, contact or stable insertion. Pen/holder dimensions retain their prior
-asset scales; only the table dimensions were supplied as physical calibration.
+Penholder stage 2 (`place_pen`) uses `mode: any` to accept either:
+
+- A pen lying across the holder top: its local origin `[0, 0, 0]` must be within
+  `[-0.043, -0.043, 0.063]` to `[0.043, 0.043, 0.078]` m in the current holder
+  frame, with axis dot in `[-0.2, 0.2]` (about 11.5 degrees from the rim plane).
+  The height band surrounds the current holder rim at local Z=0.06 m plus the
+  pen's 0.008 m maximum radius, allowing 5 mm below / 10 mm above that center height.
+- Insertion: the pen tip proxy `[0, 0, -0.075]` m must be in the holder interior
+  box `[-0.043, -0.043, -0.05]` to `[0.043, 0.043, 0.04]` m,
+  with `min_axis_dot: 0.8`, preserving the existing insertion criterion.
+
+Both alternatives follow the measured holder pose. The inherited `table_penholder`
+task uses the same criteria. These tunable geometric proxies do not establish
+grasp, release, contact or stable placement; stage 1 must still pass first.
+Retune the bounds if pen/holder dimensions change.
 
 Extraction uses bounded process workers and one manifest coordinator. Each
 completed episode writes a shard/checkpoint; a failed run can resume without

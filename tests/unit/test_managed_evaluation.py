@@ -107,6 +107,59 @@ def test_paused_heartbeats_and_idempotent_steps(setup):
     assert env.steps == 1
 
 
+def test_trace_retains_commands_feedback_and_snapshot_alignment_once(setup):
+    controller, env = setup
+    first = reset(controller, env)
+    value = batch(controller, 1)
+    value['payload']['commands']['gripper']['position'] = [37.]
+    snap = complete(controller, env, value)['snapshot']
+    assert controller.submit(value)['status'] == 'completed'
+    complete(controller, env, request(controller, 'snapshot', 1))
+    from pathlib import Path
+    rows = [json.loads(line) for line in Path(snap['diagnostic_artifacts']['steps']).read_text().splitlines()]
+    assert [r['event'] for r in rows] == ['metadata', 'state', 'command', 'state']
+    assert rows[0]['run_id'] == 'batch/test'
+    assert rows[1]['snapshot_id'] == first['snapshot_id']
+    assert rows[2]['commands'] == value['payload']['commands']
+    assert rows[3]['snapshot_id'] == snap['snapshot_id']
+    assert rows[3]['joints'] == snap['joints']
+    assert rows[3]['objects']['pen']['pose_world'][0] == 2.
+    assert rows[3]['diagnostics']['status'] == 'unavailable'
+
+
+def test_trace_keeps_unconfirmed_command_when_physics_fails(setup):
+    controller, env = setup
+    reset(controller, env)
+    def fail(_):
+        raise RuntimeError('injected physics failure')
+    env.managed_step = fail
+    value = batch(controller, 1)
+    controller.submit(value)
+    controller.process_one(env)
+    rows = [json.loads(line) for line in controller.trace.path.read_text().splitlines()]
+    assert [r['step_id'] for r in rows if r['event'] == 'state'] == [0]
+    assert next(r for r in rows if r['event'] == 'command')['step_id'] == 1
+    error = next(r for r in rows if r['event'] == 'execution_error')
+    assert error['execution_uncertain'] and error['requested_step_id'] == 1
+    assert rows[-1]['terminal']['reason'] == 'error'
+
+
+def test_trace_write_failure_prevents_unlogged_physics(setup, monkeypatch):
+    controller, env = setup
+    reset(controller, env)
+    original = controller.trace.append
+    def fail(event, **data):
+        if event == 'command':
+            raise OSError('disk full')
+        original(event, **data)
+    monkeypatch.setattr(controller.trace, 'append', fail)
+    value = batch(controller, 1)
+    controller.submit(value)
+    controller.process_one(env)
+    assert controller.submit(value)['status'] == 'error'
+    assert env.steps == 0
+
+
 def test_success_truncates_chunk_and_new_episode_resets_history(setup, tmp_path):
     controller, env = setup
     reset(controller, env)
@@ -281,9 +334,10 @@ def test_isaac_managed_step_calls_exactly_one_physics_step_then_feedback():
         sim=SimpleNamespace(is_playing=lambda: True, step=lambda **kw: calls.append(('physics', kw))),
         scene=SimpleNamespace(write_data_to_sim=lambda: calls.append('write'),
                               update=lambda **kw: calls.append(('update', kw))),
-        managed_publish_feedback=lambda: calls.append('feedback'))
+        managed_publish_feedback=lambda: calls.append('feedback'),
+        _managed_video_tick=lambda: calls.append('video'))
     namespace['managed_step'](env, {'arm': {'position': [1., 2.], 'velocity': [.1, .2]}})
-    assert calls == ['apply', 'write', ('physics', {'render': False}), ('update', {'dt': .01}), 'feedback']
+    assert calls == ['apply', 'write', ('physics', {'render': False}), ('update', {'dt': .01}), 'feedback', 'video']
     assert env.joint_position_command_all == [1., 2.]
     calls.clear()
     env.sim.is_playing = lambda: False
@@ -545,6 +599,7 @@ def test_idle_never_renders_headless_and_gui_only_pumps_without_camera_updates()
     calls = []
     idle = _isaac_method('managed_idle')
     env = SimpleNamespace(render_mode='rgb_array', _managed_idle_deadline=0,
+                          _managed_video_tick=lambda: None,
                           sim=SimpleNamespace(render=lambda **kw: calls.append(kw),
                                               RenderMode=SimpleNamespace(NO_RENDERING=0)))
     for _ in range(20):

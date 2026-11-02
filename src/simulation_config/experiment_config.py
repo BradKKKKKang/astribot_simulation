@@ -233,7 +233,19 @@ def _placement_sections(sections):
 def _validate_evaluation_runtime(runtime):
     check_fields(runtime, {'simulation', 'evaluation'}, 'evaluation.runtime')
     simulation = runtime.get('simulation', {})
-    check_fields(simulation, {'dt', 'decimation', 'frame_skip'}, 'runtime.simulation')
+    check_fields(simulation, {'dt', 'decimation', 'frame_skip', 'third_person_camera'}, 'runtime.simulation')
+    if 'third_person_camera' in simulation:
+        camera = simulation['third_person_camera']
+        check_fields(camera, {'eye', 'target', 'width', 'height', 'fps', 'output_path'}, 'third_person_camera')
+        for key in ('eye', 'target'):
+            if not isinstance(camera.get(key), list) or len(camera[key]) != 3 or not all(type(x) in (int, float) and math.isfinite(x) for x in camera[key]):
+                raise ValueError('third_person_camera requires finite eye and target vectors')
+        for key in ('width', 'height'):
+            if type(camera.get(key)) is not int or camera[key] <= 0:
+                raise ValueError('third_person_camera requires positive integer dimensions')
+        _positive(camera.get('fps'), 'third_person_camera.fps')
+        if not isinstance(camera.get('output_path'), str) or not camera['output_path']:
+            raise ValueError('third_person_camera requires output_path')
     if 'dt' in simulation:
         _positive(simulation['dt'], 'runtime.simulation.dt')
     if 'decimation' in simulation and (type(simulation['decimation']) is not int or simulation['decimation'] < 1):
@@ -290,7 +302,11 @@ def resolve_experiment(path, *, require_ready=True):
             RobotProfile(sections['robot'])
             validate_scene(sections['scene'])
             task = sections['task']
-            check_fields(task, {'name', 'instruction', 'initial_pose', 'reset', 'events', 'stages', 'stage_order', 'success'}, 'evaluation.task')
+            check_fields(task, {'name', 'instruction', 'initial_pose', 'reset', 'events', 'stages', 'stage_order', 'success', 'motion_test'}, 'evaluation.task')
+            if 'motion_test' in task and type(task['motion_test']) is not bool:
+                raise ValueError('task.motion_test must be boolean')
+            if task.get('motion_test') and task.get('success', {}).get('predicates'):
+                raise ValueError('motion_test cannot declare task success predicates')
             if not isinstance(task.get('name'), str) or not task['name']:
                 raise ValueError('evaluation.task requires name')
             if version == 3:

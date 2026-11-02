@@ -5,6 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from threading import Event
 
+import pytest
+
 from src.evaluation.online import OnlineEvaluator
 
 
@@ -48,7 +50,11 @@ def test_unsupported_runtime_state_keeps_contact_unknown(tmp_path):
     assert evaluator.result['status'] == 'passed'
 
 
-def test_penholder_stages_use_moving_holder_and_clear_history_on_reset():
+@pytest.mark.parametrize('placement', [
+    [0, 0, .03, 1, 0, 0, 0],
+    [0, 0, .068, .7071067811865476, 0, .7071067811865476, 0],
+])
+def test_penholder_stages_use_moving_holder_and_clear_history_on_reset(placement):
     from src.simulation_config.experiment_config import resolve_experiment
     from src.simulation_config.poses import compose_pose
     from tests.unit.test_scene_assets import real_scene
@@ -66,10 +72,10 @@ def test_penholder_stages_use_moving_holder_and_clear_history_on_reset():
     evaluator.observe(env)
     assert set(evaluator.completed_stages) == {'pick_pen'}
     assert evaluator.result['stages']['place_pen']['status'] == 'unknown'
-    # An insertion relative to the current holder works at an arbitrary XY/yaw.
+    # Either placement relative to the current holder works at arbitrary XY/yaw.
     holder[:] = [.6, -.25, .811, .7071067811865476, 0, 0, .7071067811865476]
-    inserted = compose_pose(holder, [0, 0, .03, 1, 0, 0, 0]).tolist()
-    state['objects']['pen']['pose_world'] = inserted
+    placed = compose_pose(holder, placement).tolist()
+    state['objects']['pen']['pose_world'] = placed
     state['objects'].pop('penholder')
     evaluator.observe(env)
     assert evaluator.result['status'] == 'unknown'
@@ -80,7 +86,7 @@ def test_penholder_stages_use_moving_holder_and_clear_history_on_reset():
     state['objects']['pen']['pose_world'] = compose_pose(holder, [0, 0, .03, 0, 1, 0, 0]).tolist()
     evaluator.observe(env)
     assert evaluator.result['status'] == 'failed'
-    state['objects']['pen']['pose_world'] = inserted
+    state['objects']['pen']['pose_world'] = placed
     evaluator.observe(env)
     assert evaluator.result['status'] == 'passed'
     state['objects']['pen']['pose_world'] = [.3, -.2, .759, 1, 0, 0, 0]

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "online_evaluation",
   "name": "penholder",
-  "steps": 378,
+  "steps": 2000,
   "result": {
     "status": "failed",
     "predicates": [
@@ -22,9 +22,9 @@
                 "region": "lifted_pen",
                 "frame": "table.tabletop",
                 "position": [
-                  0.3011434972286225,
-                  -0.1556029558181763,
-                  0.00690174102783181
+                  0.06114117056131363,
+                  0.1341621935367584,
+                  0.007236421108245629
                 ],
                 "source": "isaaclab_rigid_object"
               }
@@ -57,9 +57,9 @@
               "region": "lifted_pen",
               "frame": "table.tabletop",
               "position": [
-                0.3011434972286225,
-                -0.1556029558181763,
-                0.00690174102783181
+                0.06114117056131363,
+                0.1341621935367584,
+                0.007236421108245629
               ],
               "source": "isaaclab_rigid_object"
             }
@@ -99,44 +99,44 @@
       },
       "pen": {
         "pose_world": [
-          0.7556029558181763,
-          0.30114349722862244,
-          0.756901741027832,
-          0.6076386570930481,
-          -0.6056803464889526,
-          0.3630872368812561,
-          0.3634475767612457
+          0.4658378064632416,
+          0.06114117056131363,
+          0.7572364211082458,
+          -0.2648208439350128,
+          -0.45258215069770813,
+          -0.5421043634414673,
+          0.6566293835639954
         ],
         "source": "isaaclab_rigid_object",
         "pose_base": [
-          0.7556029504336637,
-          0.30114349747276403,
-          0.6569017451402939,
-          0.6076386569893659,
-          -0.6056803455775306,
-          0.3630872378046071,
-          0.3634475775310257
+          0.4658378008949817,
+          0.061141171028138486,
+          0.6572364258210845,
+          -0.264820842728647,
+          -0.45258215010467123,
+          -0.5421043639226646,
+          0.6566293840620078
         ]
       },
       "penholder": {
         "pose_world": [
-          0.6588178277015686,
-          0.44263097643852234,
-          0.8099969029426575,
-          0.7070991396903992,
-          3.667427154141478e-05,
-          0.0001149159434135072,
-          0.7071144580841064
+          0.6946574449539185,
+          0.41892021894454956,
+          0.8100465536117554,
+          0.7274189591407776,
+          -0.0017133746296167374,
+          0.0015890217619016767,
+          0.6861896514892578
         ],
         "source": "isaaclab_rigid_object",
         "pose_base": [
-          0.6588178225741941,
-          0.4426309767109553,
-          0.7099969074484558,
-          0.7070991399622851,
-          3.667556639669689e-05,
-          0.00011491662311272069,
-          0.7071144578120487
+          0.6946574398084371,
+          0.41892021918936073,
+          0.7100465579968499,
+          0.7274189594033158,
+          -0.0017133733545720065,
+          0.0015890224797455545,
+          0.6861896512124666
         ]
       }
     }
@@ -244,7 +244,7 @@
             "source": {
               "path": "/home/zihengkang/assets/red_markpen.glb",
               "sha256": "8e4fa441b4e7a0de2fc4eee410cb739e453c04fe3154fb5751b70f6f3f1c44c3",
-              "description": "User-supplied GLB; source remains unchanged. Dimensions are explicit example choices, not measured physical calibration."
+              "description": "User-supplied GLB; source remains unchanged. Calibrated to the user-measured 0.15 m length along local Z; maximum cross-section diameter in local X/Y set to 0.016 m at the user's request. Source bounds are 0.10899999737739563 x 0.10899999737739563 x 1.0; source_transform.scale maps them to meters."
             },
             "source_transform": {
               "quaternion_wxyz": [
@@ -254,21 +254,25 @@
                 0
               ],
               "scale": [
-                0.14,
-                0.14,
-                0.14
+                0.14678899435751797,
+                0.14678899435751797,
+                0.15
               ]
             },
             "physics": {
               "body_type": "dynamic",
               "collision": "convex_hull",
-              "friction": 0.6,
+              "friction": 2.0,
               "restitution": 0,
               "mass": 0.02
             }
           },
           "placement": {
             "frame": "table.tabletop",
+            "reset_yaw_range_degrees": [
+              -180,
+              180
+            ],
             "xy": [
               0.371904,
               0.153386
@@ -2884,7 +2888,7 @@
           "position": [
             0.44661399999999996,
             0.371904,
-            0.7586299998164179
+            0.7590000000000002
           ],
           "quaternion_wxyz": [
             0.5000000000000001,
@@ -2977,7 +2981,31 @@
         },
         "place_pen": {
           "success": {
+            "mode": "any",
             "predicates": [
+              {
+                "id": "pen_across_holder_top",
+                "kind": "object_relative_region",
+                "object": "pen",
+                "relative_to": "penholder",
+                "point": [
+                  0,
+                  0,
+                  0
+                ],
+                "min": [
+                  -0.043,
+                  -0.043,
+                  0.063
+                ],
+                "max": [
+                  0.043,
+                  0.043,
+                  0.078
+                ],
+                "min_axis_dot": -0.2,
+                "max_axis_dot": 0.2
+              },
               {
                 "id": "pen_inside_holder",
                 "kind": "object_relative_region",
@@ -2986,7 +3014,7 @@
                 "point": [
                   0,
                   0,
-                  -0.07
+                  -0.075
                 ],
                 "min": [
                   -0.043,
@@ -3064,13 +3092,93 @@
     }
   },
   "fingerprints": {
-    "robot": "84d54da57c75cd2dc5c100f92a540321af9654fd9a955f37f0e10cb04c3190c2",
-    "scene": "9b56e5f68b93960b8e778ac252a3d8e6b60a53b12485227e9678c1e9073ca769",
-    "task": "cd0248dc0797fdfef48d749e895ef7ce53a3504f19c03e2219e133ab473ef9f0",
+    "robot": "674de07cb19a89dac048c48713ef4cc420537306fa9fd4521684ff89449b38c5",
+    "scene": "6f1d0cdc7d0f5a8923f9614fdb9087b01060a10d978784c119e2bc996466e4ad",
+    "task": "b7706305b8ad116e6ea0eff5e2e01f38ebdab6ed96c3105258df622cbfe1d180",
     "output": "7020598907224172b3ae9c46420d60505b87ee1dc9d3624435ae337f3f8c996d",
     "robot_placement": "36e1201c221744da86b70ed9e67568733293664ab6f1d63c4d45c43f06761dc3",
-    "runtime": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "runtime": "1c018374380c12556fc353f8f0d9e77f1cb0d4b547ddd3274b53f6bc06b97bc8",
     "name": "022555e9845c934edb8930461f23cb1871fa5c42f9ec3f27e9e1aa75062dfdf0",
-    "scene_simulation": "6111a7c525088912a81000a7b0633ee966dd4ff0aed2dd2c32cbaaf906cb40db"
+    "scene_simulation": "ec2588c976213dedf46fdf91b8ef7cd0aefa460043a37222c20ec5f38b798033"
+  },
+  "run_id": "20261102T034658-3b34c664",
+  "episode_id": 2,
+  "seed": 1,
+  "sim_time_s": 20.0,
+  "wall_time_s": 112.67341330880299,
+  "reset_layout": {
+    "table": {
+      "pose_world": [
+        0.6,
+        0.0,
+        0.3750000000000002,
+        0.7071067690849304,
+        0.0,
+        0.0,
+        0.7071067932881644
+      ],
+      "source": "isaac_usd_stage",
+      "pose_base": [
+        0.5999999933173318,
+        6.960750929921739e-10,
+        0.2750000042850196,
+        0.7071067693569899,
+        1.294803684772279e-09,
+        6.797273097248076e-10,
+        0.7071067930161049
+      ]
+    },
+    "pen": {
+      "pose_world": [
+        0.46226316690444946,
+        0.06227980554103851,
+        0.7590000033378601,
+        -0.416459858417511,
+        -0.5714553594589233,
+        -0.416459858417511,
+        0.5714553594589233
+      ],
+      "source": "isaaclab_rigid_object",
+      "pose_base": [
+        0.4622631613419904,
+        0.06227980600908001,
+        0.659000008061671,
+        -0.41645985736764035,
+        -0.5714553590024166,
+        -0.4164598590276465,
+        0.5714553602358962
+      ]
+    },
+    "penholder": {
+      "pose_world": [
+        0.6920361518859863,
+        0.41756105422973633,
+        0.8109999895095825,
+        0.70710688829422,
+        4.242689810585176e-10,
+        8.45543413063865e-10,
+        0.7071069478988647
+      ],
+      "source": "isaaclab_rigid_object",
+      "pose_base": [
+        0.6920361467421217,
+        0.4175610544757353,
+        0.7109999939008146,
+        0.7071068885662795,
+        1.7190729338712973e-09,
+        1.5252708218219484e-09,
+        0.7071069476268053
+      ]
+    }
+  },
+  "config_fingerprint": "0a2514b016e315c7e18d93f0fa1a4cb4ab42b761aefe1fe464820fee242f5ff3",
+  "terminal": {
+    "done": true,
+    "reason": "timeout"
+  },
+  "evidence_status": "failed",
+  "diagnostic_artifacts": {
+    "steps": "/home/zihengkang/Code/astribot_simulation/outputs/evaluation/penholder/run-fcb7e8154d444223e83b18a9/episode-000002/steps.jsonl",
+    "directory": "/home/zihengkang/Code/astribot_simulation/outputs/evaluation/penholder/run-fcb7e8154d444223e83b18a9/episode-000002"
   }
 }

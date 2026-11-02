@@ -171,7 +171,8 @@ class IsaacLabAppManager:
 
 class AstribotIsaacLabEnv(AstribotBaseEnv):
 
-    # ROS/dataset gripper commands use 0..100; Isaac joint targets use radians.
+    # Legacy fallback for callers without a robot profile. Profile-backed Eval
+    # uses the same calibration for commands, feedback, and reset poses.
     _GRIPPER_RAD_PER_PERCENT = 0.93 / 100.0
     _GRIPPER_JOINT_DIRECTIONS = {
         'L1': -1, 'L2': -1, 'R11': -1,
@@ -712,6 +713,76 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.sim.step(render=False)
         self.scene.update(dt=self.dt)
         self.managed_publish_feedback()
+        self._managed_video_tick()
+
+    def managed_diagnostics_start(self, directory):
+        from src.evaluation.grasp_diagnostics import GraspDiagnostics
+        self._grasp_diagnostics = None
+        try:
+            self._grasp_diagnostics = GraspDiagnostics(self, directory)
+            metadata = self._grasp_diagnostics.metadata
+            if metadata['status'] != 'ok' or metadata['geometry_status'] != 'ok':
+                astribot_simu_log(f'Grasp diagnostics incomplete: {metadata}')
+            return self._grasp_diagnostics.metadata
+        except Exception as error:
+            self._grasp_diagnostics_error = str(error)
+            astribot_simu_log(f'Grasp diagnostics unavailable: {error}')
+            return {'status': 'unavailable', 'error': str(error)}
+
+    def managed_diagnostics_sample(self, reset=False):
+        diagnostics = getattr(self, '_grasp_diagnostics', None)
+        if diagnostics is None:
+            return {'status': 'unavailable', 'error': getattr(self, '_grasp_diagnostics_error', 'not initialized')}
+        try:
+            return diagnostics.sample(reset=reset)
+        except Exception as error:
+            return {'status': 'unavailable', 'error': str(error)}
+
+    def managed_video_start(self):
+        if self.third_person_camera_cfg:
+            if self._video_writer is not None:
+                raise RuntimeError('prior video writer is still active')
+            if os.path.exists(self.third_person_camera_cfg['output_path']):
+                raise FileExistsError(self.third_person_camera_cfg['output_path'])
+            self._video_start_requested = True
+            self._managed_video_tick()
+
+    def managed_video_stop(self):
+        if self._video_writer is not None:
+            self._video_stop_requested = True
+            self._capture_video_frame()
+            import json
+            from pathlib import Path
+            path = Path(self.third_person_camera_cfg['output_path'])
+            path.with_suffix('.json').write_text(json.dumps(self._video_metadata(), indent=2))
+
+    def _managed_video_tick(self):
+        if not self.third_person_camera_cfg:
+            return
+        # Service start/stop is also pumped while physics is paused.
+        if self._video_stop_requested:
+            self._capture_video_frame()
+            return
+        now = float(self.sim.current_time)
+        due = self._video_writer is not None and now + 1e-8 >= self._video_next_capture_time
+        if not self._video_start_requested and not due:
+            return
+        self._set_managed_camera_updates(True)
+        try:
+            self.sim.render()
+            self.scene['third_person_camera'].update(0.0, force_recompute=True)
+            self._capture_video_frame()
+            if self._video_error:
+                raise RuntimeError(self._video_error)
+            import json
+            from pathlib import Path
+            path = Path(self.third_person_camera_cfg['output_path']).with_suffix('.frames.jsonl')
+            with path.open('a') as stream:
+                stream.write(json.dumps({'frame': self._video_frame_count - 1,
+                                         'physics_time_s': now,
+                                         'relative_time_s': now - self._video_start_sim_time}) + '\n')
+        finally:
+            self._set_managed_camera_updates(False)
 
     def _set_managed_camera_updates(self, enabled):
         # Keep Lab's render products/annotators alive. Toggling Hydra texture
@@ -779,6 +850,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
     def managed_idle(self):
         """Keep GUI events responsive without sensor rendering or physics."""
+        self._managed_video_tick()
         if self.render_mode != 'human':
             return
         now = time.monotonic()
@@ -849,24 +921,40 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             idx += 6
         return forces[0, idx]
 
+    def _gripper_calibration(self, side):
+        profile = getattr(self, 'robot_profile_data', None)
+        if profile is not None:
+            return profile['grippers'][side]
+        prefix = f'astribot_gripper_{side}_joint_'
+        return {'radians_per_percent': self._GRIPPER_RAD_PER_PERCENT,
+                'measured_joint': prefix + 'L1',
+                'model_joints': {prefix + suffix: direction
+                                 for suffix, direction in self._GRIPPER_JOINT_DIRECTIONS.items()}}
+
     def _sync_gripper_joints(self, joint_position_targets):
         """Convert compensated 0..100 commands to the six signed joint angles."""
         for side in ('left', 'right'):
-            prefix = f'astribot_gripper_{side}_joint_'
-            l1_idx = self.joint_name_to_index.get(prefix + 'L1')
-            if l1_idx is None:
+            calibration = self._gripper_calibration(side)
+            mapping = calibration['model_joints']
+            measured = calibration.get('measured_joint', next(iter(mapping)))
+            command_idx = self.joint_name_to_index.get(measured)
+            if command_idx is None:
                 continue
 
-            command = joint_position_targets[l1_idx].clamp(0.0, 100.0)
-            gripper_qpos = command * self._GRIPPER_RAD_PER_PERCENT
-            for suffix, direction in self._GRIPPER_JOINT_DIRECTIONS.items():
-                idx = self.joint_name_to_index.get(prefix + suffix)
+            command = joint_position_targets[command_idx].clamp(0.0, 100.0)
+            gripper_qpos = command * calibration['radians_per_percent']
+            for name, direction in mapping.items():
+                idx = self.joint_name_to_index.get(name)
                 if idx is not None:
                     joint_position_targets[idx] = direction * gripper_qpos
 
     def _gripper_joint_to_percent(self, joint_name, value):
-        direction = self._GRIPPER_JOINT_DIRECTIONS[joint_name.rsplit('_', 1)[-1]]
-        return value / (direction * self._GRIPPER_RAD_PER_PERCENT)
+        for side in ('left', 'right'):
+            calibration = self._gripper_calibration(side)
+            if joint_name in calibration['model_joints']:
+                direction = calibration['model_joints'][joint_name]
+                return value / (direction * calibration['radians_per_percent'])
+        raise ValueError(f'Unknown gripper joint: {joint_name}')
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)

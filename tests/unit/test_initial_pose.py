@@ -44,8 +44,8 @@ def test_measured_frame_import_maps_names_units_and_ignores_fixed_chassis(datase
     assert pose['joint_targets_rad']['astribot_head'] == values[23:25]
     assert pose['gripper_percent'] == {'left': 31., 'right': 72.}
     joints = initial_joint_positions(pose, profile)
-    assert joints['astribot_gripper_left_joint_L1'] == pytest.approx(-31 * .0093)
-    assert joints['astribot_gripper_right_joint_R1'] == pytest.approx(72 * .0093)
+    assert joints['astribot_gripper_left_joint_L1'] == pytest.approx(-31 * .01)
+    assert joints['astribot_gripper_right_joint_R1'] == pytest.approx(72 * .01)
     assert not any('chassis' in name for name in joints)
     assert load_initial_pose(path, 9, profile)['gripper_percent'] == {'left': 0., 'right': 0.}
     with pytest.raises(ValueError, match='exactly one'):

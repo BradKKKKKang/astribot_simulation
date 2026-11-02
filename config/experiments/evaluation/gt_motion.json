@@ -1,0 +1,100 @@
+{
+  "schema_version": 4,
+  "kind": "evaluation",
+  "name": "gt_motion",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../scenes/astribot_lab.json"
+  },
+  "task": {
+    "name": "gt_motion",
+    "instruction": "\u62ff\u8d77\u7b14\u653e\u8fdb\u7b14\u7b52",
+    "initial_pose": {
+      "joint_targets_rad": {
+        "astribot_torso": [
+          0.5508821521606445,
+          -1.1273713564453125,
+          0.5959540053100586,
+          0.03848532952880859
+        ],
+        "astribot_arm_left": [
+          -0.03856973126220703,
+          0.20329178228759764,
+          -1.2097984542236329,
+          1.5300517114257812,
+          -0.23898481353759765,
+          -0.1728835588989258,
+          0.3801938515118204
+        ],
+        "astribot_arm_right": [
+          0.07468031085205078,
+          0.19812313983154298,
+          1.210975633178711,
+          1.3953681739501953,
+          0.2469671401977539,
+          -0.09961634393310546,
+          -0.33234673150634764
+        ],
+        "astribot_head": [
+          -0.0055981115112304705,
+          0.8074807731323242
+        ]
+      },
+      "gripper_percent": {
+        "left": 0.02284954583385873,
+        "right": 0.2785220370853564
+      },
+      "source": {
+        "parquet": "/home/zihengkang/Datasets/real_eval/penholder_merged_clean/data/chunk-000/episode_000003.parquet",
+        "frame_index": 0,
+        "column": "joints_dict.joints_position_state",
+        "sha256": "4e3edcaf450ff5d4265aca948dd581417f9df67493e48686756b66476b5f4e26"
+      }
+    },
+    "motion_test": true,
+    "success": {
+      "predicates": []
+    }
+  },
+  "output": {
+    "root": "outputs/gt_motion"
+  },
+  "robot_placement": {
+    "frame": "world",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "yaw": 0.0,
+    "grounding": "geometry_min"
+  },
+  "runtime": {
+    "simulation": {
+      "dt": 0.01,
+      "frame_skip": 1,
+      "third_person_camera": {
+        "eye": [
+          2.6,
+          2.6,
+          2.1
+        ],
+        "target": [
+          0.2,
+          0,
+          0.9
+        ],
+        "width": 1280,
+        "height": 720,
+        "fps": 30.0,
+        "output_path": "outputs/gt_motion/third_person.mp4"
+      }
+    },
+    "evaluation": {
+      "episodes": 1,
+      "max_steps": 1498,
+      "seed": 0
+    }
+  }
+}

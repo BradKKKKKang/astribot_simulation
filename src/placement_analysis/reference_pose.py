@@ -6,18 +6,8 @@ import numpy as np
 
 def sdk_joint_positions(settings):
     """Expand SDK targets into articulation joint radians, including fingers."""
-    joints = {f'{part}_joint_{i}': float(value)
-              for part, values in settings['joint_targets_rad'].items()
-              for i, value in enumerate(values, 1)}
-    directions = {'L1': -1, 'L2': -1, 'R11': -1, 'R1': 1, 'R2': 1, 'L11': 1}
-    for side, value in settings['gripper_percent'].items():
-        if side not in ('left', 'right') or not math.isfinite(value) or not 0 <= value <= 100:
-            raise ValueError('invalid reference gripper target')
-        for suffix, direction in directions.items():
-            joints[f'astribot_gripper_{side}_joint_{suffix}'] = value * direction * .93 / 100
-    if not all(math.isfinite(value) for value in joints.values()):
-        raise ValueError('reference joint targets must be finite')
-    return joints
+    from src.simulation_config.robot_profile import profile_for_settings
+    return profile_for_settings(settings).sdk_joint_positions(settings)
 
 
 class UsdKinematics:

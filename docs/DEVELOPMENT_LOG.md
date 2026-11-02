@@ -1004,6 +1004,13 @@ python tests/unit/test_camera_viewer.py \
   and message submodule changes were preserved.
 
 
+## 2026-10-30 — GT motion test (in progress)
+
+Added explicit motion-only managed configuration and third-person sampling at completed physics boundaries. Validation pending; no runtime success claimed.
+
+Validation: managed evaluation tests 39 passed; empty-scene configuration check passed. Isolated domain 187 GPU run acknowledged 1113 of 1498 steps, then rejected a gripper command outside 0..100. Recording finalized through service (334 frames, 30 FPS, decoded). No full-run success claimed. Added stop-path encoder finalization following the failure. Atlas session contains the detailed evidence.
+
+
 ## 2026-10-30 — Random pen heading in penholder resets
 
 - Added optional `placement.reset_yaw_range_degrees` and enabled `[-180, 180]`
@@ -1034,3 +1041,24 @@ python tests/unit/test_camera_viewer.py \
   0.01825 x 0.01825 x 0.15 m within 1e-10 m; integrated launcher
   `--check-config` passed; focused scene-asset tests reported 48 passed,
   4 skipped (optional dependencies). No Isaac/ROS runtime was started.
+
+
+## 2026-11-02 — Accept horizontal top placement in penholder stage 2
+
+- `place_pen` now accepts either `pen_across_holder_top` or the existing
+  `pen_inside_holder` predicate using `mode: any`. The top alternative checks
+  the pen origin in holder-local XY ±0.043 m, Z 0.063–0.078 m, and axis dot
+  -0.2–0.2. Insertion bounds and ordered stage history are preserved.
+- Added optional `max_axis_dot` to relative-region predicates with finite,
+  range and bound-order validation. Both placements use measured holder poses;
+  geometric acceptance does not prove release, contact or stable placement.
+- Validation: system Python 3.10, NumPy 1.21.5, pytest 6.2.5;
+  `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest
+  tests/unit/test_placement_task_evaluation.py tests/unit/test_online_evaluation.py
+  tests/unit/test_simulation_integrate.py -o addopts='' -q` reported 45 passed
+  and 1 failed. The failure is the existing `table_penholder` experiment reference
+  to absent `config/scenes/table_penholder.json`; the penholder configuration
+  check passed. Tests cover both alternatives, rejected positions/tilts, moving
+  holders, missing evidence, stage order and reset history. `git diff --check`
+  passed. No Isaac/ROS runtime or hardware was started. Changes remain uncommitted
+  because the expanded validation contains a failure.

@@ -156,3 +156,30 @@ def test_managed_eval_preserves_gripper_targets_despite_sdk_velocity(env):
             name = f'astribot_gripper_{side}_joint_{suffix}'
             idx = env.joint_name_to_index[name]
             assert env.robot.targets[0, idx].item() == pytest.approx(percent * direction * .0093)
+
+
+@pytest.mark.parametrize('left_scale,right_scale', [(.01, .01), (.01, .0085)])
+@pytest.mark.parametrize('left,right', [(0, 100), (50, 50), (95, 93)])
+def test_profile_calibration_agrees_with_initial_pose_and_feedback(env, left_scale, right_scale, left, right):
+    from src.simulation_config.robot_profile import default_robot_profile, RobotProfile
+    profile = default_robot_profile().as_dict()
+    profile['grippers']['left']['radians_per_percent'] = left_scale
+    profile['grippers']['right']['radians_per_percent'] = right_scale
+    env.robot_profile_data = profile
+    env.managed_evaluation = True
+    env.joint_position_command_all = [.37, left, right]
+    env._apply_control()
+    initial = RobotProfile(profile).sdk_joint_positions({
+        'joint_targets_rad': {}, 'gripper_percent': {'left': left, 'right': right}})
+    env.robot.data.joint_pos = env.robot.targets.clone()
+    for side, percent, scale in [('left', left, left_scale), ('right', right, right_scale)]:
+        for suffix, direction in SIGNS.items():
+            name = f'astribot_gripper_{side}_joint_{suffix}'
+            idx = env.joint_name_to_index[name]
+            assert env.robot.targets[0, idx].item() == pytest.approx(initial[name])
+            assert env.robot.targets[0, idx].item() == pytest.approx(direction * percent * scale)
+            assert env.get_joint_position(name) == pytest.approx(percent)
+            env.robot.data.joint_vel[0, idx] = direction * 12 * scale
+            env.robot.data.joint_acc[0, idx] = direction * -7 * scale
+            assert env.get_joint_velocity(name) == pytest.approx(12)
+            assert env.get_joint_acceleration(name) == pytest.approx(-7)

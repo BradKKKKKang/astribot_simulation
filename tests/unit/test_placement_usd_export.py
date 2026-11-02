@@ -73,8 +73,8 @@ def test_sdk103_targets_produce_symmetric_arm_pose_in_actual_usd(sdk103_pose_set
     settings = sdk103_pose_settings
     targets = sdk_joint_positions(settings)
     assert [targets[f'astribot_torso_joint_{i}'] for i in range(1, 5)] == [.29, -.58, .29, 0]
-    assert targets['astribot_gripper_left_joint_L1'] == -.465
-    assert targets['astribot_gripper_right_joint_R1'] == .465
+    assert targets['astribot_gripper_left_joint_L1'] == pytest.approx(-.5)
+    assert targets['astribot_gripper_right_joint_R1'] == pytest.approx(.5)
     stage = Usd.Stage.Open(str(root / 'astribot_descriptions/usd/astribot_s1_usd/astribot_s1_textured.usda'))
     bodies = ['astribot_torso_base', 'astribot_arm_left_link_7', 'astribot_arm_right_link_7']
     snapshot, _ = usd_reference_snapshot(stage, '/World/astribot_whole_body', bodies, targets)

@@ -13,6 +13,7 @@ import threading
 import time
 
 from .online import OnlineEvaluator
+from .trace import EpisodeTrace
 from src.simulation_config.experiment_config import fingerprint
 
 CAMERAS = {'head_rgbd': 'cam_high', 'left_wrist_rgbd': 'cam_left_wrist',
@@ -38,7 +39,7 @@ def validate_managed_config(resolved, data):
     task = resolved['sections']['task']
     if not task.get('initial_pose') or 'robot_placement' not in resolved['sections']:
         raise ValueError('managed evaluation requires task.initial_pose and robot_placement')
-    if not task.get('success', {}).get('predicates'):
+    if not task.get('motion_test', False) and not task.get('success', {}).get('predicates'):
         raise ValueError('managed evaluation requires nonempty task success predicates')
     if set(data.get('camera_names', [])) != set(CAMERAS):
         raise ValueError('managed evaluation requires head and both wrist cameras')
@@ -110,6 +111,7 @@ class ManagedEvaluation:
         self.stop_requested = False
         self.stop_reason = 'aborted'
         self.wake = threading.Event()
+        self.trace = None
 
     def state(self):
         return {'run_id': self.run_id, 'episode_id': self.episode_id,
@@ -168,7 +170,8 @@ class ManagedEvaluation:
                         result.update(config_fingerprint=self.config_fingerprint, managed=True, dt=.01, frame_skip=1,
                                       evaluation=self.evaluation, parts=self.parts,
                                       task={**{k: self.sections['task'].get(k, '') for k in ('name', 'instruction')},
-                                            'success_configured': bool(self.sections['task'].get('success', {}).get('predicates'))})
+                                            'success_configured': bool(self.sections['task'].get('success', {}).get('predicates')),
+                                            'motion_test': self.sections['task'].get('motion_test', False)})
                     return self.response(request_id, 'completed', result=copy.deepcopy(result))
                 self._validate_identity(request)
                 if self._retired_cleanup(request):
@@ -299,6 +302,7 @@ class ManagedEvaluation:
         request_id, op = request['request_id'], request['op']
         try:
             if op == 'reset':
+                self.trace = None
                 with self.lock:
                     if request['run_id'] != self.run_id:
                         self.records = []
@@ -312,6 +316,18 @@ class ManagedEvaluation:
                     self.evaluator = OnlineEvaluator(self.resolved)
                 env.set_managed_lease(True)
                 env.reset(seed=self.seed)
+                root = self.sections.get('output', {}).get('root')
+                if root:
+                    self.trace = EpisodeTrace(root, self.run_id, self.episode_id, {
+                        'config_fingerprint': self.config_fingerprint, 'seed': self.seed,
+                        'dt': .01, 'parts': self.parts, 'resolved_config': self.resolved,
+                        'command_semantics': 'Atlas SDK joint commands received by simulation; not raw model actions',
+                    })
+                    if hasattr(env, 'managed_diagnostics_start'):
+                        diagnostics = env.managed_diagnostics_start(self.trace.directory)
+                        self.trace.append('diagnostics', **diagnostics)
+                if self.sections['task'].get('motion_test') and hasattr(env, 'managed_video_start'):
+                    env.managed_video_start()
                 env.managed_publish_feedback()
                 self.evaluator.observe(env, reset=True)
                 self.reset_layout = copy.deepcopy(self.evaluator.observations.get('objects', {}))
@@ -319,6 +335,10 @@ class ManagedEvaluation:
                     self.phase = 'ready'
                 result = {'snapshot': self._complete_boundary(env, True)}
             elif op == 'step':
+                if self.trace:
+                    self.trace.append('command', request_id=request_id, step_id=request['step_id'],
+                                      sim_time_s=request['step_id'] * .01,
+                                      commands=request['payload']['commands'])
                 env.managed_step(request['payload']['commands'])
                 with self.lock:
                     self.step_id = request['step_id']
@@ -327,6 +347,8 @@ class ManagedEvaluation:
             elif op == 'snapshot':
                 result = {'snapshot': self._snapshot(env, True)}
             elif op == 'stop':
+                if hasattr(env, 'managed_video_stop'):
+                    env.managed_video_stop()
                 with self.lock:
                     if not self.terminal['done'] and self.started is not None:
                         self._finish(request.get('payload', {}).get('reason', 'aborted'))
@@ -347,6 +369,13 @@ class ManagedEvaluation:
                 result = {'state': self.state()}
             response = self.response(request_id, 'completed', result=result)
         except Exception as error:
+            if self.trace:
+                try:
+                    self.trace.append('execution_error', request_id=request_id, op=op,
+                                      requested_step_id=request['step_id'], completed_step_id=self.step_id,
+                                      message=str(error), execution_uncertain=True)
+                except Exception:
+                    pass  # Preserve the original failure if storage itself failed.
             with self.lock:
                 self.phase = 'error'
                 try:
@@ -365,10 +394,20 @@ class ManagedEvaluation:
         # Feedback/camera failures are execution errors even when the task
         # predicate passed. Validate the completion before recording success.
         snapshot = self._snapshot(env, images)
+        if self.trace:
+            diagnostics = {'status': 'unavailable', 'reason': 'environment has no diagnostic sampler'}
+            if hasattr(env, 'managed_diagnostics_sample'):
+                diagnostics = env.managed_diagnostics_sample(reset=self.step_id == 0)
+            self.trace.append('state', step_id=self.step_id, sim_time_s=self.step_id * .01,
+                              snapshot_id=snapshot['snapshot_id'], joints=snapshot['joints'],
+                              objects=self.evaluator.observations.get('objects', {}),
+                              diagnostics=diagnostics)
         with self.lock:
             self._check_terminal()
             snapshot['terminal'] = copy.deepcopy(self.terminal)
             self.snapshot = copy.deepcopy(snapshot)
+        if self.terminal['done'] and hasattr(env, 'managed_video_stop'):
+            env.managed_video_stop()
         return snapshot
 
     def _check_terminal(self):
@@ -407,6 +446,8 @@ class ManagedEvaluation:
                     'sim_time_s': self.step_id * .01, 'joints': capture['joints'], 'images': encoded,
                     'reset_layout': copy.deepcopy(self.reset_layout),
                     'evaluation': copy.deepcopy(self.evaluator.result), 'terminal': copy.deepcopy(self.terminal)}
+        if self.trace:
+            snapshot['diagnostic_artifacts'] = self.trace.artifacts
         with self.lock:
             self.snapshot = snapshot
         return copy.deepcopy(snapshot)
@@ -425,8 +466,12 @@ class ManagedEvaluation:
                       evidence_status=self.evaluator.result['status'] if self.evaluator.result else 'unknown')
         if error:
             report['error'] = error
+        if self.trace:
+            report['diagnostic_artifacts'] = self.trace.artifacts
         self.records.append(report)
         try:
+            if self.trace:
+                self.trace.append('terminal', step_id=self.step_id, terminal=self.terminal, error=error)
             self._persist_reports(report)
         except Exception as report_error:
             # A persisted task pass is not a completed evaluation if its result

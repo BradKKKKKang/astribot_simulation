@@ -3,7 +3,7 @@
   "source": {
     "path": "~/assets/red_markpen.glb",
     "sha256": "8e4fa441b4e7a0de2fc4eee410cb739e453c04fe3154fb5751b70f6f3f1c44c3",
-    "description": "User-supplied GLB; source remains unchanged. Calibrated to the user-measured 0.15 m length along local Z; maximum cross-section diameter in local X/Y set to 0.01825 m at the user's request. Source bounds are 0.10899999737739563 x 0.10899999737739563 x 1.0; source_transform.scale maps them to meters."
+    "description": "User-supplied GLB; source remains unchanged. Calibrated to the user-measured 0.15 m length along local Z; maximum cross-section diameter in local X/Y set to 0.016 m at the user's request. Source bounds are 0.10899999737739563 x 0.10899999737739563 x 1.0; source_transform.scale maps them to meters."
   },
   "source_transform": {
     "quaternion_wxyz": [
@@ -13,15 +13,15 @@
       0
     ],
     "scale": [
-      0.1674311966890439,
-      0.1674311966890439,
+      0.14678899435751797,
+      0.14678899435751797,
       0.15
     ]
   },
   "physics": {
     "body_type": "dynamic",
     "collision": "convex_hull",
-    "friction": 0.6,
+    "friction": 2.0,
     "restitution": 0,
     "mass": 0.02
   }

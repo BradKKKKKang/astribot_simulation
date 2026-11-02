@@ -105,8 +105,8 @@ def test_gripper_percent_expands_signed_fingers_without_changing_arm_feedback():
     values[JOINTS.index('astribot_gripper_right_joint_1')] = 120  # physical overshoot
     joints, grippers = feedback_joint_positions(JOINTS, values)
     assert grippers == [50, 100]
-    assert joints['astribot_gripper_left_joint_L1'] == -.465
-    assert joints['astribot_gripper_left_joint_R1'] == .465
+    assert joints['astribot_gripper_left_joint_L1'] == pytest.approx(-.5)
+    assert joints['astribot_gripper_left_joint_R1'] == pytest.approx(.5)
     assert joints['astribot_arm_left_joint_2'] == values[JOINTS.index('astribot_arm_left_joint_2')]
     assert len(joints) == 32
 

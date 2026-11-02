@@ -61,7 +61,7 @@ def validate_evaluation_config(scene, task, success):
     ids = []
     for predicate in predicates:
         _fields(predicate, {'id', 'kind', 'event', 'stage', 'min_count', 'max_count', 'region', 'object', 'evidence', 'expected',
-                            'relative_to', 'point', 'min', 'max', 'min_axis_dot'}, 'success predicate')
+                            'relative_to', 'point', 'min', 'max', 'min_axis_dot', 'max_axis_dot'}, 'success predicate')
         if not isinstance(predicate.get('id'), str) or not predicate['id']:
             raise ValueError('success predicate id is required')
         ids.append(predicate['id'])
@@ -86,9 +86,12 @@ def validate_evaluation_config(scene, task, success):
                 vector(predicate.get(key), 3, 'relative predicate.' + key)
             if any(a > b for a, b in zip(predicate['min'], predicate['max'])):
                 raise ValueError('relative predicate min must not exceed max')
-            dot = predicate.get('min_axis_dot', -1.)
-            if type(dot) not in (int, float) or not math.isfinite(dot) or not -1 <= dot <= 1:
-                raise ValueError('min_axis_dot must be in [-1, 1]')
+            for key, default in (('min_axis_dot', -1.), ('max_axis_dot', 1.)):
+                dot = predicate.get(key, default)
+                if type(dot) not in (int, float) or not math.isfinite(dot) or not -1 <= dot <= 1:
+                    raise ValueError(f'{key} must be in [-1, 1]')
+            if predicate.get('min_axis_dot', -1.) > predicate.get('max_axis_dot', 1.):
+                raise ValueError('min_axis_dot must not exceed max_axis_dot')
         if kind in ('contact', 'evidence') and (not isinstance(predicate.get('evidence'), str) or not predicate['evidence']):
             raise ValueError('contact/evidence predicates require an explicit observation key')
         for bound in ('min_count', 'max_count'):
@@ -243,7 +246,7 @@ def evaluate_success(events, scene, task, success, observations=None):
                 point = compose_pose(relative, predicate['point'] + [1, 0, 0, 0])[:3]
                 axis_dot = float(rotate(relative[3:], [0, 0, 1])[2])
                 inside = all(lo <= v <= hi for v, lo, hi in zip(point, predicate['min'], predicate['max']))
-                inside = inside and axis_dot >= predicate.get('min_axis_dot', -1.)
+                inside = inside and predicate.get('min_axis_dot', -1.) <= axis_dot <= predicate.get('max_axis_dot', 1.)
                 status = 'passed' if inside == predicate.get('expected', True) else 'failed'
                 evidence.update(point=point.tolist(), axis_dot=axis_dot, sources=[s['source'] for s in states])
         else:

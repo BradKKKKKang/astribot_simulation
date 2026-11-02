@@ -114,8 +114,8 @@ def test_robot_mapping_matches_existing_physical_contracts():
     values[profile.joint_names.index('astribot_gripper_right_joint_1')] = 101
     joints, grippers = profile.feedback_joint_positions(profile.joint_names, values)
     assert grippers == [50, 100]
-    assert joints['astribot_gripper_left_joint_L1'] == -.465
-    assert joints['astribot_gripper_right_joint_R1'] == .93
+    assert joints['astribot_gripper_left_joint_L1'] == pytest.approx(-.5)
+    assert joints['astribot_gripper_right_joint_R1'] == pytest.approx(1.)
     assert len(joints) == 32
     with pytest.raises(ValueError, match='every configured joint'):
         profile.feedback_joint_positions(profile.joint_names[:-1], values[:-1])

@@ -29,8 +29,8 @@
       "frame_skip": 1
     },
     "evaluation": {
-      "episodes": 10,
-      "max_steps": 3000,
+      "episodes": 100,
+      "max_steps": 2000,
       "seed": 0
     }
   }
