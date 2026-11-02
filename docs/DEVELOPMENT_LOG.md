@@ -1062,3 +1062,19 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
   holders, missing evidence, stage order and reset history. `git diff --check`
   passed. No Isaac/ROS runtime or hardware was started. Changes remain uncommitted
   because the expanded validation contains a failure.
+
+
+## 2026-11-02 — Keep the pen cap facing forward within ±30 degrees
+
+- Set the pen's reset yaw range to `[-30, 30]` and its support-frame base
+  quaternion to `[0.5, -0.5, 0.5, 0.5]`. The source marker's cap occupies the
+  local -Z end (the long red section below the ivory barrel); accounting for
+  table yaw +90 degrees makes that direction world +X, robot forward in the
+  penholder scene. The pen remains flat with geometry-based table clearance.
+- Updated the existing real-asset checks for the nominal cap direction and
+  sampled headings within ±30 degrees across 30 seeds. Empirical paired XY
+  placement, support, separation and reproducibility checks remain covered.
+- Validation: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest
+  tests/unit/test_scene_assets.py -o addopts='' -q` reported 48 passed, 4 skipped
+  (optional USD/Torch dependencies). The penholder launcher `--check-config`
+  and `git diff --check` passed. No Isaac/ROS runtime or visual validation ran.

@@ -50,7 +50,7 @@
         },
         "placement": {
           "frame": "table.tabletop",
-          "reset_yaw_range_degrees": [-180, 180],
+          "reset_yaw_range_degrees": [-30, 30],
           "xy": [
             0.371904,
             0.153386
@@ -372,10 +372,10 @@
             [0.135549815,-0.174523007]
           ],
           "quaternion_wxyz": [
-            0.7071067811865476,
-            0,
-            0.7071067811865476,
-            0
+            0.5,
+            -0.5,
+            0.5,
+            0.5
           ],
           "grounding": "geometry_min",
           "clearance": 0.001

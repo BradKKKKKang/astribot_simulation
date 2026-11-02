@@ -197,6 +197,8 @@ def test_real_white_panel_geometry_and_scaled_objects():
     assert np.subtract(table['bounds_world']['max'], table['bounds_world']['min']) == pytest.approx([.7, 1.4, .75])
     assert np.linalg.norm(scene['frames']['table']['position'][:2]) == pytest.approx(.6)
     assert pen['bounds_world']['min'][2] == pytest.approx(top+.001)
+    # The cap is at local -Z; table yaw +90 maps its base heading to world +X.
+    assert -rotation_matrix(pen['pose_world'][3:])[:, 2] == pytest.approx([1, 0, 0])
     assert holder['bounds_world']['min'][2] == pytest.approx(top+.001)
     assert holder['asset']['physics']['collision'] == 'sdf'
 
@@ -220,9 +222,10 @@ def test_penholder_reset_is_seeded_supported_and_separated():
         sampled = sample_task_objects(scene, task['reset'], np.random.default_rng(seed))
         assert set(sampled) == {'pen', 'penholder'}
         pen, holder = sampled['pen'], sampled['penholder']
-        axis = rotation_matrix(pen['pose_world'][3:])[:, 2]
+        axis = -rotation_matrix(pen['pose_world'][3:])[:, 2]  # Cap-facing local -Z.
         assert axis[2] == pytest.approx(0, abs=1e-7)  # Pen stays flat on the table.
         headings.append(math.atan2(axis[1], axis[0]))
+        assert abs(headings[-1]) <= math.radians(30) + 1e-7
         assert holder['pose_world'][3:] == pytest.approx(first['penholder']['pose_world'][3:])
         paired_rows = np.ones(310, dtype=bool)
         for name, item in sampled.items():
@@ -244,7 +247,7 @@ def test_penholder_reset_is_seeded_supported_and_separated():
         positions.append(pen['pose_world'][:2])
     assert len({tuple(x) for x in positions}) > 20
     assert len(set(headings)) == 30
-    assert max(headings) - min(headings) > 5  # Covers both sides of the table.
+    assert min(headings) < 0 < max(headings)  # Swings left and right of forward.
 
 
 @pytest.mark.parametrize('yaw_range', [None, [], [0], [0, 0], [90, -90],
