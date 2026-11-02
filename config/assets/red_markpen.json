@@ -21,7 +21,7 @@
   "physics": {
     "body_type": "dynamic",
     "collision": "convex_hull",
-    "friction": 2.0,
+    "friction": 1.0,
     "restitution": 0,
     "mass": 0.02
   }

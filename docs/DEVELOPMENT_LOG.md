@@ -1078,3 +1078,10 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
   tests/unit/test_scene_assets.py -o addopts='' -q` reported 48 passed, 4 skipped
   (optional USD/Torch dependencies). The penholder launcher `--check-config`
   and `git diff --check` passed. No Isaac/ROS runtime or visual validation ran.
+
+
+## 2026-11-02 — Set red marker friction to 1.0
+
+- Changed `config/assets/red_markpen.json` physics friction from 2.0 to 1.0.
+- Validation: the penholder launcher `--check-config` and `git diff --check`
+  passed. No Isaac/ROS runtime was started.
