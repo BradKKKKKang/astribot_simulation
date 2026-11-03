@@ -1111,3 +1111,36 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
   tests/unit/test_scene_assets.py -o addopts='' -q` reported 48 passed and
   4 skipped for optional USD/Torch dependencies. No Isaac/ROS runtime, robot
   collision check or rendered-photo comparison was performed.
+
+## 2026-11-03 — Reduce penholder head and wrist camera washout
+
+- Retuned `config/scenes/backgrounds/black_enclosure.usda` against the supplied
+  real-camera reference: ceiling intensity 30000 -> 20000, both fill lights
+  8000 -> 4000. Explicit light specular contributions are 0.6 for the ceiling
+  and 0.1 for each fill (previously the USD default 1). Diffuse contribution
+  remains 1, exposure 0 and normalization disabled; the dome stays disabled.
+  Light positions/sizes, enclosure geometry, asset/robot materials, camera
+  settings and image processing are unchanged.
+- Rendered eight parameter variants and independently reloaded the saved final
+  configuration through the integrated launcher. All three bounded Isaac Lab
+  sessions on the RTX 3090 exited with code 0. Each required an empty localhost
+  ROS domain 197, reset seed 42, and captured all three cameras at the current
+  fixed-layout 01 initial pose with no subsequent physics steps or SDK commands.
+- In identical simulation image regions, median mean-RGB table brightness fell
+  from 212.3 to 188.3 (head), 210.0 to 185.3 (left wrist), and 210.3 to 185.7
+  (right wrist). Finger regions fell from 61.7 to 44.3 and 57.3 to 41.3 in the
+  wrist views. Both old and new images have zero pixels with all channels >=250:
+  the reproduced issue is bright, washed-out shading, not hard white clipping.
+  These are 8-bit RGB statistics, not linear photometric measurements. Reference
+  framing, pose and real-camera exposures differ, so this is visual tuning,
+  not a camera calibration or a guarantee for all moving poses.
+- Raw before/after frames, a comparison figure, parameter/ROI metadata and USD
+  checks are in `outputs/evaluation/penholder_lighting_20261103/`. Temporary
+  sweep harnesses/logs are in `/tmp/penholder-lighting-20261103/`. USD comparison
+  verified that only light intensity/specular values changed; all prim types,
+  other attribute values and relationship targets were preserved.
+- Validation: 14 scene-profile tests passed; the standard experiment and all
+  ten fixed-layout configurations resolve with the intended background, three
+  cameras and disabled dome. `git diff --check` passed. Updated README tuning
+  instructions; restarting the simulation applies this shared penholder preset.
+  No real hardware or dynamics/task-success validation was performed.

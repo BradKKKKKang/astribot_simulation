@@ -386,13 +386,20 @@ colors and decoration. Restart the simulation to apply material configuration ch
 
 The penholder scene has a matte black enclosure with a 3 m × 3 m clear interior,
 a 2.2 m ceiling and a black ground plane. A downward white 0.5 m × 0.12 m ceiling
-strip above world XY (0, 0) uses intensity 30000. Two white 0.8 m × 0.6 m area
-lights at world `(1.1, +/-1.1, 1.45)` use intensity 8000 each and point toward
+strip above world XY (0, 0) uses intensity 20000 and specular contribution 0.6.
+Two white 0.8 m × 0.6 m area lights at world `(1.1, +/-1.1, 1.45)` use intensity
+4000 and specular contribution 0.1 each and point toward
 `(0.25, 0, 1.05)`, making gripper mechanisms and arm joints visible from the
-front and sides. The dome remains disabled. All three lights use exposure 0
-and `normalize: false`. The background asset is
-`config/scenes/backgrounds/black_enclosure.usda`; adjust the `inputs:intensity`
-of `CeilingStripLight`, `FillLeft` and `FillRight`, then restart the simulation.
+front and sides while reducing tabletop and gripper washout in the head and
+wrist cameras. The dome remains disabled. All three lights use diffuse
+contribution 1, exposure 0 and `normalize: false`. The background asset is
+`config/scenes/backgrounds/black_enclosure.usda`; adjust `inputs:intensity` for
+brightness and `inputs:specular` for reflected highlights on `CeilingStripLight`,
+`FillLeft` and `FillRight`, then restart the simulation. These
+[USD light controls](https://openusd.org/24.08/api/class_usd_lux_light_a_p_i.html)
+affect scene illumination, without camera exposure or image postprocessing changes.
+The preset was compared in all three cameras at the stored penholder initial
+pose; a different pose or real-camera exposure can require further tuning.
 The enclosure panels are visual geometry; ground collision continues to use
 the ground plane.
 The table is centered at world X = 0.60 m to clear the torso in the stored initial
