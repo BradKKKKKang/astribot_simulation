@@ -1085,3 +1085,29 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
 - Changed `config/assets/red_markpen.json` physics friction from 2.0 to 1.0.
 - Validation: the penholder launcher `--check-config` and `git diff --check`
   passed. No Isaac/ROS runtime was started.
+
+## 2026-11-03 — Add ten temporary photo-based penholder layouts
+
+- Added ten independent evaluation JSONs under
+  `config/experiments/evaluation/penholder_fixed/`, ordered by the supplied
+  photographs from `20261103-154119.jpg` to `20261103-154047.jpg`. Their README
+  maps each config to its photo and records estimated tabletop XY and pen heading.
+- Reused the existing scene, robot initial pose and task success criteria;
+  `task.overrides.reset: null` selects the existing default-pose reset path,
+  disabling inherited empirical position and yaw sampling. Each layout has a
+  separate output directory and a one-episode managed evaluation budget.
+  The standard random penholder config and runtime implementation are unchanged.
+- Positions and pen headings use a per-image planar estimate from table edges
+  and the existing 1.40 m by 0.70 m tabletop. Photo 01's occluded pen uses the
+  visible cap and 15 cm model length. These are approximate layouts, without
+  lens/parallax calibration; the holder retains its default upright rotation.
+- Validation: system Python 3.10 / NumPy 1.21.5; all ten integrated launcher
+  `--check-config` calls passed. CPU geometry checks verified disabled sampling,
+  table/world coordinate conversion, full support, 1 mm clearance, flat pens,
+  upright holders and distinct output roots. An initial axis-aligned separation
+  check rejected photo 08; convex-footprint separating-axis checks confirmed
+  all ten have at least 2 cm separation (photo 08: 4.95 cm), without changing
+  the estimated poses. `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest
+  tests/unit/test_scene_assets.py -o addopts='' -q` reported 48 passed and
+  4 skipped for optional USD/Torch dependencies. No Isaac/ROS runtime, robot
+  collision check or rendered-photo comparison was performed.

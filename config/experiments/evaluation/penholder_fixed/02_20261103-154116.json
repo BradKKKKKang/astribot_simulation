@@ -1,0 +1,66 @@
+{
+  "schema_version": 4,
+  "kind": "evaluation",
+  "name": "penholder_fixed_02_20261103-154116",
+  "robot": {
+    "ref": "../../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../../scenes/penholder.json",
+    "overrides": {
+      "objects": {
+        "pen": {
+          "placement": {
+            "xy": [
+              0.52,
+              0.203
+            ],
+            "quaternion_wxyz": [
+              0.4657637839,
+              -0.5320376843,
+              0.4657637839,
+              0.5320376843
+            ]
+          }
+        },
+        "penholder": {
+          "placement": {
+            "xy": [
+              0.468,
+              0.006
+            ]
+          }
+        }
+      }
+    }
+  },
+  "task": {
+    "ref": "../../../tasks/penholder.json",
+    "overrides": {
+      "reset": null
+    }
+  },
+  "output": {
+    "root": "outputs/evaluation/penholder_fixed/02_20261103-154116"
+  },
+  "robot_placement": {
+    "frame": "world",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "yaw": 0.0,
+    "grounding": "geometry_min"
+  },
+  "runtime": {
+    "simulation": {
+      "dt": 0.01,
+      "frame_skip": 1
+    },
+    "evaluation": {
+      "episodes": 1,
+      "max_steps": 2000,
+      "seed": 0
+    }
+  }
+}

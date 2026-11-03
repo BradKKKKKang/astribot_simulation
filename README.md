@@ -363,6 +363,12 @@ or remove it to retain the configured forward orientation.
 The holder keeps its configured orientation. Support and separation checks use
 the rotated geometry; infeasible position/heading combinations are redrawn.
 `reset(seed=...)` is reproducible; runtime needs no dataset files.
+
+For ten temporary fixed layouts estimated from the reference photographs, see
+[the fixed penholder configs](config/experiments/evaluation/penholder_fixed/README.md).
+Each config fixes the pen/holder poses on creation and reset, including the pen
+heading, and can be selected with the integrated launcher's `--config` option.
+
 The red marker's asset profile (`config/assets/red_markpen.json`) calibrates the
 source GLB to the measured 15 cm length along local Z and the user-requested
 1.526 cm maximum diameter in X/Y, using separate axial and radial scales. The original
