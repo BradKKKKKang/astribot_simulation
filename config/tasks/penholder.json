@@ -32,31 +32,8 @@
     },
     "place_pen": {
       "success": {
-        "mode": "any",
+        "mode": "all",
         "predicates": [
-          {
-            "id": "pen_across_holder_top",
-            "kind": "object_relative_region",
-            "object": "pen",
-            "relative_to": "penholder",
-            "point": [
-              0,
-              0,
-              0
-            ],
-            "min": [
-              -0.043,
-              -0.043,
-              0.063
-            ],
-            "max": [
-              0.043,
-              0.043,
-              0.078
-            ],
-            "min_axis_dot": -0.2,
-            "max_axis_dot": 0.2
-          },
           {
             "id": "pen_inside_holder",
             "kind": "object_relative_region",

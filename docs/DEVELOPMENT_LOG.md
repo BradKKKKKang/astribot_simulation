@@ -1144,3 +1144,16 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
   cameras and disabled dome. `git diff --check` passed. Updated README tuning
   instructions; restarting the simulation applies this shared penholder preset.
   No real hardware or dynamics/task-success validation was performed.
+
+## 2026-11-04 — Require insertion for penholder placement success
+
+- Removed `pen_across_holder_top` from the shared penholder task. The
+  `place_pen` stage now uses `mode: all` with only `pen_inside_holder`;
+  existing insertion position/orientation bounds and pickup history remain
+  unchanged. Fixed layouts, including Atlas layout 07 and image replay,
+  inherit the shared task when the simulation configuration is reloaded.
+- Updated the existing rotated-holder cases so pens lying across the rim
+  fail, while upright insertion passes. Kept missing-evidence and reversed/
+  out-of-region rejection coverage.
+- Validation: 28 focused CPU task-evaluation tests passed. No ROS, simulator,
+  GPU or hardware was started; historical session artifacts were not changed.

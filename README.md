@@ -253,6 +253,10 @@ to evaluation; its format is documented in the architecture guide.
 The `penholder` evaluation task (also available as `table_penholder`) combines a white table, red pen and
 yellow penholder with the shared S1 robot. Asset profiles under `config/assets/`
 record source files, axis conversion, scale, collision and the tabletop frame.
+Placement succeeds only when the pen satisfies `pen_inside_holder`: its tested
+endpoint must be inside the holder bounds with the required axis alignment.
+Lying across the rim no longer counts. Restart or reload the simulation
+configuration before a new evaluation; historical results retain their original criteria.
 The calibrated table GLB is included in the repository; update the pen and holder
 source paths for your asset installation. The table measures 1.40 × 0.70 × 0.75 m.
 Its tabletop center is 0.60 m in front of the robot base in the XY plane, with the

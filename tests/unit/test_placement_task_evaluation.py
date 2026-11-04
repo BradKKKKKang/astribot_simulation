@@ -110,10 +110,10 @@ def test_measured_object_region_and_missing_state_evidence():
 
 
 @pytest.mark.parametrize('position,angle,expected', [
-    ([0, 0, .068], 90, 'pen_across_holder_top'),
-    ([.02, -.02, .068], -90, 'pen_across_holder_top'),
-    ([0, 0, .068], 80, 'pen_across_holder_top'),
-    ([0, 0, .068], 100, 'pen_across_holder_top'),
+    ([0, 0, .068], 90, None),
+    ([.02, -.02, .068], -90, None),
+    ([0, 0, .068], 80, None),
+    ([0, 0, .068], 100, None),
     ([0, 0, .03], 0, 'pen_inside_holder'),
     ([.06, 0, .068], 90, None),  # Beside the rim.
     ([0, 0, .10], 90, None),  # Above the rim.
@@ -123,7 +123,7 @@ def test_measured_object_region_and_missing_state_evidence():
     ([0, 0, .16], 0, None),  # Upright, but not inserted.
     ([0, 0, .03], 180, None),  # Existing reversed insertion rejection.
 ])
-def test_penholder_stage_two_alternatives_follow_measured_holder(position, angle, expected):
+def test_penholder_stage_requires_insertion_relative_to_measured_holder(position, angle, expected):
     from src.simulation_config.poses import compose_pose
     task = json.loads((Path(__file__).parents[2] / 'config/tasks/penholder.json').read_text())
     success = task['stages']['place_pen']['success']
