@@ -3,6 +3,7 @@
   "overrides": {
     "name": "penholder",
     "simulation": {
+      "ambient_light_intensity": 0.45,
       "ground": {
         "enabled": true,
         "color": [0, 0, 0]

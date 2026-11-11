@@ -30,11 +30,14 @@ def experiment(tmp_path, change=None):
 def test_scene_changes_launch_config_without_placement_dependency(tmp_path):
     before, _ = experiment(tmp_path)
     changed, _ = experiment(tmp_path, lambda sections: sections['scene'].update(simulation={
+        'ambient_light_intensity': .08,
         'ground': {'enabled': False}, 'light': {'intensity': 1500., 'color': [.8,.7,.6]},
         'cameras': {'head_rgbd': {'width': 320, 'height': 240}, 'left_wrist_rgbd': {'enabled': False}}}))
     config = build_experiment_simulation_config(changed)
     assert config['scene_simulation']['ground']['enabled'] is False
     assert config['scene_simulation']['light']['intensity'] == 1500
+    assert config['scene_simulation']['ambient_light_intensity'] == .08
+    assert config['experiment_provenance']['scene_simulation']['ambient_light_intensity'] == .08
     assert config['camera_names'] == ['head_rgbd', 'right_wrist_rgbd']
     assert config['camera_resolutions']['head_rgbd'] == {'width':320, 'height':240}
     assert changed['fingerprints']['scene_simulation'] != before['fingerprints']['scene_simulation']
@@ -109,6 +112,29 @@ def test_runtime_spawn_adapter_keeps_defaults_and_consumes_overrides():
         'background':{'usd_path':'/scene.usda','position':[1,2,3]}})
     assert calls == [('UsdFileCfg','/World/scene_background',{'usd_path':'/scene.usda'},
                       {'translation':(1,2,3),'orientation':(1.,0.,0.,0.)})]
+
+
+@pytest.mark.parametrize('value', [-1, True, float('nan'), float('inf'), '0.08', None])
+def test_invalid_ambient_light_rejected(value):
+    with pytest.raises(ValueError, match='ambient_light_intensity'):
+        normalize_scene_simulation({'ambient_light_intensity': value})
+
+
+@pytest.mark.parametrize('intensity', [0, .08])
+def test_ambient_fill_is_applied_with_dome_disabled_and_omission_preserves_default(monkeypatch, intensity):
+    import sys
+    calls = []
+    carb = ModuleType('carb')
+    carb.settings = SimpleNamespace(get_settings=lambda: SimpleNamespace(
+        set_float=lambda key, value: calls.append((key, value))))
+    monkeypatch.setitem(sys.modules, 'carb', carb)
+    scene = {'ground': {'enabled': False}, 'light': {'enabled': False}}
+    spawn_scene_environment(fake_sim_utils(calls), {**scene, 'ambient_light_intensity': intensity})
+    assert calls == [('/rtx/sceneDb/ambientLightIntensity', float(intensity))]
+    calls.clear()
+    spawn_scene_environment(fake_sim_utils(calls), scene)
+    assert calls == []
+    assert 'ambient_light_intensity' not in normalize_scene_simulation(scene)
 
 
 def test_backend_scene_method_consumes_config_without_importing_isaac(monkeypatch):

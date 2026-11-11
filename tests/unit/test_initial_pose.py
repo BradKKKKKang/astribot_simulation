@@ -124,6 +124,36 @@ def test_integrated_cli_imports_and_displays_selected_pose(dataset, capsys):
         launcher.main(['--initial-pose-frame', '0', '--check-config'])
 
 
+def test_hdf5_snapshot_source_displays_without_reopening_file(dataset, tmp_path, capsys):
+    from tests.unit.test_simulation_integrate import launcher
+    path, values, profile = dataset
+    pose = load_initial_pose(path, 0, profile)
+    pose['source'] = {'hdf5': str(tmp_path / 'unmounted.hdf5'), 'frame_index': 0,
+                      'dataset': 'joints_dict/joints_position_command', 'sha256': 'a' * 64}
+    resolved = resolve_experiment(ROOT / 'config/experiments/evaluation/press_cube.json')
+    resolved['sections']['task']['initial_pose'] = pose
+    experiment = tmp_path / 'experiment.json'
+    experiment.write_text(json.dumps({'schema_version': 4, 'kind': 'evaluation', **resolved['sections']}))
+    data = launcher.main(['--config', str(experiment), '--check-config'])
+    assert data['robot_profile']['initial_joint_positions']['astribot_head_joint_2'] == values[24]
+    output = capsys.readouterr().out
+    assert 'unmounted.hdf5, frame_index=0, joints_dict/joints_position_command' in output
+
+
+@pytest.mark.parametrize('change', [
+    {'parquet': 'ambiguous.parquet'},
+    {'dataset': 'joints_dict/joints_position_state'},
+    {'frame_index': -1},
+])
+def test_invalid_hdf5_snapshot_source_rejected(change):
+    pose = {'joint_targets_rad': {'astribot_head': [0., .8]}, 'gripper_percent': {},
+            'source': {'hdf5': 'pose.hdf5', 'frame_index': 0,
+                       'dataset': 'joints_dict/joints_position_command', 'sha256': 'a' * 64}}
+    pose['source'].update(change)
+    with pytest.raises(ValueError, match='initial_pose.source'):
+        initial_joint_positions(pose, default_robot_profile())
+
+
 def test_reset_restores_imported_joint_state_and_hold_commands(dataset, monkeypatch):
     torch = pytest.importorskip('torch')
     from tests.unit.test_isaaclab_gripper import load_env_class

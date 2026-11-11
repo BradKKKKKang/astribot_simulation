@@ -135,3 +135,11 @@ The geometry and runtime-state coverage is split by dependency:
 
 Headless scene physics and isolated ROS backend smoke runs are separate runtime
 checks, with their environment and evidence recorded in the development log.
+
+`tests/unit/test_deformable_scene_objects.py` checks elastic parameter rejection,
+connected nondegenerate tetrahedral geometry, fitted material poses and nodal
+resets without Isaac Sim. Use `scripts/validate_deformable_bear.py --captures
+--output outputs/evaluation/wanjuxiong_soft_body` in the Isaac Lab environment
+for the separate GPU compression/release check. It creates only a bear, support
+and kinematic press, without ROS. See [the soft bear notes](../docs/TABLETOP_OBJECTS.md#soft-bear)
+for material assumptions and coverage limits.

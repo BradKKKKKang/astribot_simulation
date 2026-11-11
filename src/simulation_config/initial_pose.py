@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 STATE_COLUMN = 'joints_dict.joints_position_state'
+COMMAND_DATASET = 'joints_dict/joints_position_command'
 
 
 def initial_joint_positions(pose, profile):
@@ -28,13 +29,22 @@ def initial_joint_positions(pose, profile):
             raise ValueError('task.initial_pose gripper_percent must be in [0, 100]')
     if 'source' in pose:
         source = pose['source']
-        if (not isinstance(source, dict) or set(source) != {'parquet', 'frame_index', 'column', 'sha256'}
-                or not isinstance(source['parquet'], str) or not source['parquet']
+        if not isinstance(source, dict):
+            raise ValueError('task.initial_pose.source must be a source record')
+        if set(source) == {'parquet', 'frame_index', 'column', 'sha256'}:
+            path, field = source['parquet'], source['column']
+            expected_field = STATE_COLUMN
+        elif set(source) == {'hdf5', 'frame_index', 'dataset', 'sha256'}:
+            path, field = source['hdf5'], source['dataset']
+            expected_field = COMMAND_DATASET
+        else:
+            raise ValueError('task.initial_pose.source requires a parquet state or HDF5 command source record')
+        if (not isinstance(path, str) or not path
                 or type(source['frame_index']) is not int or source['frame_index'] < 0
-                or source['column'] != STATE_COLUMN
+                or field != expected_field
                 or not isinstance(source['sha256'], str) or len(source['sha256']) != 64
                 or any(c not in '0123456789abcdef' for c in source['sha256'])):
-            raise ValueError('task.initial_pose.source requires parquet, frame_index, state column and sha256')
+            raise ValueError('task.initial_pose.source requires a path, frame_index, joint field and sha256')
     return profile.sdk_joint_positions(pose)
 
 

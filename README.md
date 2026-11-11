@@ -287,6 +287,17 @@ The three link-relative camera poses are authored in
 textured robot model. They use the penholder episode 3, frame 0 robot-image
 alignment, with unchanged camera intrinsics. All experiments using this USD
 inherit these poses; the head camera retains a visible alignment residual.
+
+The head camera's lens distortion is stored alongside its optics in the same USD
+as `astribot:distortion:model = "plumb_bob"` and
+`astribot:distortion:coefficients = [0.00268249, -0.0404815, 8.09985e-06, -0.000577883, 0.027629]`
+in OpenCV order `[k1, k2, p1, p2, k3]`. The Isaac Lab adapter applies a cached RGB
+remap before live publication and evaluation snapshots. This models radial and
+tangential distortion using the sensor's current intrinsic matrix; focal length,
+principal point, camera poses, and wrist cameras are unchanged. Direct Isaac
+sensor buffers and the simulator viewport remain pinhole images. Pixels sampled
+outside the original rendered field of view are black. See the
+[OpenCV lens model](https://docs.opencv.org/4.5.5/d9/d0c/group__calib3d.html).
 The original `astribot_simulation.py` also retains its YAML and experiment modes.
 After activating the Isaac Lab environment and sourcing ROS and `env.sh`, launch:
 
@@ -331,10 +342,12 @@ Tasks can declare `initial_pose` with `joint_targets_rad` (part names to joint
 angle lists) and `gripper_percent` (`left`/`right`, 0–100). These targets override
 the robot profile's initial joints and are restored together with the control
 targets on reset. This requires an experiment `robot_placement`, which continues
-to determine the fixed base placement. The penholder task already stores the
-measured joint state from frame 0 of `penholder_merged_clean/episode_000003.parquet`,
-including source path and SHA-256; the dataset need not remain mounted to use
-the stored pose. Startup prints the pose, and the Isaac robot starts in it.
+to determine the fixed base placement. The penholder task stores frame 0 of
+`real_eval_action/real_eval_init_pose.hdf5`, from the
+`joints_dict/joints_position_command` dataset in robot profile command order,
+with both grippers at 0%. Its source record includes the HDF5 path, dataset,
+frame index and SHA-256; the source file need not remain mounted to use the
+stored pose. Startup prints the pose, and the Isaac robot starts in it.
 
 To override a task pose from another LeRobot episode (requires PyArrow and the
 dataset's `meta/info.json` with joint names):
@@ -373,9 +386,14 @@ For ten temporary fixed layouts estimated from the reference photographs, see
 Each config fixes the pen/holder poses on creation and reset, including the pen
 heading, and can be selected with the integrated launcher's `--config` option.
 
+For the tabletop item-classification scene, see [its scene guide](docs/TABLETOP_OBJECTS.md)
+and [ten fixed layouts](config/experiments/evaluation/item_classification_fixed/README.md).
+Layout 01 preserves the current arrangement; 02–10 follow the numbered photos.
+The item-classification evaluation budget is 6500 steps per episode.
+
 The red marker's asset profile (`config/assets/red_markpen.json`) calibrates the
-source GLB to the measured 15 cm length along local Z and the user-requested
-1.526 cm maximum diameter in X/Y, using separate axial and radial scales. The original
+source GLB to a 14 cm length along local Z and the user-requested
+20 mm maximum diameter in X/Y, using separate axial and radial scales. The original
 `~/assets/red_markpen.glb` is unchanged. Restart the simulation to apply the size.
 The measured stages run in order: `pick_pen` checks that the pen body origin is at
 least 8 cm above the tabletop; `place_pen` checks that its lower endpoint lies in
@@ -384,18 +402,40 @@ with the holder's +Z axis. These are geometric criteria, without a contact,
 gripper-release or stability claim. Stage evidence is retained until reset.
 On exit, it writes `outputs/evaluation/penholder/evaluation.json`.
 It does not provide a movement policy. Missing measured evidence remains `unknown`.
+The holder asset is 100 mm tall, with its horizontal dimensions preserved.
 The holder asset's `material` override uses `metallic: 0` and `roughness: 0.55`
-for a nonmetallic ceramic appearance with broad highlights, preserving the source
-colors and decoration. Restart the simulation to apply material configuration changes.
+for a nonmetallic ceramic appearance with broad highlights. Its
+`vertex_color_matrix` shifts the glazed body toward the warmer, less saturated
+gold in reference photo `20261103-154119.jpg`. The 3 × 3 matrix maps linear RGB
+vertex colors as `output = clip(matrix @ input, 0, 1)` before the GLB material
+factor; alpha is preserved. The configured rows sum to 1 to preserve neutral
+colors, while the cord, label and flower materials keep their source colors.
+Omitting the matrix preserves the original vertex colors. The source GLB,
+geometry, collision and scale are unchanged. This is visual color tuning under
+the current scene lighting, not a reflectance or camera calibration.
+Restart the simulation to apply material configuration changes.
+The [photo/before/after color comparison](outputs/evaluation/penholder_color_20261103/comparison.png)
+uses raw render crops; [verification metadata](outputs/evaluation/penholder_color_20261103/verification.json)
+records the source hashes, scene lighting and sampled glaze colors.
 
 The penholder scene has a matte black enclosure with a 3 m × 3 m clear interior,
 a 2.2 m ceiling and a black ground plane. A downward white 0.5 m × 0.12 m ceiling
-strip above world XY (0, 0) uses intensity 20000 and specular contribution 0.6.
+strip at world `(-0.8, 0.6, 2.165)` uses intensity 18000 and specular
+contribution 0.6. Its rear/side offset reduces light entering the holder mouth;
+the housing and diffuser move with the light.
 Two white 0.8 m × 0.6 m area lights at world `(1.1, +/-1.1, 1.45)` use intensity
-4000 and specular contribution 0.1 each and point toward
+7500 and specular contribution 0.1 each and point toward
 `(0.25, 0, 1.05)`, making gripper mechanisms and arm joints visible from the
 front and sides while reducing tabletop and gripper washout in the head and
-wrist cameras. The dome remains disabled. All three lights use diffuse
+wrist cameras. The fill intensity balances the moderate global ambient
+illumination. In `config/scenes/penholder.json`,
+`simulation.ambient_light_intensity: 0.45` lifts dark surfaces while preserving
+visible shading inside the holder in the head camera.
+This controls RTX's uniform ambient fill independently of the USD dome, which
+remains disabled. The optional scene field accepts a finite, nonnegative number;
+0 disables ambient fill, and omission preserves the renderer's existing setting.
+It maps to `/rtx/sceneDb/ambientLightIntensity` in Isaac Sim's legacy RTX renderer.
+All three lights use diffuse
 contribution 1, exposure 0 and `normalize: false`. The background asset is
 `config/scenes/backgrounds/black_enclosure.usda`; adjust `inputs:intensity` for
 brightness and `inputs:specular` for reflected highlights on `CeilingStripLight`,
@@ -404,6 +444,9 @@ brightness and `inputs:specular` for reflected highlights on `CeilingStripLight`
 affect scene illumination, without camera exposure or image postprocessing changes.
 The preset was compared in all three cameras at the stored penholder initial
 pose; a different pose or real-camera exposure can require further tuning.
+The latest [head/wrist comparison](outputs/evaluation/penholder_lighting_recalibration_20261103/comparison_layout03.png)
+and [holder detail](outputs/evaluation/penholder_lighting_recalibration_20261103/holder_comparison.png)
+show the balance between brighter dark surfaces and visible cavity shading.
 The enclosure panels are visual geometry; ground collision continues to use
 the ground plane.
 The table is centered at world X = 0.60 m to clear the torso in the stored initial

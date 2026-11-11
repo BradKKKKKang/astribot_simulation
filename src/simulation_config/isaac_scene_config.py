@@ -31,7 +31,7 @@ def pose_fields(value, label):
 
 def normalize_scene_simulation(value=None):
     value = {} if value is None else copy.deepcopy(value)
-    _fields(value, {'ground', 'light', 'cameras', 'background'}, 'scene.simulation')
+    _fields(value, {'ground', 'light', 'cameras', 'background', 'ambient_light_intensity'}, 'scene.simulation')
     result = {'ground': {'enabled': True},
               'light': {'enabled': True, 'intensity': 3000., 'color': [.75, .75, .75]},
               'cameras': {}}
@@ -50,6 +50,11 @@ def normalize_scene_simulation(value=None):
             intensity = result[name]['intensity']
             if type(intensity) not in (int, float) or not math.isfinite(intensity) or intensity < 0:
                 raise ValueError('scene.light.intensity must be finite and nonnegative')
+    if 'ambient_light_intensity' in value:
+        intensity = value['ambient_light_intensity']
+        if type(intensity) not in (int, float) or not math.isfinite(intensity) or intensity < 0:
+            raise ValueError('scene.ambient_light_intensity must be finite and nonnegative')
+        result['ambient_light_intensity'] = float(intensity)
     cameras = value.get('cameras', {})
     _fields(cameras, set(CAMERA_BODIES), 'scene.cameras')
     for name, camera in cameras.items():
@@ -76,6 +81,12 @@ def normalize_scene_simulation(value=None):
 def spawn_scene_environment(sim_utils, settings):
     """Called only after AppLauncher; injectable config classes permit CPU tests."""
     scene = normalize_scene_simulation(settings)
+    if 'ambient_light_intensity' in scene:
+        # RTX's uniform ambient fill is independent of the USD dome light.
+        # Import only after AppLauncher, and preserve renderer defaults when omitted.
+        import carb
+        carb.settings.get_settings().set_float(
+            '/rtx/sceneDb/ambientLightIntensity', scene['ambient_light_intensity'])
     ground = scene['ground']
     if ground['enabled']:
         config = sim_utils.GroundPlaneCfg(**({'color': tuple(ground['color'])} if 'color' in ground else {}))

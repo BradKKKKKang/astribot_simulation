@@ -189,6 +189,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.scene_simulation = normalize_scene_simulation(param.get('scene_simulation'))
         self.scene_object_specs = param.get('scene_objects', [])
         self.task_reset = param.get('task_reset')
+        self.physics_substeps = int(param.get('physics_substeps',1))
         self.task_scene = param.get('task_scene')
         self.scene_object_keys = {'dynamic': {}, 'static': {}, 'resources': None}
         self.robot_placement_declaration = param.get('robot_placement')
@@ -249,6 +250,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         )
 
         self.setup_simulation_and_scene()
+        self._setup_camera_distortion()
 
         self.setup_joint_mapping()
         self._managed_idle_deadline = 0.0
@@ -267,6 +269,9 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
     def setup_simulation_and_scene(self):
         import torch
         self.device = self.physics_device or ("cuda:0" if torch.cuda.is_available() else "cpu")
+        if any(spec['asset']['physics']['body_type'] == 'deformable' for spec in self.scene_object_specs):
+            if not str(self.device).startswith('cuda'):
+                raise ValueError('Deformable scene objects require GPU physics (cuda device)')
         if self.robot_placement_declaration is not None:
             from src.simulation_config.robot_profile import RobotProfile
             from src.simulation_config.robot_placement import resolve_robot_placement
@@ -276,7 +281,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                 RobotProfile(self.robot_profile_data), self.robot_placement_declaration)
 
         sim_cfg = SimulationCfg(
-            dt=self.dt,
+            dt=self.dt / self.physics_substeps,
             render_interval=self.decimation,
             device=self.device,
             use_fabric=self.use_fabric,
@@ -368,6 +373,20 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                 dtype=torch.float32,
             )
             self.scene["third_person_camera"].set_world_poses_from_view(eye, target)
+
+    def _setup_camera_distortion(self):
+        from src.simu_utils.camera_distortion import CameraDistortion
+        import omni.usd
+
+        self._camera_distortions = {}
+        stage = omni.usd.get_context().get_stage()
+        for name in self.camera_names:
+            prim = stage.GetPrimAtPath(camera_prim_path(
+                name, self.camera_bodies[name], self.robot_root_path,
+            ))
+            distortion = CameraDistortion.from_prim(prim)
+            if distortion is not None:
+                self._camera_distortions[name] = distortion
 
     def _handle_video_recording(self, request, response):
         if not self.third_person_camera_cfg:
@@ -650,9 +669,12 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             self._apply_control()
 
             for _ in range(self.frame_skip):
-                self.scene.write_data_to_sim()
-                self.sim.step(render=True)
-                self.scene.update(dt=self.dt)
+                for substep in range(self.physics_substeps):
+                    self.scene.write_data_to_sim()
+                    self.sim.step(render=False)
+                    self.scene.update(dt=self.dt/self.physics_substeps)
+                self._sync_cloth_visuals()
+                self.sim.render()
 
             self._capture_video_frame()
             self.render()
@@ -709,9 +731,11 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.joint_velocity_command_all = velocities
         self.joint_torque_command_all = [0.] * len(names)
         self._apply_control()
-        self.scene.write_data_to_sim()
-        self.sim.step(render=False)
-        self.scene.update(dt=self.dt)
+        substeps=getattr(self,'physics_substeps',1)
+        for _ in range(substeps):
+            self.scene.write_data_to_sim()
+            self.sim.step(render=False)
+            self.scene.update(dt=self.dt/substeps)
         self.managed_publish_feedback()
         self._managed_video_tick()
 
@@ -802,6 +826,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
     def managed_snapshot(self, *, capture_images):
         """Capture cameras and joints at the same paused physics boundary."""
+        if capture_images and getattr(self,'scene_object_keys',{}).get('cloth'):
+            self._sync_cloth_visuals()
         import base64
         import cv2
         joints = {}
@@ -962,6 +988,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         self.scene.reset()
         self._restore_initial_state()
+        self._sync_cloth_visuals()
         self._publish_robot_placement()
 
         self.reset_flag = False
@@ -1011,6 +1038,22 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             self.sim.physics_sim_view.update_articulations_kinematic()
             self.sim.forward()
         self.scene.update(dt=self.dt)
+        # Initialization physics is completed before managed step 0 is returned.
+        # Hold the task's exact robot pose while the cloth is released and falls.
+        for _ in range((self.task_reset or {}).get('settle_steps',0)):
+            self.robot.write_joint_state_to_sim(self.robot.data.default_joint_pos,
+                                                self.robot.data.default_joint_vel*0)
+            self.robot.set_joint_position_target(self.robot.data.default_joint_pos)
+            for _ in range(self.physics_substeps):
+                self.scene.write_data_to_sim()
+                self.sim.step(render=False)
+                self.scene.update(dt=self.dt/self.physics_substeps)
+        if (self.task_reset or {}).get('settle_steps',0):
+            self.robot.write_joint_state_to_sim(self.robot.data.default_joint_pos,
+                                                self.robot.data.default_joint_vel*0)
+            self.sim.physics_sim_view.update_articulations_kinematic()
+            self.sim.forward()
+            self.scene.update(dt=self.dt)
 
     def _publish_robot_placement(self):
         if self._placement_publisher is None:
@@ -1187,15 +1230,25 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
     def get_camera_image(self, camera_name: str = 'head_rgbd') -> Dict:
         return self.render_single_camera(camera_name)
 
+    def _sync_cloth_visuals(self):
+        from src.simulation_config.isaac_cloth_object import sync_cloth_visuals
+        sync_cloth_visuals(self.scene_object_keys.get('cloth',{}))
+
     def render_single_camera(self, camera_name):
+        self._sync_cloth_visuals()
         if camera_name == 'head':
             camera_name = 'head_rgbd'
         if camera_name not in self.camera_names:
             return None
 
-        rgb = self.scene[camera_name].data.output['rgb'][0]
+        data = self.scene[camera_name].data
+        rgb = data.output['rgb'][0]
         rgb = rgb.detach().cpu().numpy()
-        # USD camera poses define image orientation; preserve sensor pixels.
+        distortion = self._camera_distortions.get(camera_name)
+        if distortion is not None:
+            matrix = data.intrinsic_matrices[0].detach().cpu().numpy()
+            rgb = distortion.apply(rgb, matrix)
+        # USD camera poses define image orientation.
         rgb = np.ascontiguousarray(rgb)
         return {
             'rgb_img': rgb,

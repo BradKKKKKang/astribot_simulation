@@ -15,15 +15,31 @@ from .scene_assets import (resolve_scene_objects, transformed_primitives,
 def validate_task_reset(scene, reset):
     if reset is None:
         return
-    check_fields(reset, {'objects', 'placement'}, 'task.reset')
+    check_fields(reset, {'objects', 'placement', 'settle_steps'}, 'task.reset')
     names = reset.get('objects')
     if (not isinstance(names, list) or not names or not all(isinstance(n, str) for n in names)
             or len(names) != len(set(names))):
         raise ValueError('task.reset.objects must be unique object names')
     placement = reset.get('placement', {})
-    check_fields(placement, {'type', 'surface', 'min_separation', 'max_attempts'}, 'task.reset.placement')
-    if placement.get('type') not in ('uniform_on_surface', 'uniform_in_bounds', 'empirical'):
+    check_fields(placement, {'type', 'surface', 'min_separation', 'max_attempts', 'regions'}, 'task.reset.placement')
+    if placement.get('type') not in ('uniform_on_surface', 'uniform_in_bounds', 'empirical', 'uniform_in_regions'):
         raise ValueError('task.reset requires uniform_on_surface, uniform_in_bounds or empirical placement')
+    steps=reset.get('settle_steps',0)
+    if type(steps) is not int or not 0<=steps<=5000:
+        raise ValueError('task.reset.settle_steps must be an integer in [0,5000]')
+    if placement['type']=='uniform_in_regions':
+        regions=placement.get('regions')
+        if len(names)!=1 or not isinstance(regions,list) or not regions:
+            raise ValueError('uniform_in_regions requires one object and nonempty regions')
+        ids=[]
+        for region in regions:
+            check_fields(region,{'id','min','max'},'reset region')
+            if not isinstance(region.get('id'),str) or not region['id']: raise ValueError('reset region id required')
+            validate_reset_xy_bounds({k:region[k] for k in ('min','max')})
+            ids.append(region['id'])
+        if len(ids)!=len(set(ids)): raise ValueError('reset region ids must be unique')
+    elif 'regions' in placement:
+        raise ValueError('reset regions require uniform_in_regions')
     surface = placement.get('surface')
     if not isinstance(surface, str) or '.' not in surface:
         raise ValueError('task.reset requires an asset support surface')
@@ -34,8 +50,8 @@ def validate_task_reset(scene, reset):
     sample_counts = set()
     for name in names:
         obj = scene.get('objects', {}).get(name, {})
-        if obj.get('asset', {}).get('physics', {}).get('body_type') != 'dynamic':
-            raise ValueError('task.reset objects must be dynamic scene assets')
+        if obj.get('asset', {}).get('physics', {}).get('body_type') not in ('dynamic', 'deformable', 'cloth'):
+            raise ValueError('task.reset objects must be dynamic or deformable scene assets')
         if obj.get('placement', {}).get('frame') != surface or obj['placement'].get('grounding') != 'geometry_min':
             raise ValueError('task.reset objects must use geometry_min on the selected surface')
         if 'reset_yaw_range_degrees' in obj['placement']:
@@ -78,6 +94,7 @@ def sample_task_objects(scene, reset, rng):
     validate_task_reset(scene, reset)
     sampled = copy.deepcopy(scene)
     names, config = reset['objects'], reset['placement']
+    region = config['regions'][int(rng.integers(len(config['regions'])))] if config['type']=='uniform_in_regions' else None
     empirical = config['type'] == 'empirical'
     samples = ({name: np.array(scene['objects'][name]['placement']['reset_xy_samples'])
                 for name in names} if empirical else {})
@@ -122,6 +139,9 @@ def sample_task_objects(scene, reset, rng):
                 calibrated = original['reset_xy_bounds']
                 minimum = np.maximum(minimum, calibrated['min'])
                 maximum = np.minimum(maximum, calibrated['max'])
+            if region is not None:
+                minimum=np.maximum(minimum,region['min'])
+                maximum=np.minimum(maximum,region['max'])
             if np.any(minimum > maximum):
                 if yaw_range is None:
                     raise ValueError(f'{name} has no supported placement within the reset range')
@@ -138,5 +158,8 @@ def sample_task_objects(scene, reset, rng):
             placement['xy'] = xy.tolist()
         else:
             objects, _ = resolve_scene_objects(sampled)
-            return {obj['name']: obj for obj in objects if obj['name'] in names}
+            result={obj['name']: obj for obj in objects if obj['name'] in names}
+            if region is not None:
+                result[names[0]]['reset_region']=region['id']
+            return result
     raise ValueError('task.reset could not sample nonoverlapping placements within max_attempts')

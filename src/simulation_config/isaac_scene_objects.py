@@ -8,7 +8,7 @@ from .scene_assets import asset_geometry, transformed_primitives
 
 
 def author_scene_object(stage, specification, texture_directory):
-    """Create a static collider or an independent dynamic rigid body on a USD stage."""
+    """Create a static collider, rigid body or volumetric deformable on a USD stage."""
     from pxr import Gf, Sdf, UsdGeom, UsdPhysics, UsdShade, Vt
 
     name, asset = specification['name'], specification['asset']
@@ -65,6 +65,13 @@ def author_scene_object(stage, specification, texture_directory):
             texture_shader.CreateIdAttr('UsdUVTexture')
             texture_shader.CreateInput('file', Sdf.ValueTypeNames.Asset).Set(str(image_path))
             texture_shader.CreateInput('sourceColorSpace', Sdf.ValueTypeNames.Token).Set('sRGB')
+            # Procedural GLBs tile their UVs beyond [0, 1]. glTF defaults to
+            # REPEAT; USD's metadata fallback can instead produce black borders.
+            sampler = document.get('samplers', [])[texture['sampler']] if 'sampler' in texture else {}
+            wrap_modes = {10497: 'repeat', 33071: 'clamp', 33648: 'mirror'}
+            for axis in ('S', 'T'):
+                texture_shader.CreateInput('wrap' + axis, Sdf.ValueTypeNames.Token).Set(
+                    wrap_modes[sampler.get('wrap' + axis, 10497)])
             texture_shader.CreateInput('st', Sdf.ValueTypeNames.Float2).ConnectToSource(reader.ConnectableAPI(), 'result')
             texture_shader.CreateInput('scale', Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(*color))
             shader.GetInput('diffuseColor').ConnectToSource(texture_shader.ConnectableAPI(), 'rgb')
@@ -72,8 +79,18 @@ def author_scene_object(stage, specification, texture_directory):
         material_cache[key] = material
         return material
 
+    primitives = transformed_primitives(asset, specification['scale'])
+    if asset['physics']['body_type'] == 'cloth':
+        from .isaac_cloth_object import author_cloth
+        author_cloth(stage,path,primitives,asset['physics'],pose,material_for)
+        return path
+    if asset['physics']['body_type'] == 'deformable':
+        from .isaac_deformable_object import author_deformable_object
+        author_deformable_object(stage, path, primitives, document, asset['physics'], material_for)
+        return path
+
     all_vertices, all_faces, count = [], [], 0
-    for index, primitive in enumerate(transformed_primitives(asset, specification['scale'])):
+    for index, primitive in enumerate(primitives):
         vertices, faces = primitive['vertices'], primitive['faces']
         mesh = UsdGeom.Mesh.Define(stage, f'{path}/Visuals/mesh_{index}')
         mesh.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(vertices.astype(np.float32)))
@@ -131,11 +148,11 @@ def author_scene_object(stage, specification, texture_directory):
 def attach_scene_objects(scene_cfg, specifications):
     """Populate InteractiveScene with independent bodies before its construction."""
     if not specifications:
-        return {'dynamic': {}, 'static': {}, 'resources': None}
+        return {'dynamic': {}, 'deformable': {}, 'cloth': {}, 'static': {}, 'resources': None}
     import omni.usd
-    from isaaclab.assets import RigidObjectCfg
+    from isaaclab.assets import DeformableObjectCfg, RigidObjectCfg
     resources = tempfile.TemporaryDirectory(prefix='astribot-scene-textures-')
-    runtime = {'dynamic': {}, 'static': {}, 'resources': resources}
+    runtime = {'dynamic': {}, 'deformable': {}, 'cloth': {}, 'static': {}, 'resources': resources}
     try:
         stage = omni.usd.get_context().get_stage()
         for specification in specifications:
@@ -144,7 +161,15 @@ def attach_scene_objects(scene_cfg, specifications):
             if specification['asset']['physics']['body_type'] == 'static':
                 runtime['static'][name] = path
                 continue
+            if specification['asset']['physics']['body_type'] == 'cloth':
+                primitives=transformed_primitives(specification['asset'],specification['scale'])
+                runtime['cloth'][name]={'path':path+'/Cloth','initial_pose':pose,'rest':primitives[0]['vertices']}
+                continue
             key = 'scene_object_' + name
+            if specification['asset']['physics']['body_type'] == 'deformable':
+                setattr(scene_cfg, key, DeformableObjectCfg(prim_path=path, spawn=None))
+                runtime['deformable'][name] = {'key': key, 'initial_pose': pose}
+                continue
             setattr(scene_cfg, key, RigidObjectCfg(prim_path=path, spawn=None,
                     init_state=RigidObjectCfg.InitialStateCfg(pos=tuple(pose[:3]), rot=tuple(pose[3:]))))
             runtime['dynamic'][name] = key
@@ -155,6 +180,12 @@ def attach_scene_objects(scene_cfg, specifications):
 
 
 def reset_scene_objects(scene, runtime, *, sampled=None):
+    if runtime.get('cloth'):
+        from .isaac_cloth_object import reset_cloth
+        reset_cloth(runtime['cloth'],sampled)
+    if runtime.get('deformable'):
+        from .isaac_deformable_object import reset_deformable_objects
+        reset_deformable_objects(scene, runtime['deformable'], sampled)
     for name, key in runtime['dynamic'].items():
         if sampled is not None and name not in sampled:
             continue
@@ -170,6 +201,12 @@ def reset_scene_objects(scene, runtime, *, sampled=None):
 
 def read_scene_object_states(scene, runtime):
     objects = {}
+    if runtime.get('cloth'):
+        from .isaac_cloth_object import read_cloth
+        objects.update(read_cloth(runtime['cloth']))
+    if runtime.get('deformable'):
+        from .isaac_deformable_object import read_deformable_states
+        objects.update(read_deformable_states(scene, runtime['deformable']))
     if runtime['static']:
         import omni.usd
         from pxr import UsdGeom

@@ -95,6 +95,41 @@ def test_material_override_rejects_invalid_fields_and_values(tmp_path, material)
         validate_asset(asset)
 
 
+@pytest.mark.parametrize('matrix', [None, [], [[1, 0, 0]] * 2,
+                                  [[1, 0], [0, 1], [0, 0]],
+                                  [[True, 0, 0], [0, 1, 0], [0, 0, 1]],
+                                  [[float('nan'), 0, 0], [0, 1, 0], [0, 0, 1]]])
+def test_vertex_color_matrix_rejects_malformed_values(tmp_path, matrix):
+    asset = profile(tmp_path/'material.glb')
+    asset['material'] = {'vertex_color_matrix': matrix}
+    with pytest.raises(ValueError, match='asset.material.vertex_color_matrix'):
+        validate_asset(asset)
+
+
+def test_vertex_color_adjustment_preserves_alpha_geometry_and_cached_source(tmp_path, monkeypatch):
+    from src.simulation_config import scene_assets
+    asset = profile(tmp_path/'colored.glb')
+    source = read_glb(asset['source']['path'])
+    colors = np.array([[.9, .5, .02, .4], [.7, .7, .7, 1], [1, 0, 0, .5]], dtype=np.float32)
+    source['primitives'][0]['attributes']['COLOR_0'] = colors.copy()
+    monkeypatch.setattr(scene_assets, 'asset_geometry', lambda _: source)
+    baseline = transformed_primitives(asset)[0]
+    asset['material'] = {'vertex_color_matrix': [[1, 0, 0], [0, .8, .2], [.08, 0, .92]]}
+    validate_asset(asset)
+    adjusted = transformed_primitives(asset)[0]
+    result = adjusted['attributes']['COLOR_0']
+    assert result[0, 1] < colors[0, 1]  # Yellow moves toward orange.
+    assert result[0, 2] > colors[0, 2]  # Reduce saturation.
+    np.testing.assert_allclose(result[1], colors[1])  # Neutral colors stay neutral.
+    np.testing.assert_array_equal(result[:, 3], colors[:, 3])
+    np.testing.assert_array_equal(adjusted['vertices'], baseline['vertices'])
+    np.testing.assert_array_equal(adjusted['faces'], baseline['faces'])
+    np.testing.assert_array_equal(source['primitives'][0]['attributes']['COLOR_0'], colors)
+    np.testing.assert_array_equal(transformed_primitives(asset)[0]['attributes']['COLOR_0'], result)
+    asset.pop('material')
+    np.testing.assert_array_equal(transformed_primitives(asset)[0]['attributes']['COLOR_0'], colors)
+
+
 def test_material_override_is_written_to_usd_without_changing_geometry(tmp_path):
     Usd = pytest.importorskip('pxr.Usd')
     from pxr import UsdShade

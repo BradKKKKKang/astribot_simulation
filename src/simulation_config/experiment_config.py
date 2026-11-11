@@ -233,7 +233,7 @@ def _placement_sections(sections):
 def _validate_evaluation_runtime(runtime):
     check_fields(runtime, {'simulation', 'evaluation'}, 'evaluation.runtime')
     simulation = runtime.get('simulation', {})
-    check_fields(simulation, {'dt', 'decimation', 'frame_skip', 'third_person_camera'}, 'runtime.simulation')
+    check_fields(simulation, {'dt', 'decimation', 'frame_skip', 'third_person_camera', 'physics_substeps'}, 'runtime.simulation')
     if 'third_person_camera' in simulation:
         camera = simulation['third_person_camera']
         check_fields(camera, {'eye', 'target', 'width', 'height', 'fps', 'output_path'}, 'third_person_camera')
@@ -250,6 +250,8 @@ def _validate_evaluation_runtime(runtime):
         _positive(simulation['dt'], 'runtime.simulation.dt')
     if 'decimation' in simulation and (type(simulation['decimation']) is not int or simulation['decimation'] < 1):
         raise ValueError('runtime.simulation.decimation must be a positive integer')
+    if 'physics_substeps' in simulation and (type(simulation['physics_substeps']) is not int or not 1<=simulation['physics_substeps']<=16):
+        raise ValueError('runtime.simulation.physics_substeps must be an integer in [1,16]')
     if 'frame_skip' in simulation and (type(simulation['frame_skip']) is not int or simulation['frame_skip'] < 1):
         raise ValueError('runtime.simulation.frame_skip must be a positive integer')
     evaluation = runtime.get('evaluation', {})

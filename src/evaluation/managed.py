@@ -39,8 +39,9 @@ def validate_managed_config(resolved, data):
     task = resolved['sections']['task']
     if not task.get('initial_pose') or 'robot_placement' not in resolved['sections']:
         raise ValueError('managed evaluation requires task.initial_pose and robot_placement')
-    if not task.get('motion_test', False) and not task.get('success', {}).get('predicates'):
-        raise ValueError('managed evaluation requires nonempty task success predicates')
+    # An explicit empty list runs to the budget with unknown task evidence.
+    if not task.get('motion_test', False) and not isinstance(task.get('success', {}).get('predicates'), list):
+        raise ValueError('managed evaluation requires an explicit task success predicates list')
     if set(data.get('camera_names', [])) != set(CAMERAS):
         raise ValueError('managed evaluation requires head and both wrist cameras')
     if data['simulator_type'] != 'IsaacLab':

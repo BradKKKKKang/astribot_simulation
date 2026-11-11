@@ -3,7 +3,7 @@
   "source": {
     "path": "~/assets/yellow_penholder.glb",
     "sha256": "f0d4e6e00a44f175261e8df70623ba4d3caa14c46fb1fb80dcc2ac67c56257df",
-    "description": "User-supplied GLB; source remains unchanged. Dimensions are explicit example choices, not measured physical calibration."
+    "description": "User-supplied GLB; source remains unchanged. Height set to 0.10 m at the user's request, preserving horizontal dimensions. Source Y becomes vertical Z after the +90 degree X rotation. Dimensions are explicit choices, not measured physical calibration."
   },
   "source_transform": {
     "quaternion_wxyz": [
@@ -14,13 +14,18 @@
     ],
     "scale": [
       0.12,
-      0.12,
+      0.09999999403953586,
       0.12
     ]
   },
   "material": {
     "metallic": 0.0,
-    "roughness": 0.55
+    "roughness": 0.55,
+    "vertex_color_matrix": [
+      [1.1, 0.0, -0.1],
+      [0.0, 1.0, 0.0],
+      [0.08, 0.0, 0.92]
+    ]
   },
   "physics": {
     "body_type": "dynamic",

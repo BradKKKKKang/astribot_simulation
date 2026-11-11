@@ -68,3 +68,7 @@ artifacts/
 .placement-artifacts/
 .placement-catalog.json
 .placement-catalog.lock
+
+/配置
+config/
+outputs/

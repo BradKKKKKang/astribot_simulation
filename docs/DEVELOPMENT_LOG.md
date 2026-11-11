@@ -2,6 +2,13 @@
 
 本日志供agent记录工作内容。最新改动放在文档最前面。
 
+## 2026-11-04: Penholder initial pose from real evaluation HDF5
+
+- Replaced the shared penholder task's joint and gripper targets with row 0 of `real_eval_action/real_eval_init_pose.hdf5`, dataset `joints_dict/joints_position_command`, using the robot profile's 25-value command order. Both grippers are at 0%; fixed chassis placement still comes from the experiment. The default evaluation and ten fixed-layout evaluations inherit the snapshot.
+- Retained source path, dataset, row and SHA-256 provenance. Initial-pose validation and startup display now accept HDF5 command provenance alongside existing Parquet measured-state provenance. Startup/reset use embedded targets without reopening the source file; no HDF5 runtime dependency or new CLI import option was added.
+- CPU validation: exact source-to-target mapping and composed initialization passed for all eleven penholder experiments; `python astribot_simulation_integrate.py --check-config --managed-evaluation` passed. In `astribot_simu_il` (Python 3.10.22, NumPy 1.26.4, PyArrow 17.0.0, Torch 2.7.0), `PYTHONNOUSERSITE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -o addopts='' tests/unit/test_initial_pose.py tests/unit/test_simulation_integrate.py -k 'not table_penholder' -q` passed 28 tests, including mocked reset restoration and HDF5 provenance handling.
+- The initial broader run under system Python returned 27 passed, one skipped (Torch unavailable), and one unrelated failure: the existing `table_penholder` experiment references missing `config/scenes/table_penholder.json`. That experiment was left unchanged and excluded from the focused rerun. No ROS, simulator, GPU rendering or hardware validation was performed; no commit was created while the broader check remains failing.
+
 ## 2026-10-30: Fix empty RGB on managed Eval reset
 
 - Reproduced Atlas `INIT_MOVE_FAILED` during the first managed reset with the actual headless Isaac environment: disabling/re-enabling Lab-owned Hydra textures caused all three previously valid RGB annotators to return empty arrays, followed by a three-dimensional indexing error. Five and forty render-only warmup frames did not restore the render variables; the warmup-only candidate was discarded.
@@ -1112,6 +1119,68 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
   4 skipped for optional USD/Torch dependencies. No Isaac/ROS runtime, robot
   collision check or rendered-photo comparison was performed.
 
+## 2026-11-03 — Refine fixed penholder layouts with integrated render overlays
+
+- Updated only pen/holder tabletop XY and flat pen heading in all ten fixed
+  evaluation JSONs. Fitted manually annotated photo endpoints and holder
+  silhouette centers through the actual integrated Isaac camera projection.
+  Cropped viewer chrome and normalized to 1280 × 720 without perspective warping.
+  Source assets, object sizes, holder rotation, task and robot pose are unchanged.
+- Preserved photo occluder polygons, visible landmarks, inferred/unobserved
+  endpoints, original placements and per-layout comparison notes in
+  `penholder_fixed/review/annotations.json`. Photo 01's hidden rear endpoint is
+  explicitly unobserved. The user chose object-only changes and documentation of
+  residual simulator occlusion differences rather than fitting robot posture.
+- Added `review/verify.py`: capture invokes `astribot_simulation_integrate.main`,
+  uses the normal scene/reset/camera path, and snapshots all ten configurations
+  with paused physics after 12 rendering updates. Report mode creates unmasked
+  before/after overlays, annotated references, contact sheets, interactive opacity
+  comparison and projection residuals/source hashes. It rejects stale final
+  configuration fingerprints. The scene shares assets/table/robot/task; only
+  dynamic default object poses are loaded between layouts.
+- Runtime validation used ROS2 Humble, the existing `astribot_simu_il` Python,
+  RTX 3090, ROS_LOCALHOST_ONLY=1 and independent ROS domain 198. Captured all ten
+  original and updated layouts; the delivered capture script also independently
+  completed all ten final renders and exited cleanly. Evidence is under
+  `outputs/evaluation/penholder_fixed/overlay_review/`; the fixed-layout README
+  links the interactive review, two contact sheets and metrics.
+- Maximum annotated pen endpoint projection residual fell from 66.36 px to
+  4.04 px across the ten layouts. Holder box-center alignment is a fitting
+  constraint, not independent accuracy evidence. Holder projected width/height
+  remains approximately 7–17 px too large. Raw images were inspected for all ten
+  layouts: 01 exposes the hidden barrel, 05 adds cap occlusion, 06/08 have different
+  pen overlap, 07 has a smaller finger/pen gap, and 09 does not reproduce the
+  photo's holder-edge occlusion. These differences remain visible in the report.
+- All ten integrated `--check-config` calls and initial support/1 mm grounding,
+  unit quaternion and disabled-random-reset checks passed. CPU system Python:
+  `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest
+  tests/unit/test_scene_assets.py -o addopts='' -q`: 48 passed, 4 skipped for
+  optional USD/Torch dependencies. Review helper syntax and `git diff --check`
+  passed. This is initial image-space placement validation, not real-camera
+  metric calibration, dynamics/settling, robot collision or task success testing.
+
+## 2026-11-03 — Resize marker to 160 × 20 mm
+
+- At the user's request, changed `config/assets/red_markpen.json` source scaling
+  to 0.16 m length and 0.020 m maximum diameter. All scenes referencing the shared
+  marker asset inherit the new dimensions. GLB bytes, mass, friction, fixed-layout
+  XY/yaw and robot initial pose are unchanged. Geometry grounding automatically
+  raises the flat marker center to retain 1 mm tabletop clearance.
+- Moved the `pen_inside_holder` success predicate's local endpoint from Z=-0.075
+  to -0.080 m to keep it on the resized cap end. The overlay helper now derives
+  endpoint positions from each captured mesh instead of a hard-coded half-length.
+- Preserved photo occlusion annotations and prior fit metadata, explicitly noting
+  that XY/yaw were not refitted after resizing. Archived the prior final renders
+  under `overlay_review/after_150x16/`; recaptured all ten new sizes through the
+  integrated launcher on localhost ROS domain 198. Updated overlays, metrics and
+  README residuals: current maximum annotated endpoint residual is 5.91 px.
+- Verified actual transformed mesh bounds are 20 × 20 × 160 mm for all ten fixed
+  configs and the standard penholder config. Integrated config validation,
+  1 mm grounding and task cap-end consistency checks passed for all eleven.
+  Scene asset tests: 48 passed, 4 optional dependency skips. All ten rendered
+  comparisons were inspected; existing robot/photo occlusion differences remain.
+  `git diff --check` passed. No dynamics/settling or hardware execution was tested.
+
 ## 2026-11-03 — Reduce penholder head and wrist camera washout
 
 - Retuned `config/scenes/backgrounds/black_enclosure.usda` against the supplied
@@ -1145,6 +1214,115 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
   instructions; restarting the simulation applies this shared penholder preset.
   No real hardware or dynamics/task-success validation was performed.
 
+## 2026-11-03 — Deepen penholder cavity shadows
+
+- Moved the ceiling strip, diffuser and housing together to world XY
+  `(-0.8, 0.6)` while retaining their heights and downward orientation. Reduced
+  strip intensity from 20000 to 12000. Side fills use intensity 8000 with the
+  existing 0.1 specular contribution to maintain tabletop and gripper visibility.
+- Added optional `scene.simulation.ambient_light_intensity`, validated as a
+  finite nonnegative number and applied after AppLauncher to the legacy RTX
+  `/rtx/sceneDb/ambientLightIntensity` setting. Omission preserves the existing
+  renderer setting. Penholder explicitly selects 0.08; the setting is included
+  in scene configuration provenance. Camera exposure, materials and physics
+  remain unchanged.
+- Isolated light contributions in bounded localhost ROS domain 197 previews.
+  With all three authored lights off, the cavity stayed bright because uniform
+  renderer ambient intensity was 1.0. The ground asset's SphereLight was already
+  invisible: explicitly deactivating it did not change the render, so no ground
+  light or ground-spawner changes were made. Lowering ambient fill and offsetting
+  the ceiling source produced the intended cavity contrast.
+- Independently reloaded the final saved configuration through the integrated
+  launcher, with seed 42 and fixed layout 01's current initial pose. The runtime
+  ambient value was verified as 0.08. A final paired capture used the same latest
+  holder material for both variants, preserving concurrent color-profile edits.
+  In identical image regions, head-camera cavity median mean-RGB decreased from
+  105.0 to 30.8 while tabletop brightness
+  changed from 188.3 to 184.3. Wrist table medians changed from 185.3/186.0 to
+  182.3/181.3; finger medians changed from 43.7/41.3 to 45.0/38.3. Statistics are
+  8-bit mean RGB, not linear photometry. All three views retain zero pixels with
+  all channels >=250. Geometry/material attributes and relationships were
+  verified unchanged except the three fixture translations and light intensities.
+- Saved raw camera frames, full-view and holder-detail comparisons, configuration
+  hashes and measurements in `outputs/evaluation/penholder_shadows_20261103/`.
+  Temporary sweeps and logs remain under `/tmp/penholder-lighting-20261103/`.
+  All seven bounded rendering sessions exited with code 0; no SDK commands,
+  post-reset physics steps or real hardware operations were performed.
+- Validation: 34 scene-profile/launcher tests passed; one existing launcher test
+  failed because `config/scenes/table_penholder.json` is missing. Reproduced that
+  failure using the pre-change HEAD adapter, then reran the other 34 tests with
+  the known failing case explicitly deselected. No test or fixture was removed
+  or weakened. All eleven penholder configurations resolve with ambient 0.08;
+  `git diff --check` passed. Changes remain uncommitted due to the outstanding
+  broader-test failure. Moving-pose/dynamics and newer RTX renderer modes were
+  not validated. Restart the simulation to load the preset.
+
+## 2026-11-03 — Match penholder glaze hue to the real-camera reference
+
+- Added optional `material.vertex_color_matrix` to the CPU asset pipeline. It
+  maps linear RGB vertex colors before the GLB material factor, clamps output
+  to [0, 1], and preserves alpha and cached source arrays. Validation requires
+  three rows of three finite numbers. Assets without this field retain their
+  original colors.
+- Tuned `yellow_penholder.json` against `20261103-154119.jpg` using the matrix
+  `[[1.1, 0, -0.1], [0, 1, 0], [0.08, 0, 0.92]]`. This shifts the glazed body
+  from saturated yellow toward warm gold/orange. Row sums preserve neutral RGB;
+  cord, label and flower materials have no vertex colors and remain unchanged.
+  The source GLB hash, geometry, normals, UVs, collision, dimensions and physics
+  are unchanged. No illumination or camera changes belong to this adjustment.
+- Compared nine color candidates in two integrated Isaac sessions, then
+  independently reloaded the saved final configuration in a third session.
+  All exited with code 0, used localhost ROS domain 197, fixed layout 01 and
+  seed 42, and captured all three cameras with no post-reset physics steps.
+  Before/after captures share the current low-ambient scene lighting; scene
+  fingerprints were checked with only the holder material substituted.
+- In the recorded colored-glaze ROI mask, median hue moved from 42 to 36
+  degrees (reference: 36), and 8-bit saturation from 242 to 208 (reference:
+  202). Median value remained darker at 142 versus reference 176. These
+  image-space samples guide hue/saturation matching; differing illumination,
+  geometry and camera exposure prevent a photometric calibration claim.
+- Raw head/wrist frames, a three-panel comparison and validation/source hashes
+  are in `outputs/evaluation/penholder_color_20261103/`. Temporary capture and
+  report scripts and sweep logs are in `/tmp/penholder-color-20261103/`.
+  Validation: scene asset tests 55 passed, 4 optional dependency skips; all
+  eleven penholder configurations resolve with the final color transform.
+  Source/geometry preservation and the final authored USD vertex colors were
+  checked. Restart the simulation to apply the shared asset configuration.
+
+## 2026-11-03 — Rebalance penholder shadows against the three-camera reference
+
+- Compared six lighting variants against `screenshot-20261103-174501.png` with
+  the current holder color profile held fixed. Raised scene ambient intensity
+  from 0.08 to 0.45 and ceiling intensity from 12000 to 18000. Reduced each side
+  fill slightly from 8000 to 7500 to limit tabletop brightening. The ceiling
+  remains at `(-0.8, 0.6, 2.165)`; light size, direction and specular factors,
+  object materials, geometry, camera exposure and image processing are unchanged.
+- Independently reloaded the saved preset in fixed layouts 01 and 03, rendering
+  before/after pairs in each process with identical materials and poses. Three
+  bounded Isaac Lab/RTX 3090 sessions exited with code 0 on an empty localhost
+  ROS domain 197; reset seed 42, no post-reset physics stepping or SDK commands.
+  Runtime ambient intensity was verified as 0.45. USD comparison verified that
+  only the three light intensities changed relative to this round's baseline.
+- In layout 01, head-camera cavity median mean-RGB rose from 35.7 to 69.7 and
+  exterior glaze from 99.7 to 115.0. Table brightness rose from 184.3 to 190.3;
+  sampled reference head cavity/table values are 68.7/190.7. Layout 03 cavity
+  brightness rose from 24.0 to 63.3 and retained visible shading. Wrist finger
+  regions rose from about 45/37 to 50/43, with no pixels having all RGB channels
+  >=250 in any captured view. These are 8-bit image statistics, not linear
+  photometry; reference framing, pose and camera exposures differ. Wrist table
+  brightness remains below the real reference, so this is a visual balance,
+  not an exact three-camera photometric match.
+- Raw pairs for both layouts, overview/detail comparisons, reference sample
+  bounds, runtime settings and source hashes are in
+  `outputs/evaluation/penholder_lighting_recalibration_20261103/`.
+- Validation: 22 scene-profile tests passed; all eleven penholder configurations
+  resolve with ambient 0.45 and three cameras. Holder material and non-light
+  scene configuration preservation checks and `git diff --check` passed. The
+  previously confirmed missing `table_penholder` scene remains an outstanding
+  broader-test issue and was not rerun; accumulated changes remain uncommitted.
+  No real hardware, dynamics or newer RTX renderer validation was performed.
+  Restart the simulation to apply the new preset.
+
 ## 2026-11-04 — Require insertion for penholder placement success
 
 - Removed `pen_across_holder_top` from the shared penholder task. The
@@ -1157,3 +1335,433 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
   out-of-region rejection coverage.
 - Validation: 28 focused CPU task-evaluation tests passed. No ROS, simulator,
   GPU or hardware was started; historical session artifacts were not changed.
+
+## 2026-11-05 — Reference layout for six final pass-6 objects
+
+- Added `tabletop_objects` scene, task and evaluation entry, plus seven asset
+  profiles. Kept the current penholder table, black enclosure and lighting.
+  Placed steamer/plate behind drumstick, bun, bread, face-up bear and pig using
+  image-estimated coordinates. Preserved the six final metric GLB sizes; used
+  the panzi pass-6 source at an explicitly assumed 20 cm diameter.
+- Snapshotted frame 0 of the requested `real_eval_init_pose.hdf5` command dataset
+  in robot-profile order, including its gripper values and source digest.
+  Kept the fixed robot base. No task-success criteria or random reset added.
+- Forwarded glTF texture wrapS/wrapT to USD (including default REPEAT), fixing
+  black blocks on tiled steamer wood seen in the first actual scene render.
+  Preserved source meshes and material colors.
+- Validation: integrated `--check-config` passed; resolved table/environment
+  equality, whole-mesh support bounds, 1 mm clearance and HDF5 pose mapping
+  checked. Asset tests: 56 passed, 3 skipped. Initial-pose/scene-profile tests:
+  24 passed, 14 failed, all from references to the already deleted
+  `config/experiments/evaluation/press_cube.json`; no fixtures were weakened or
+  restored. Changes remain uncommitted with that existing suite failure.
+- Two bounded Isaac Lab sessions completed on an isolated, verified-empty
+  localhost ROS domain 197. Final render checked USD texture repeat settings,
+  and head/left-wrist/right-wrist images were inspected. No post-reset physics
+  steps, SDK commands or real hardware operations. Final images and runtime
+  metadata: `outputs/evaluation/tabletop_objects/final_layout/`.
+- User instructions and limitations: `docs/TABLETOP_OBJECTS.md`. The plate size,
+  object XY/yaw and rigid-body physical properties are assumptions. Dynamics,
+  grasping, soft-body behavior and managed task evaluation were not validated.
+
+## 2026-11-05 — Relocate the plate asset reference
+
+- Copied the unchanged panzi pass-6 GLB to `~/assets/panzi.glb` and updated the
+  purple plate asset profile to use it. Preserved the original run artifact,
+  source hash, scene placement and configured 20 cm diameter.
+- Validation: copied-file SHA-256 matches the profile; tabletop_objects
+  `--check-config` passed. No simulator restart or rendering was needed.
+
+## 2026-11-05 — Align the tabletop scene to the 120 × 60 cm reference
+
+- Set the tabletop scene's table instance scale to `[6/7, 6/7, 1]`, yielding
+  1.20 × 0.60 m with the existing 0.75 m height. Moved its world X center from
+  0.600 to 0.625 m. Shared source geometry and the penholder table are unchanged;
+  support bounds and collision geometry use the same instance scale.
+- Refined all seven object XY placements against
+  `screenshot-20261105-161633.png`, accounting for its camera viewport and the
+  rendered head-camera projection. Adjusted steamer, drumstick, bread and pig
+  yaw to follow the pictured orientations. Preserved asset sizes, robot pose,
+  materials, lighting and geometry-derived 1 mm initial support clearance.
+- Validation: integrated `item_classification.json --check-config` passed;
+  resolved mesh bounds confirm the requested table dimensions, complete object
+  footprints inside the support surface and unchanged penholder dimensions.
+  Existing scene-asset tests: 56 passed, 3 optional dependency skips.
+- Two bounded Isaac Lab captures exited successfully on verified-empty
+  localhost ROS domain 197, with seed 42 and 32 render updates after reset.
+  Final camera images and metadata are in
+  `outputs/evaluation/tabletop_objects/aligned_120x60/`. No post-reset physics
+  steps or hardware operations; placement is an image-based approximation,
+  not a calibrated reconstruction or validation of dynamic stability.
+- Updated `docs/TABLETOP_OBJECTS.md`, including the current
+  `item_classification.json` launcher path. Temporary fitting and capture
+  scripts are under `/tmp/tabletop_alignment_20261105/`.
+
+## 2026-11-05 — Budgeted item classification with empty success criteria
+
+- Set the item classification experiment budget to 100 episodes, 5000 steps
+  and seed 0. Episode count and seed match current penholder; 5000 steps at
+  dt=0.01 represent 50 simulated seconds, excluding model waiting time.
+- Allow an explicit `task.success.predicates: []` in managed admission while
+  retaining rejection of missing/non-list predicates for ordinary tasks.
+  Empty criteria retain unknown evidence and cannot pass; the existing step
+  budget ends the episode as timeout. Atlas now admits the corresponding
+  `success_configured: false` description and records evidence_insufficient.
+  No motion_test flag or fabricated success predicate is used.
+- Added regressions for empty criteria across two completed/reset episodes,
+  zero success counts, malformed criteria, and CPU-only item classification
+  admission. Updated managed-evaluation and tabletop instructions.
+- CPU-only managed launcher admission and Atlas Console launch resolution
+  passed; actual service description and Console fingerprints match, and the
+  100/5000/0 budget and unchanged common Atlas settings were checked.
+  Simulation managed/online/task tests: 79 passed, 1 unrelated failure in
+  `test_penholder_stages_use_moving_holder_and_clear_history_on_reset[placement1]`:
+  the old horizontal-on-rim case still expects success despite the current
+  insertion-only penholder task. That test and penholder criteria were not
+  changed. Atlas focused configuration/RPC/episode tests: 23 passed.
+- No ROS, GPU simulation, model inference or hardware run was performed.
+  Existing rendering metadata describes the earlier layout capture, not a
+  run of this newly budgeted experiment. Changes remain uncommitted.
+
+## 2026-11-05 — Deformable plush bear in Isaac Lab
+
+- Replaced the bear profile's convex-hull rigid body with a volumetric PhysX
+  deformable. The unchanged metric `~/assets/wanjuxiong.glb` traces to the Artos
+  `wanjuxiong` pass-6 run. Its padded head, torso, ears and limbs supply a
+  connected tetrahedral core; the full colored mesh, fur, nose and loop form
+  one material-subset skin driven by FEM. This is an assumed homogeneous
+  elastic approximation, not a measured shell/stuffing model.
+- Added strict elastic/core validation, a GPU admission check, InteractiveScene
+  deformable registration, nodal reset (including sampled placements and free
+  targets) and best-fit material-frame state reporting. Existing rigid/static
+  paths remain separate. Documentation describes the next-tick skin refresh
+  after reset, disabled self-collision, deforming nose and the absence of
+  robot-grasp/contact-force diagnostic validation.
+- Final assumed material: 30 kPa Young's modulus, Poisson ratio 0.35, elasticity
+  damping 0.05, velocity damping 2/s and existing mass 0.08 kg. Hexahedral
+  resolution 16 and 255 position iterations passed the original 45% press-gap
+  reduction test at dt=0.01. Finer cages and fewer iterations exhibited local
+  element inversion; those variants were not adopted.
+- Reproducible ROS-free GPU check:
+  `python scripts/validate_deformable_bear.py --captures --output outputs/evaluation/wanjuxiong_soft_body`
+  using `astribot_simu_il`, Isaac Lab 2.1.1, Isaac Sim 4.5 and RTX 3090. Final
+  process exited 0; JSON `passed` is true. The 1,196 simulation nodes and 3,860
+  tetrahedra settled to 42.814 mm height, compressed to 27.107 mm (36.686%),
+  and recovered to 42.735 mm (99.814% of settled height). The sampled minimum
+  element Jacobian was 0.3729; worst sampled contact height was -0.460 mm.
+  Reset readback error was zero, with 0.985 mm maximum displacement after the
+  next 10 ms gravity/contact step. Five rendered checkpoints and a comparison
+  figure are stored alongside the report.
+- The validator clears Lab's STOP callback before Kit shutdown and supplies
+  its return code before default fast shutdown. A deliberately negative
+  modulus was rejected with exit 1. This avoids the installed Kit's slow
+  extension-unload crash and prevents failed checks being masked by exit 0.
+- Focused asset/deformable/gripper/torso tests: 108 passed, 3 skipped (CPU
+  interpreter lacks USD/PhysxSchema; GPU authoring was exercised separately).
+  Simulator import checks: 5 passed, 3 optional-backend skips. All 11 current
+  item-classification configs resolve with the deformable bear; managed
+  `--check-config` also passed. Syntax and whitespace checks passed.
+- Expanded regression run: 179 passed, 3 skipped, 14 failed because existing
+  initial-pose/scene-profile tests reference the already-deleted
+  `config/experiments/evaluation/press_cube.json`. That user deletion and those
+  unrelated tests were not changed. No full ROS/Atlas episode or robot grasp
+  was run. Changes remain uncommitted with the existing worktree edits.
+
+## 2026-11-05 — Confirm soft bear for item-classification layouts 01–10
+
+- Confirmed all ten fixed experiments inherit `tabletop_objects.json` and its
+  shared deformable bear profile; their overrides change placement only.
+  Added deformable/tetrahedral/CUDA assertions to the existing fixed-layout
+  verification and corrected the fixed-layout README's rigid-only description.
+- The fixed-layout `verify.py check` passed 01–10, including managed admission,
+  support placement, fixed resets and independent output paths. Atlas entry
+  mappings and shared material checks are recorded in
+  `outputs/evaluation/wanjuxiong_soft_body/fixed_layouts.json`.
+- These were CPU configuration checks. Existing running simulations were not
+  interrupted; Stop Simulation followed by Start Simulation reloads the asset,
+  whereas Reset restores the already-loaded physics state.
+
+## 2026-11-05 — Restore rigid bear and resize fixed layouts 01–10
+
+- The user requested rigid GLB behavior for layouts 01–10, width 7 cm, head
+  height 6 cm and friction 1.0, and clarified that head height means thickness
+  when lying on the table. Added `wanjuxiong_rigid.json` and explicitly selected
+  it in each numbered experiment. The un-numbered experiment and its original
+  deformable profile are unchanged.
+- Generated `~/assets/wanjuxiong_rigid.glb` from the original metric GLB using
+  `scripts/resize_wanjuxiong.py`. The whole model's X width is scaled by 0.875;
+  head/ears/nose/loop Z depth is scaled by 1.2. Readback dimensions are
+  0.07 × 0.10 × 0.06 m in glTF XYZ, with body thickness still 0.025 m. Binary
+  mesh, color and texture payloads are byte-identical. The adjacent sidecar
+  records source and output SHA-256; the output digest is
+  `9a8bc910deca2316b97744385639778cd00777ddf7b45256513763b7c903940b`.
+- The fixed profile uses a dynamic rigid body, convex hull, static/dynamic
+  friction 1.0, restitution 0 and the existing 0.08 kg mass. All ten JSON edits
+  are limited to the bear asset reference. XY/orientation declarations remain
+  unchanged; geometry-derived grounding retains the 1 mm tabletop clearance.
+- Fixed-layout checks passed 01–10, including managed admission, dimensions,
+  friction, placement/support and output separation. Atlas entry mapping and
+  before/after JSON comparisons are recorded in
+  `outputs/evaluation/wanjuxiong_rigid/fixed_layouts.json`. Focused asset and
+  deformable utility tests passed (68 passed, 3 USD-only skips); syntax and
+  whitespace checks passed.
+- An isolated Isaac Lab GPU scene using the layout-01 bear confirmed zero
+  deformable bodies, convex-hull authoring, both friction attributes equal to
+  1.0, finite state after 100 steps, unchanged local collision vertices and
+  successful reset. The process exited 0. The report, dimensions and preview
+  are in `outputs/evaluation/wanjuxiong_rigid/`. No ROS, Atlas episode or robot
+  grasp was run; existing simulations were not restarted.
+
+## 2026-11-05 — Fixed-layout bear width 8 cm and head thickness 4.5 cm
+
+- Updated the rigid bear used by fixed layouts 01–10 to overall width 8 cm and
+  face-up head thickness 4.5 cm. Regenerated from the original metric GLB,
+  retaining its width and scaling only the head group depth by 0.9. Body
+  thickness remains 2.5 cm and head-to-feet length remains 10 cm. The binary
+  mesh/texture payload is unchanged; rigid mode, mass and friction 1.0 remain.
+- Replaced the previously generated `~/assets/wanjuxiong_rigid.glb` and its
+  sidecar, updated the profile digest, builder defaults, size assertions and
+  documentation. New digest:
+  `007598ba8a1d85abc3d9f28e2ada6c211e3361f76b1ca10b3e723ac0f20b716e`.
+- CPU geometry readback and all ten fixed-layout checks passed, including
+  managed admission, unchanged placement declarations, support containment
+  and 1 mm clearance. Evidence is in
+  `outputs/evaluation/wanjuxiong_rigid_w8_h4p5/verification.json`.
+  Syntax and whitespace checks passed. No new GPU or robot-grasp run was
+  performed; the earlier 7 cm / 6 cm render remains historical evidence.
+
+## 2026-11-06 — Restore elastic bear and remove separate plush pile
+
+- The user requested elastic behavior with the surface fur removed. Derived
+  `~/assets/wanjuxiong_smooth.glb` from the restored rigid GLB using
+  `scripts/strip_wanjuxiong_fur.py`. Eight `_ShortPlushPile` nodes and their
+  unused mesh buffers are removed. Retained geometry, transforms, normals,
+  colors and material/texture references match the source exactly. The
+  original metric and restored rigid assets remain available.
+- Triangles decrease from 2,093,280 to 113,280 (94.59%), vertices from
+  1,444,396 to 58,396, and the GLB from 56,360,428 to 3,265,824 bytes (94.21%).
+  Removing only the pile changes bounds from 8 × 10 × 4.5 cm to approximately
+  7.911 × 9.923 × 4.463 cm; the padded shape was not resized. The output digest
+  is `0e93978e313415dee62229aee6b9ffafcec16ba7c4fbda79c7ba5c328b74a7aa`.
+- The shared `config/assets/wanjuxiong.json` now loads the smooth asset with
+  the existing FEM preset: Young's modulus 30 kPa, Poisson ratio 0.35,
+  elasticity damping 0.05, resolution 16 and 255 position iterations. Mass
+  remains 80 g and dynamic friction is 1.0. Fixed layouts 01–10 switch their
+  bear asset reference to this profile; their placement declarations and
+  other settings are unchanged. The un-numbered scene also uses this profile.
+- Updated fixed-layout checks for deformable physics and the exact retained
+  geometry. The capture helper now applies the shared rigid/FEM reset adapter,
+  checks reset poses before physics, then advances one tick to refresh the
+  soft render skin. It records reset and capture poses separately. Full
+  integrated ROS capture was not rerun; its syntax and shared reset behavior
+  were checked.
+- Real isolated Isaac Lab 2.1.1 validation on the RTX 3090 passed without ROS:
+  1,134 simulation nodes, 3,600 tetrahedra, 37.02% compression, 99.969%
+  recovered height and zero nodal reset error. Finite states, element
+  orientation, contact and post-step reset checks passed. Settled, compressed
+  and released renders were inspected. Evidence and checkpoints are in
+  `outputs/evaluation/wanjuxiong_soft_smooth/physics/`.
+- CPU scene-asset/deformable tests: 66 passed, 5 optional USD/PyTorch skips;
+  the sampled soft-reset test also passed in the Isaac Python environment
+  with PyTorch. All ten fixed layouts passed CPU admission, geometry-derived
+  grounding and support checks. Installed asset hashes and validation are
+  recorded in `outputs/evaluation/wanjuxiong_soft_smooth/verification.json`.
+  No robot grasp or end-to-end FPS comparison was run. Fewer triangles reduce
+  geometry and skin-update work, while the FEM core still requires solving.
+
+## 2026-11-06 — Bear friction 2.0 and mass 40 g
+
+- The user deferred rebound tuning, requested friction 2.0, and selected a
+  mass of 40 g instead of 80 g. Updated the shared `wanjuxiong.json` profile,
+  fixed-layout assertions and current documentation. Default and numbered
+  item-classification scenes consume this shared profile.
+- Only `physics.friction` and `physics.mass` changed. Mesh, Young's modulus,
+  Poisson ratio, damping and solver parameters match the preceding preset.
+  The FEM adapter uses dynamic friction and computes density from mass/core
+  volume, so this also halves the authored density for the unchanged core.
+- CPU profile validation, all ten fixed-layout checks, syntax and whitespace
+  checks passed. No GPU dynamics or grasp rerun was performed; previous
+  compression/recovery measurements apply to the earlier 80 g/friction 1.0
+  configuration. Restart the simulation to load these material parameters.
+
+## 2026-11-06 — Increase the pink bear head depth by 1 cm
+
+- Increased the fur-free pink head's rest depth from 3.9184726 cm to
+  4.9184726 cm, centered on its previous depth midpoint. The front and back
+  move outward by 0.5 cm each. The nose translates forward by 0.5 cm without
+  resizing; ears and cord translate with their attachment locations. Width,
+  head-to-feet length and body/limb vertices are unchanged. The binary
+  mesh/color/texture payload is byte-identical.
+- Added `--face-depth-increase` to `scripts/resize_wanjuxiong.py`; its original
+  width/head-group resizing mode still reproduces the original rigid GLB
+  hash exactly. Installed `~/assets/wanjuxiong_smooth_head_plus1cm.glb` and its
+  provenance sidecar, keeping the smooth baseline available. The shared
+  profile now references the new file, with digest
+  `efed8535b3e93f573c8ba45e11045de434551e6cf386d5b841ebf55ebfcca19d`.
+- Mass remains 40 g, dynamic friction 2.0, Young's modulus 30 kPa, Poisson
+  ratio 0.35 and the existing damping. Resolution 16 failed the unchanged
+  deep-compression check with minimum element Jacobian -0.06318. Raising only
+  the numerical mesh resolution to 20 fixed the inversion: 2,125 nodes and
+  7,490 tetrahedra, minimum Jacobian 0.01780. This costs more FEM work; render
+  triangles remain 113,280. Failed and successful reports are both retained.
+- Fresh isolated RTX 3090 validation at resolution 20 passed contact,
+  compression/recovery, finite-state, element-orientation and reset checks:
+  39.73% compression, 99.890% recovered height, zero immediate reset error
+  and 0.992 mm post-step nodal difference. Settled and compressed images
+  were inspected. Results are in
+  `outputs/evaluation/wanjuxiong_head_plus1cm/physics_r20/`.
+- CPU geometry assertions, all ten fixed-layout checks, legacy-builder
+  reproduction, syntax and whitespace checks passed. Layout JSON hashes are
+  unchanged. No robot grasp or full-scene FPS benchmark was run. Restart the
+  simulation to load the new mesh and numerical resolution.
+
+## 2026-11-06 — Narrow the pink head by 1.5 cm and add another 1 cm depth
+
+- Applied the requested relative change to the preceding head-plus1cm asset.
+  Pink-head rest width changes from 6.3792223 to 4.8792223 cm; depth changes
+  from 4.9184726 to 5.9184726 cm. Both transformations are centered on the
+  head. The nose moves forward 0.5 cm, ears move inward approximately 0.609 cm
+  each, and ear/loop depth follows the head attachment coordinates. Attachment
+  shapes, body/limb vertices and head-to-feet length are preserved.
+- Extended `scripts/resize_wanjuxiong.py` with `--face-width-decrease`, usable
+  with `--face-depth-increase`. Readback checks the entire pink-head transform,
+  exact dimensional differences, translation-only attachments and unchanged
+  body vertices. The binary mesh/color/texture payload is byte-identical.
+  Both previous resize modes still reproduce their original GLB hashes.
+- Installed `~/assets/wanjuxiong_smooth_head_w4p879_d5p918.glb` and sidecar and
+  updated the shared profile, geometry assertions and documentation. Output
+  digest: `5d4f886a790ee608499b8b474eab54dfb3ea3b8925e4c96ea209ade3234f16f0`.
+  Earlier model revisions remain available. All ten layout JSON files retain
+  their original hashes. Overall width is now 7.0384 cm, set by the unchanged
+  arms; total depth including the nose is 6.4626 cm.
+- All physics fields are unchanged: mass 40 g, dynamic friction 2.0, Young's
+  modulus 30 kPa, Poisson ratio 0.35, existing damping and mesh resolution 20.
+  Fresh isolated RTX 3090 validation passed with 2,004 nodes, 6,985 tetrahedra,
+  37.64% compression, 98.87% recovered height, minimum element Jacobian
+  0.078889, zero immediate reset error and 0.994 mm post-step difference.
+  Settled and compressed renders were inspected. Evidence is in
+  `outputs/evaluation/wanjuxiong_head_wminus1p5_dplus1cm/physics/`.
+- CPU geometry, all ten fixed layouts, source/profile integrity, syntax and
+  whitespace checks passed. No robot grasp or full-scene performance test
+  was run. Restart the simulation to load the revised asset.
+
+## 2026-11-06 — Narrow the blue torso by 1 cm and reduce bear mass to 15 g
+
+- The user requested the blue torso narrower by 1 cm and total mass 15 g,
+  and asked whether weight, friction or deformation explains downward slip
+  during a head pinch. Blue-torso rest width changes from 4.2657367 cm to
+  3.2657367 cm. Arms translate inward about 0.573 cm each and legs about
+  0.252 cm each to follow the torso, without resizing. All head vertices and
+  all parts' length/depth coordinates remain exact. Binary payload is unchanged.
+- Extended `scripts/resize_wanjuxiong.py` with `--torso-width-decrease`.
+  Existing whole-bear, depth-only and head-width/depth modes reproduce their
+  original output hashes. Installed `~/assets/wanjuxiong_smooth_torso_w3p266.glb`
+  and sidecar; kept all prior source assets. Output digest:
+  `e97405f3919a541eab5ba60a1b9af7fc053e4710bc82a60395be07440fbf6f9c`.
+  Updated the shared profile, layout assertions and current documentation.
+- Mass changes from 0.04 to 0.015 kg; dynamic friction stays 2.0. Young's
+  modulus, Poisson ratio, damping and the final numerical settings are the
+  preceding values. Gravity load decreases from 0.3924 to 0.14715 N (62.5%).
+  This helps gravity-led slip but does not prove a head pinch will hold.
+- The isolated GPU press test at resolution 20 **failed** the element
+  orientation check: minimum Jacobian -0.11448, despite 38.11% compression,
+  99.48% recovered height, finite states and successful reset. Resolution 24
+  and 32 trials also failed (-0.30592 and -0.45156 respectively). Restored
+  resolution 20; no test tolerance or compression depth was relaxed. The
+  model is delivered as the requested geometry/mass edit with this strong-
+  compression limitation, not as a validated slip/grasp fix.
+- Read-only source-USD inspection found four fingertip colliders without a
+  bound physics material. No engine default or effective pair coefficient
+  was inferred. Existing GraspDiagnostics filters rigid dynamic objects and
+  excludes the soft bear, so its logs cannot establish the actual bear/finger
+  forces. No live robot pinch was replayed. The first audit attempt failed
+  on a USD token name; using the supported string material purpose fixed it.
+- CPU geometry, unchanged head/attachment shapes, all ten layout checks,
+  source/profile integrity, syntax and whitespace passed. The final report
+  explicitly retains `passed: false` for GPU stress validation. Reports,
+  source material audit and inspected settled/compressed images are in
+  `outputs/evaluation/wanjuxiong_torso_minus1cm_15g/`. No local commit was made
+  while the physical validation remains failed. Restart to load the new asset.
+
+## 2026-11-09 — Press button layout evaluation configs
+
+- Added `config/experiments/evaluation/press_button.json` and `press_button_fixed/01.json`–`10.json`, plus dedicated scene/task and three asset profiles. The table (1.20 × 0.60 m, top at 0.75 m), black background, lighting and robot placement match item classification. Base evaluation uses fixed 01 for 100 episodes; fixed configs use one episode each, 6500 steps and seed 0, without randomized reset.
+- Fixed 01–10 map to the supplied `10.png`–`01.png` in reverse filename order. Photo hashes, table/cap pixel annotations and fitted metric XY coordinates are retained in `press_button_fixed/review/annotations.json`. A photo-only camera fit uses table corners and existing camera intrinsics/distortion; it does not alter the simulation camera. Near-left corners are extrapolated; this is a single-view layout estimate.
+- Imported row 0 of `real_eval_init_pose_2.hdf5`, command dataset, using the robot profile's 25-value order. The task stores self-contained joint/gripper targets and source SHA-256. Instruction is “按下按钮”; success predicates are explicitly empty, as requested for layout testing.
+- Added `scripts/resize_press_buttons.py` and three metric GLB derivatives. Measured diameter is 0.088 m; black housing plus seat is 0.022 m high and cap is 0.013 m high. Only node transforms change; original binary geometry and materials are preserved. Original files are untouched. Dynamic rigid-body mass 0.10 kg and friction 1.0 are provisional layout parameters; no spring, button travel or press-success detector is added.
+- Validation: all 11 Atlas/Simulation pairs pass strict resolve, managed admission, HDF5 snapshot checks, scene/table equality, metric geometry/material preservation, 1 mm clearance, support containment, pairwise separation and photo mapping checks (`/tmp/press_button_task/validate.py`). Simulation Python 3.10: `python -m pytest -o addopts='' -p no:cacheprovider tests/unit/test_scene_assets.py`: 56 passed, 3 skipped (optional USD dependencies). `--managed-evaluation --check-config` and resize CLI help pass. Documentation: `config/experiments/evaluation/press_button_fixed/README.md`.
+- Atlas simulation-config tests pass (7). The required Atlas Phase 2 and internal gate remain blocked by the existing deployment-list expectation missing `gt_motion_s1_ros2`; sandbox-only runtime-socket errors disappear on the approved rerun. No commit is created for this paired change while the gate fails. GPU rendering, contact dynamics, ROS/VLA execution and hardware: not performed. Runtime/API changes: N/A.
+
+## 2026-11-09 — Refresh button initial pose and align all ten rendered layouts
+
+- Re-read frame 0 of the updated `real_eval_init_pose_2.hdf5` command dataset (SHA-256 `7d5317ccce576ff9bafa42c352acc791f742e5a6590a981c62b50f8929014e02`). Updated the shared `config/tasks/press_button.json` snapshot. Both base and fixed experiments inherit the new torso, arm, head and gripper targets; fixed chassis placement remains unchanged.
+- Adjusted all 30 button XY positions in fixed 01–10 using the actual Isaac head-camera extrinsics at the new robot pose, the existing lens distortion and metric cap geometry, followed by corrections from rendered colored-cap centers. Base scene `config/scenes/press_button.json` mirrors fixed 01. Table pose/size, camera calibration, lighting, background, asset geometry/materials and task budgets are unchanged.
+- At 1280 × 720, colored-cap bounding-box center error decreased from mean 30.949/max 51.814 px to mean 0.690/max 1.694 px. Average XY correction is 3.608 cm, maximum 5.827 cm. Fixed 02's yellow button is constrained by the existing usable-table boundary; its final error is 1.694 px and its complete footprint remains supported. No table-margin checks were removed.
+- Captured all ten layouts through the integrated launcher in an isolated, initially empty localhost ROS domain 197. Each reset is followed by zero physics steps and 32 render updates. Actual named robot joints match the new HDF5 targets within 1e-6 rad, object reset positions match config within 1e-6 m, and capture config hashes/fingerprints match. Final evidence: `outputs/evaluation/press_button_fixed/alignment_20261109/` (`capture.json`, `validation.json`, per-layout head/wrist/reference/before/overlay PNGs, `comparison_01_05.jpg`, `comparison_06_10.jpg`). Both comparison sheets were visually reviewed.
+- All 11 Atlas/Simulation pairs pass CPU resolve/managed admission, HDF5 numeric/hash, source photo mapping, table/background equivalence, dimensions/material preservation, support containment, separation and base/fixed-01 equality checks. The shared Atlas YAML settings are unchanged. Updated `review/annotations.json` retains prior estimates and records the actual simulation camera, new pose source, final placement and rendered errors. Preparation/reproduction scripts and failure diagnostics are in `/tmp/press_button_alignment_20261109/`.
+- The first capture stopped at fixed 02 because unconstrained center matching exceeded the allowed support boundary; the final constrained fit above completed all layouts. Static validation and actual GPU initial-layout rendering pass. Press dynamics, physical settling, VLA task success and real hardware were not evaluated. Existing Atlas full-suite deployment-list failure from the preceding task is unchanged; no commit created. Runtime/API changes: N/A. Existing user edits and the removed fixed-layout README were preserved.
+
+## 2026-11-09 — Correct press-button numbering and tabletop overlay
+
+- Fixed IDs 01–10 now select source photos 01.png–10.png respectively. Reversed the ten existing aligned layouts while retaining each destination's name and output root; the base scene now mirrors the corrected fixed 01. Annotation records follow the same mapping and retain their previous config IDs. Earlier output directories remain historical evidence with their original fingerprints.
+- Corrected the press-button-only table instance from 1.20 × 0.60 m at world XY (0.625, 0) to approximately 1.25779 × 0.61339 m at (0.62876, 0.04615), yaw 89.9425 degrees. Fitted a horizontal table to median annotated corners across ten photos using the existing Isaac camera. Height remains 0.75 m. Converted button support-frame XY/orientation to preserve all 30 world poses within 1e-10; camera, initial robot pose, shared table asset and other tasks are unchanged.
+- All ten layouts were rendered through the integrated Isaac launcher on an initially empty localhost ROS domain 196, with zero physics steps and 32 render updates after reset. Config hashes/fingerprints, robot joint snapshot and camera pose matched; inspected both comparison sheets. Button cap centers moved at most 0.5 px relative to the previous renders (mean target error 0.697 px, max 2.141 px for the previously support-limited yellow button). Mean projected table-corner error decreased from 40.984 to 10.272 px; maximum from 81.820 to 13.240 px. This corner metric uses photo annotations including an extrapolated near-left corner, not exact silhouette error; rounded corners/perspective still differ slightly.
+- Evidence: `outputs/evaluation/press_button_fixed/table_alignment_20261109/`, including same-number references, before/after head images, three camera views, overlays, two comparison sheets, capture records and validation. Reproduction scripts and prepared-file hashes: `/tmp/press_button_number_table/`.
+- Validation: all 11 Atlas/Simulation pairs pass strict resolve, managed admission, same-number photo/hash checks, initial-pose snapshot, dimensions/materials, 1 mm clearance, support containment, separation and base/fixed-01 equivalence. Scene asset tests: 56 passed, 3 skipped (optional USD); Atlas simulation config: 7 passed. Shell syntax and whitespace checks pass. No runtime/API/schema changes, VLA evaluation, press dynamics or real hardware. Existing unrelated dirty files and the previously recorded Atlas deployment-list failure remain untouched; no commit is created over the pre-existing untracked task and failed full-suite baseline.
+
+## 2026-11-09 — Move fixed 01 red button right by 1 cm
+
+- Shifted fixed 01's red button 0.01 m toward image right along the tabletop long axis (table-frame X minus 0.01 m); base press-button scene mirrors fixed 01. Updated the annotation placement and recorded the manual offset; previous render metrics/images remain historical. Other buttons and fixed 02–10 are unchanged.
+- CPU validation: strict experiment resolve, scene support containment and managed admission pass for fixed 01/base. World displacement is exactly 0.01 m within 1e-12, height/orientation and all other objects unchanged; existing camera projection confirms motion to image right. JSON and whitespace checks pass. No GPU recapture, runtime/API change or hardware operation. Restart Simulation/Eval to load the change. Existing untracked task changes and the previously recorded full-suite failure remain; no commit created.
+
+## 2026-11-09 — Correct temporary reconstructed-cloth visual deformation
+
+- The temporary `outputs/cloth_test_000006/` preview had black triangular cavities caused by independently binding the thick visual shell to nearest physics triangles. Material removal and flat-normal ablations retained the defects; rendering the physics midsurface removed them.
+- Replaced that visual path with Blender Surface Deform on the original sewn garment midsurface, retaining the original materials, UVs and detail objects. Reconstruct textile thickness after deformation; disable even-offset mitering because almost 180-degree folds otherwise create unbounded spikes. Removed the old nearest-triangle preview from `run.py`, which now defaults to exporting physics motion for the corrected renderer.
+- The existing 241-frame Isaac trajectory is reused unchanged. `validate_surface.py` checks all 16 visual meshes across all frames for finite coordinates, bounded geometry and thickness, and exact physics-cache replay. Maximum physics error is 0 m; maximum generated thickness is 0.000518758 m. The reported dark-patch ROI in the final frame drops from 118 pixels below intensity 55 to zero under identical lighting/materials. These checks cover this recorded trajectory, not arbitrary cloth motion or calibrated textile mechanics.
+- Reproduction: export motion with the `astribot_simu_il` interpreter and `outputs/cloth_test_000006/run.py`; run `blender_render.py` in Blender with the source `canonical.blend`, then run `blender_encode.py` with the same Python environment. Fixed scene/cache/validation live in `outputs/cloth_test_000006/blender_fixed/`; the corrected MP4 is `cloth_test_blender_fixed.mp4`. Original videos and diagnostics remain available for comparison. No robot/ROS communication, shared simulation API, source asset or physics parameter changes.
+
+## 2026-11-10 — Compare reconstructed-cloth physics mesh resolutions
+
+- Added a temporary controlled comparison under `outputs/cloth_test_000006/resolution_comparison/`. The user selected increased physics resolution, rather than render-only subdivision. Three independently simulated connected midsurfaces contain 6,396 / 12,428 / 22,462 vertices and 12,478 / 24,512 / 44,568 input triangles. Each uses the same 180 g mass, numerical spring/solver parameters, 1/240 s timestep, gravity, initial poses, table and fixed 12 mm clamp center. All render with the same 138,260-triangle garment, continuous Surface Deform and post-deformation thickness.
+- High-resolution PhysX cooking welds a few near-coincident vertices (22,453 drop particles and 22,456 hanging particles). Added explicit `weldedVerticesRemapToWeld` mapping during tensor export, preserving the input surface's vertex order and topology rather than truncating particle arrays. Low and medium meshes retain their original particle counts.
+- All three 241-frame caches pass finite-geometry, spike/thickness and exact replay checks (723 geometry frames; maximum replay error 0 m). The final drop AABB heights are approximately 9.04 / 6.38 / 3.54 cm. Higher density changes the fold distribution and hanging silhouette; this is numerical mesh sensitivity at identical spring settings, not calibrated continuum/material convergence.
+- Reproduce with `compare_physics.sh`, then `compare_render.sh`, then `compare_encode.py`. The comparison includes synchronized overview video and matching-camera close-ups. `comparison.json` retains configurations, particle counts, clamp drift, final dimensions and single-run simulation-plus-sampling timings. Timings are not isolated GPU benchmarks. No ROS or hardware activity; original asset and earlier comparison outputs are retained.
+
+## 2026-11-10 — Move fixed 07 red button right and down by 1 cm each
+
+- Changed only fixed 07's red-button placement: tabletop X minus 0.01 m and Y plus 0.01 m (image right/down). Updated the corresponding annotation and recorded the manual offset; earlier render images/metrics remain historical. Base/fixed 01 and all other layouts remain unchanged.
+- CPU validation: strict experiment resolve, support containment and managed admission pass. World-to-table displacement matches (-0.01, +0.01, 0) m within 1e-12; camera projection confirms right/down, and height/orientation/other objects are unchanged. JSON and whitespace checks pass. No GPU recapture, runtime/API change or hardware operation. Restart Simulation/Eval to load the change. Existing untracked task changes and the previously recorded full-suite failure remain; no commit created.
+
+## 2026-11-10 — Align fixed 08 grippers before adjusting buttons
+
+- Verified the current shared press-button task against frame 0 of `real_eval_init_pose_2.hdf5`: source SHA-256 and all torso/arm/head/gripper values match exactly. The HDF5 contains only the 25-value command row, not measured states or images. The old `press_cube.json` is already deleted; the active task is `press_button`.
+- Compared the explicitly selected `08.png` viewport with the Isaac head image. Fitted only the two head joints (+0.018401167233786302, +0.0037146077634369057 rad) to four fingertip landmarks, preserving torso, arms, gripper openings and camera model. Fixed 08 now stores an explicit derived task pose without falsely labeling it an exact HDF5 snapshot; source hash and offsets remain in its annotation. Shared task, base and other fixed configurations remain unchanged. Updating the shared task does not update fixed 08's derived snapshot.
+- Then adjusted fixed 08's three button XY positions in the tabletop frame. Table, physical button geometry, Z/orientation and all other objects are unchanged. No changes to the prior manual fixed 01/07 adjustments.
+- Actual isolated Isaac rendering on an initially empty localhost ROS domain 195: four fingertip mean error 12.704 -> 2.514 px, maximum 4.000 px; three rendered button-cap bounding-box center errors 0.500/0.707/1.000 px. Metrics are at 1280x720, after reset with zero physics steps. This is a single-view visual pose correction; it does not identify real camera extrinsics or remove gripper housing/geometry differences.
+- Evidence: `outputs/evaluation/press_button_fixed/gripper_alignment_20261110/08/` (before, head-only, final, reference, overlay, result and validation). Temporary reproduction scripts: `/tmp/press_button_gripper_20261110/`. Strict resolve, managed admission, support validation, unchanged-field checks and rendered-joint/config comparison pass (maximum joint error 4.45e-8 rad).
+- `astribot_simu_il` pytest on `test_initial_pose.py` and `test_scene_assets.py`: 69 passed, 3 skipped (optional USD), 3 failures because existing tests still reference the already deleted `press_cube.json`. The first attempted atlas interpreter lacks pytest; no dependency changes made. No runtime/API/schema changes, real hardware, VLA rollout or press-dynamics validation. Restart Simulation and Eval to load fixed 08. Existing dirty/untracked work and failing test fixtures are preserved; no commit created.
+
+## 2026-11-10 — Move fixed 08 red button right by 1.5 cm
+
+- Shifted only the fixed 08 red button toward image right by subtracting 0.015 m from tabletop X. Updated its annotation and recorded the manual offset; previous render metrics remain historical.
+- Strict resolve, support containment and managed admission pass. World displacement is 0.015 m; projection with the fixed 08 camera confirms movement right. Blue/yellow buttons, robot pose, height/orientation and other objects/layouts are unchanged. No GPU recapture or runtime restart. Restart Simulation/Eval to load the configuration.
+
+## 2026-11-10 — Move fixed 01 red button right by another 1 cm
+
+- Shifted fixed 01's red button an additional 0.01 m from its current position toward image right along the tabletop long axis (table-frame X minus 0.01 m); base press-button scene mirrors fixed 01. Updated the annotation placement and recorded the manual offset; previous render metrics/images remain historical. Other buttons and fixed 02–10 are unchanged.
+- CPU validation: strict experiment resolve, scene support containment and managed admission pass for fixed 01/base. World displacement is exactly 0.01 m within 1e-12, height/orientation and all other objects unchanged; existing camera projection confirms motion to image right. JSON and whitespace checks pass. No GPU recapture, runtime/API change or hardware operation. Restart Simulation/Eval to load the change. Existing untracked task changes and the previously recorded full-suite failure remain; no commit created.
+
+## 2026-11-10 — Move all fixed 01 buttons right by another 1 cm
+
+- Shifted the blue, red and yellow buttons 0.01 m toward image right from their current positions (tabletop X minus 0.01 m). Preserved the earlier red-button adjustments. The base press-button scene and placement annotations remain synchronized.
+- Strict resolve, support containment and managed admission pass for fixed 01/base. Each world displacement is exactly 0.01 m within 1e-12; camera projection confirms movement right. Button Y/height/orientation, robot pose and other objects are unchanged. No GPU recapture or runtime restart; previous render metrics remain historical. Restart Simulation/Eval to load the change.
+
+## 2026-11-10 — Integrate fold_tshirt into managed evaluation
+
+- Added `config/experiments/evaluation/fold_tshirt.json`, task/scene/asset profiles, and synchronized Atlas `configs/simulation/fold_tshirt.yaml`. New files under `~/assets/fold_tshirt/` include the metric 44,568-triangle sewn midsurface, original visual GLB, canonical Blender source, physics NPZ and profile. Runtime renders a vertex-identical copy of the physics surface with smooth normals; it does not run Blender skinning or mutate solver points during image capture.
+- Added explicit cloth material validation, PhysX particle-cloth authoring, welded-particle reset/readback, and seeded `uniform_in_regions` initialization. Four regions from the supplied 120 × 60 cm diagram scale into the fitted tabletop frame. The task uniformly chooses a region and supported origin, releases at 35 cm minimum clearance with a 75-degree tilt, and advances 4 s of gravity settling with the robot held at its exact initialization pose. The real_eval_init_pose.hdf5 first command frame is embedded with SHA256; measured reset joint error is at most 4.53e-8 rad.
+- Fitted only this task's table to approximately 1.26868 × 0.61051 m, XY (0.62721, 0.02870) m, yaw 1.57282 rad, at height 0.75 m using the fixed camera/HDF5 pose. Far corners and visible near edge constrain the fit; cropped near corners and single-view geometry limit accuracy. Four region mappings and fit residuals are retained in `outputs/fold_tshirt_setup/`.
+- Added optional `runtime.simulation.physics_substeps` (default 1). fold_tshirt uses four 0.0025 s physical ticks per managed 0.01 s control period. Initialization ticks are excluded from the policy budget. Atlas still uses 100 Hz sync commands and a 120 s reset/operation timeout. Empty success predicates intentionally produce unknown evidence / evidence_insufficient, not success.
+- Validation: 123 focused Simulation tests pass, 3 optional USD tests skip; 7 Atlas managed-config tests pass in atlas. Actual Atlas SimulationRPC/SimulationEpisode over localhost ROS domain 193 completed 12 Isaac episodes (3 hold-action control steps each), covering all four random regions, three RGB cameras, repeated resets and both result stores. Source hashes, region membership, finite cloth states, table support height and exact HDF5 reset joints pass. Tests that reference the previously deleted press_cube.json still fail (3 existing initial-pose tests); that file and unrelated edits were not restored or changed.
+- Limits: the smoke adapter holds joints and does not validate VLA inference or native SDK conversion; the configured online model endpoint must host an appropriate folding policy. RigidContactView diagnostics do not report particle-cloth grip forces. Near-robot release regions can naturally contact the open grippers at the requested pose; collisions remain enabled. The 70 cm / 180 g cloth is still an uncalibrated material approximation. Original benchmark/offline videos are retained, no real hardware operations were performed, and no commit was created over the mixed pre-existing changes and failing broader baseline.

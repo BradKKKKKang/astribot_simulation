@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.evaluation.managed import ManagedEvaluation, CAMERAS
+from src.evaluation.managed import ManagedEvaluation, CAMERAS, validate_managed_config
 from tests.unit.test_online_evaluation import experiment
 
 
@@ -187,6 +187,38 @@ def test_success_truncates_chunk_and_new_episode_resets_history(setup, tmp_path)
     assert report['seed'] == 42 and report['reset_layout']['pen']['pose_world'][0] == 2.
 
 
+def test_empty_success_runs_to_budget_and_next_episode_without_passing(setup, tmp_path):
+    original, env = setup
+    resolved = copy.deepcopy(original.resolved)
+    resolved['sections']['task']['success']['predicates'] = []
+    controller = ManagedEvaluation(resolved)
+    env.pass_at = 1  # Reaching the former goal must not manufacture success.
+    for episode in (1, 2):
+        first = reset(controller, env, episode)
+        assert first['evaluation']['status'] == 'unknown'
+        assert not first['terminal']['done']
+        step = complete(controller, env, batch(controller, 1, episode=episode))['snapshot']
+        assert not step['terminal']['done']
+        terminal = complete(controller, env, batch(controller, 2, episode=episode))['snapshot']
+        assert terminal['evaluation']['status'] == 'unknown'
+        assert terminal['evaluation']['predicates'] == []
+        assert terminal['terminal'] == {'done': True, 'reason': 'timeout'}
+    summary = json.loads(next(tmp_path.glob('run-*/summary.json')).read_text())
+    assert summary['counts'] == {'success': 0, 'timeout': 2, 'aborted': 0, 'error': 0}
+    assert all(item['evidence_status'] == 'unknown' for item in summary['episodes'])
+
+
+@pytest.mark.parametrize('success', [{}, {'predicates': None}, {'predicates': False}])
+def test_managed_success_must_be_an_explicit_list(setup, success):
+    original, _ = setup
+    resolved = copy.deepcopy(original.resolved)
+    resolved['sections']['runtime']['simulation'] = {'dt': .01, 'frame_skip': 1}
+    resolved['sections']['task'].update(initial_pose={'configured': True}, success=success)
+    resolved['sections']['robot_placement'] = {}
+    with pytest.raises(ValueError, match='explicit task success predicates list'):
+        validate_managed_config(resolved, {})
+
+
 @pytest.mark.parametrize('mutate', [
     lambda r: r['payload']['commands'].pop('arm'),
     lambda r: r['payload']['commands']['arm']['position'].append(0),
@@ -359,7 +391,8 @@ def test_managed_compensation_never_depends_on_fps():
         assert namespace['vel_compensation_ctrl'](env, [1.], [10.], idx=0) == [1.]
 
 
-def test_managed_launcher_preflight_is_cpu_only_and_keeps_budget(monkeypatch):
+@pytest.mark.parametrize('name', ['penholder', 'item_classification'])
+def test_managed_launcher_preflight_is_cpu_only_and_keeps_budget(monkeypatch, name):
     import builtins
     from tests.unit.test_simulation_integrate import launcher
     original = builtins.__import__
@@ -368,10 +401,12 @@ def test_managed_launcher_preflight_is_cpu_only_and_keeps_budget(monkeypatch):
             raise AssertionError('unexpected runtime import')
         return original(name, *args, **kwargs)
     monkeypatch.setattr(builtins, '__import__', guarded)
-    data = launcher.main(['--managed-evaluation', '--check-config'])
+    flags = ['--config', f'config/experiments/evaluation/{name}.json',
+             '--managed-evaluation', '--check-config']
+    data = launcher.main(flags)
     assert data['managed_evaluation'] and data['dt'] == .01 and data['frame_skip'] == 1
     with pytest.raises(ValueError, match='cameras'):
-        launcher.main(['--managed-evaluation', '--check-config', '--no-cameras'])
+        launcher.main([*flags, '--no-cameras'])
 
 
 @pytest.mark.parametrize('evaluation', [{'episodes': True}, {'episodes': 0}, {'seed': -1}, {'seed': True}, {'max_steps': 0}])

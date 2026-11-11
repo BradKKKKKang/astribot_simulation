@@ -38,12 +38,15 @@ initial pose. A changed configuration requires a new connection/run.
   run; subsequent resets require the preceding episode to be terminal. Robot
   root pose, joints, velocities, holding targets, objects and evaluator history
   reset together. Initial pose and task predicates come from the task config.
+  Optional `task.reset.settle_steps` runs initialization physics with the robot held
+  at its initial pose before returning step 0; those ticks are outside the policy budget.
 - `step`: next consecutive step number, `payload: {dt: 0.01, commands,
   capture_images: false}`. `commands` contains exactly the six non-chassis
   parts, each with ordered feedback `joint_names`, finite `position` and
   `velocity` arrays. Gripper positions use 0–100 percent; other positions use
   radians. Partial batches, stale identities and wrong dt are rejected before
-  physics. Exactly one `sim.step()` runs. FPS prediction is disabled.
+  physics. One 0.01 s control period runs. `runtime.simulation.physics_substeps` defaults to 1;
+  cloth tasks can split this period into smaller physical ticks. FPS prediction is disabled.
 - `snapshot`: current completed step, empty payload. Captures all three RGB
   images without physics advancement. Repeated full snapshots at that identity
   are immutable. Request this between chunks; ordinary step receipts can omit
@@ -98,6 +101,14 @@ so timeout with unknown evidence cannot be counted as success. Native,
 communication or physics errors are execution failures, not task failures.
 An uncertain execution error requires stopping the faulted run.
 
+An explicit `task.success.predicates: []` is allowed for runs whose success
+criteria are not yet defined. `describe` reports `success_configured: false`;
+evidence remains `unknown`, never an automatic pass. Such episodes run to
+`max_steps` unless stopped or interrupted by an execution error. Simulation
+reports `timeout` with unknown evidence, and Atlas classifies that completion
+as `evidence_insufficient`. Missing or non-list predicates are still rejected
+for ordinary managed tasks.
+
 Each terminal episode writes its own report and updates the batch summary
 immediately. Reports include owner/episode/config identity, seed, actual reset
 layout, environment steps, simulated duration, wall time, evidence and reason.
@@ -114,3 +125,5 @@ Replay exclusion and reports. Actual Isaac cameras/physics, ROS2 DDS transport,
 SDK/WBC state alignment, and full model-driven batches require isolated runtime
 validation. A GUI-paused/stopped Isaac timeline fails a requested step promptly
 rather than entering Isaac's blocking timeline-resume path.
+
+The cloth setup and four-region release contract are described in [FOLD_TSHIRT.md](FOLD_TSHIRT.md).
