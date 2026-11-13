@@ -1,0 +1,146 @@
+{
+  "host": "10.11.12.73",
+  "port": 8780,
+  "upstream": "http://127.0.0.1:8781",
+  "tunnel_port": 8781,
+  "remote_port": 8765,
+  "ssh_host": "aliyun",
+  "remote_root": "/mnt/oss/cognition/QW_Data/ce_data_astribot",
+  "remote_install": ".cache/astribot-eef-review/service",
+  "cache": "outputs/eef_review",
+  "initial_pose": "config/eef_review/initial_pose.json",
+  "frontend": "web/eef-viewer/dist",
+  "sdk_root": "/home/zihengkang/Code/astribot_sdk_ros2",
+  "usd_python": "/home/zihengkang/miniconda3/envs/astribot_simu_il/bin/python",
+  "usd_libraries": "/home/zihengkang/miniconda3/envs/astribot_simu_il/lib/python3.10/site-packages/isaacsim/extscache/omni.usd.libs-1.0.1+d02c707b.lx64.r.cp310",
+  "ros_domain_id": 174,
+  "chunk_size": 128,
+  "source_base_to_chassis": [
+    [
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1
+    ]
+  ],
+  "sdk_to_usd_translation_m": [
+    0,
+    0,
+    -0.097
+  ],
+  "tool_offsets_m": {
+    "torso": [
+      0,
+      0,
+      0.34475
+    ],
+    "left": [
+      0,
+      -0.15,
+      0
+    ],
+    "right": [
+      0,
+      -0.15,
+      0
+    ]
+  },
+  "thresholds": {
+    "position_mm": 20,
+    "angle_deg": 5,
+    "joint_jump_deg": 15
+  },
+  "unit_evidence": {
+    "InternData-A1/sim_lift2__eef_both__cam3__01ea472ba0e4": {
+      "unit": "meter",
+      "evidence": "User confirmed in this implementation session on 2026-11-11: 确认上述 EEF 均为米",
+      "mapping_sha256": "01ea472ba0e4be5b1e43a719abea767d60ec2ea42e16904785eaf875e9e0b14d"
+    },
+    "InternData-A1/sim_split_aloha__eef_both__cam3__ec642d047ac2": {
+      "unit": "meter",
+      "evidence": "User confirmed in this implementation session on 2026-11-11: 确认上述 EEF 均为米",
+      "mapping_sha256": "ec642d047ac28631ed3929d55ac66a6fc712de257115e38bf9f24682e792bf55"
+    },
+    "InternData-A1/sim_genie1__eef_both__cam3__af41d44ad771": {
+      "unit": "meter",
+      "evidence": "User confirmed in this implementation session on 2026-11-11: 确认上述 EEF 均为米",
+      "mapping_sha256": "af41d44ad77133946e415b3b8638e1aa624e2a92a5e8cbab712d352c77209d82"
+    },
+    "InternData-A1/sim_lift2__eef_both__cam3__b1f374c3a662": {
+      "unit": "meter",
+      "evidence": "User confirmed in this implementation session on 2026-11-11: 确认上述 EEF 均为米",
+      "mapping_sha256": "b1f374c3a662ccfa7fdc890270e0c2c35b23ef8dfb4e4130c5fa933989327dae"
+    },
+    "RW-RL-Dataset/g2__eef_both__cam3__0e1016def4e9": {
+      "unit": "meter",
+      "evidence": "User confirmed in this implementation session on 2026-11-11: 确认上述 EEF 均为米",
+      "mapping_sha256": "0e1016def4e9588a1930918119ce86994f828d86603cc59a28c3c8751d7c50b8"
+    },
+    "RW-RL-Dataset/r1lite__eef_both__cam4__e8c67eb24303": {
+      "unit": "meter",
+      "evidence": "User confirmed in this implementation session on 2026-11-11: 确认上述 EEF 均为米",
+      "mapping_sha256": "e8c67eb24303f1e10a989a2e446dd8bcf46828f9b8ff8a5903ad9b51069d608b"
+    },
+    "RW-RL-Dataset/r1lite__eef_both__cam4__6d073da23539": {
+      "unit": "meter",
+      "evidence": "User confirmed in this implementation session on 2026-11-11: 确认上述 EEF 均为米",
+      "mapping_sha256": "6d073da2353963d21fe9708a7ff1d78260c56293679738b97baaca5d3f52921c"
+    },
+    "InternData-A1/sim_franka__eef_right__cam2__e6f3fc7099e9": {
+      "unit": "meter",
+      "evidence": "User confirmed on 2026-11-11 that A1 Franka and RoboMIND Franka / FR3 EEF positions are meters: 都是米，可补充单位记录",
+      "mapping_sha256": "e6f3fc7099e98eac384c7511278d2c307410ab48a2501dee49c086f119574e36"
+    },
+    "InternData-A1/sim_franka__eef_right__cam2__2b8fa5402925": {
+      "unit": "meter",
+      "evidence": "User confirmed on 2026-11-11 that A1 Franka and RoboMIND Franka / FR3 EEF positions are meters: 都是米，可补充单位记录",
+      "mapping_sha256": "2b8fa54029258485b62906996b8c625c840df5ec7462b1b25dd509096028e068"
+    },
+    "InternData-A1/sim_franka__eef_right__cam2__50ec175f1d9f": {
+      "unit": "meter",
+      "evidence": "User confirmed on 2026-11-11 that A1 Franka and RoboMIND Franka / FR3 EEF positions are meters: 都是米，可补充单位记录",
+      "mapping_sha256": "50ec175f1d9f8a322a272ca4620e7665599b20676f4d5f790e67d6200e961ab3"
+    },
+    "RoboMIND/fr3__eef_both__cam4__b1aacf0c290a": {
+      "unit": "meter",
+      "evidence": "User confirmed on 2026-11-11 that A1 Franka and RoboMIND Franka / FR3 EEF positions are meters: 都是米，可补充单位记录",
+      "mapping_sha256": "b1aacf0c290a30ea3d3ab9b72481720bc110f505f55d754c2acb63b26518a8dd"
+    },
+    "RoboMIND/franka__eef_right__cam2__e2b72b379cc1": {
+      "unit": "meter",
+      "evidence": "User confirmed on 2026-11-11 that A1 Franka and RoboMIND Franka / FR3 EEF positions are meters: 都是米，可补充单位记录",
+      "mapping_sha256": "e2b72b379cc1ec94877c3d21d6542f43747de5b31d3b5169a12905972799c2dc"
+    },
+    "RoboMIND/franka__eef_right__cam3__dec9a84c1b89": {
+      "unit": "meter",
+      "evidence": "User confirmed on 2026-11-11 that A1 Franka and RoboMIND Franka / FR3 EEF positions are meters: 都是米，可补充单位记录",
+      "mapping_sha256": "dec9a84c1b8989b9450ed3deae4cdae06efc266d7c95aa4a8cf47e4669be2c08"
+    },
+    "RoboMIND/franka__eef_right__cam1__4e23f9e75912": {
+      "unit": "meter",
+      "evidence": "User confirmed on 2026-11-11 that A1 Franka and RoboMIND Franka / FR3 EEF positions are meters: 都是米，可补充单位记录",
+      "mapping_sha256": "4e23f9e75912137c3fb466e8fa3d87c2734814c857f76418695d8d321d08e4be"
+    }
+  },
+  "source_mode": "formal",
+  "sample_root": "/mnt/oss/cognition/QW_Data/ce_data_astribot/eef_sample",
+  "remote_index": "/root/.cache/astribot-eef-review/formal/index.sqlite"
+}

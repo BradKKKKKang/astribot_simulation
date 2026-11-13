@@ -150,7 +150,38 @@ def test_actuator_patterns_partition_torso_and_both_grippers(monkeypatch):
     names += [f'astribot_gripper_{side}_joint_{suffix}'
               for side in ('left', 'right') for suffix in cls._GRIPPER_JOINT_DIRECTIONS]
     names += ['astribot_head_joint_1', 'astribot_arm_left_joint_1']
+    names += [f'astribot_arm_{side}_joint_{i}' for side in ('left', 'right') for i in range(1, 8)]
     for joint in names:
         groups = [name for name, pattern in cls._CONTROL_PATTERNS.items()
                   if re.fullmatch(pattern, joint)]
         assert len(groups) + bool(re.fullmatch(all_other, joint)) == 1
+
+
+def test_arm_override_preserves_defaults_and_updates_only_selected_joint(monkeypatch):
+    cls = load_env_class(monkeypatch)
+    assert cls._validate_joint_control('arm_left_joint_7_control', {}) == {
+        'stiffness': 800., 'damping': 40., 'effort_limit': 400.}
+    env = object.__new__(cls)
+    env.device = 'cpu'
+    env.joint_name_to_index = {'astribot_arm_left_joint_7': 13, 'astribot_arm_right_joint_7': 20}
+    actuator = SimpleNamespace(**{k: torch.zeros((1, 1)) for k in
+                                 ('stiffness', 'damping', 'effort_limit', 'effort_limit_sim')})
+    env.robot = SimpleNamespace(actuators={'arm_left_joint_7_override': actuator})
+    writes = []
+    for method in ('write_joint_stiffness_to_sim', 'write_joint_damping_to_sim',
+                   'write_joint_effort_limit_to_sim', 'set_joint_effort_target'):
+        setattr(env.robot, method, lambda value, joint_ids: writes.append((value.clone(), joint_ids)))
+    env.configure_joint_control('arm_left_joint_7_control', {'stiffness': 1200, 'damping': 60})
+    assert all(ids == [13] for _, ids in writes)
+    assert actuator.stiffness.item() == 1200
+    assert actuator.damping.item() == 60
+
+
+@pytest.mark.parametrize('name', ['head_joint_1', 'head_joint_2', 'torso_joint_4'])
+def test_remaining_angular_drives_are_independent_and_keep_original_defaults(monkeypatch, name):
+    cls = load_env_class(monkeypatch)
+    values = cls._validate_joint_control(name + '_control', {})
+    assert (values['stiffness'], values['damping'], values['effort_limit']) == (800., 40., 400.)
+    matches = [key for key, pattern in cls._CONTROL_PATTERNS.items()
+               if re.fullmatch(pattern, 'astribot_' + name)]
+    assert matches == [name + '_control']

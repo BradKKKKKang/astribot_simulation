@@ -11,10 +11,12 @@ from pathlib import Path
 import numpy as np
 import pyarrow.parquet as pq
 
-from replay_artifacts_data import JOINTS, load_episode
+import replay_artifacts_sdk_100hz as replay
+from replay_artifacts_sdk_100hz import JOINTS
 
 FOCUS = ('astribot_torso_joint_1', 'astribot_torso_joint_2', 'astribot_torso_joint_3',
-         'astribot_gripper_left_joint_1', 'astribot_gripper_right_joint_1')
+         'astribot_gripper_left_joint_1', 'astribot_gripper_right_joint_1') + tuple(
+             joint for joint in JOINTS if 'arm_' in joint)
 
 
 def compare(runs):
@@ -31,15 +33,26 @@ def compare(runs):
                 raise ValueError(f'Incomplete episode: {path}')
             source = Path(meta['input_parquet'])
             if source not in episodes:
-                if hashlib.sha256(source.read_bytes()).hexdigest() != meta['input_sha256']:
+                digest = hashlib.sha256()
+                with source.open('rb') as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                        digest.update(chunk)
+                if digest.hexdigest() != meta['input_sha256']:
                     raise ValueError(f'Replay input changed: {source}')
-                episodes[source] = load_episode(source)
+                replay.CONTROL_HZ = meta.get('frequency_hz', 100.)
+                episodes[source] = replay.load_episode(source)
             if episode_hashes.setdefault(episode, meta['input_sha256']) != meta['input_sha256']:
                 raise ValueError(f'Runs use different inputs for {episode}')
-            grid, command, real, _ = episodes[source]
+            _, grid, command, real = episodes[source]
             errors = json.loads((folder / 'tracking_error.json').read_text())
             sdk = (folder / 'sim_states.parquet').exists()
-            if sdk:
+            stepped = meta.get('time_mode') == 'physics_step'
+            if stepped:
+                observed = pq.read_table(folder / 'sim_step_states.parquet').to_pydict()
+                joint_names = np.asarray(observed['joint'])
+                timestamp = grid[0] + np.asarray(observed['physics_time_s'])
+                saved = errors['physics_time']['joints']
+            elif sdk:
                 observed = pq.read_table(folder / 'sim_states.parquet').to_pydict()
                 joint_names = np.asarray(observed['joint'])
                 timestamp = grid[0] + (np.asarray(observed['header_stamp_ns'], dtype=np.int64)
@@ -51,7 +64,7 @@ def compare(runs):
                 timestamp = observed['artifact_time_s']
                 saved = errors['joints']
             sources[f'{label}/{episode}'] = {'directory': str(folder),
-                                           'time_basis': 'simulator_header_time' if sdk else 'physics_time',
+                                           'time_basis': 'physics_time' if stepped or not sdk else 'simulator_header_time',
                                            'input_sha256': meta['input_sha256']}
             for j, joint in enumerate(JOINTS):
                 if sdk:
@@ -99,7 +112,7 @@ def compare(runs):
     return rows, curves, sources
 
 
-def write_report(output, rows, curves, sources, reference):
+def write_report(output, rows, curves, sources, reference, plots=True):
     output.mkdir(parents=True, exist_ok=True)
     before = {(r['episode'], r['joint']): r for r in rows if r['run'] == reference}
     for row in rows:
@@ -115,7 +128,7 @@ def write_report(output, rows, curves, sources, reference):
         reference=reference, sources=sources, joints=rows), indent=2) + '\n')
     episodes = sorted({row['episode'] for row in rows})
     labels = list(dict.fromkeys(row['run'] for row in rows))
-    lines = ['# Torso and gripper replay alignment', '',
+    lines = ['# Joint response alignment', '',
              'Real feedback is interpolated at recorded physics or simulator header timestamps. '
              'Startup samples are retained; no time shift is fitted. Angular position uses degrees; '
              'grippers use percentage points. Torque is diagnostic only.', '',
@@ -131,11 +144,14 @@ def write_report(output, rows, curves, sources, reference):
                   'count was checked against the saved replay error files.', ''])
     (output / 'report.md').write_text('\n'.join(lines))
 
+    if not plots:
+        return
+
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     for episode in episodes:
-        fig, axes = plt.subplots(len(FOCUS), 2, figsize=(14, 14), squeeze=False)
+        fig, axes = plt.subplots(len(FOCUS), 2, figsize=(14, 2.6 * len(FOCUS)), squeeze=False)
         for i, joint in enumerate(FOCUS):
             for n, label in enumerate(labels):
                 t, q, real_q, ct, command = curves[label, episode, joint]
@@ -164,12 +180,13 @@ def main():
     parser.add_argument('--run', action='append', required=True, help='LABEL=directory containing episode folders')
     parser.add_argument('--reference', default='baseline')
     parser.add_argument('--output-root', type=Path, required=True)
+    parser.add_argument('--no-plots', action='store_true', help='recompute metrics and write tables only')
     args = parser.parse_args()
     runs = dict(item.split('=', 1) for item in args.run)
     if len(runs) != len(args.run) or args.reference not in runs:
         raise ValueError('Run labels must be unique and include the reference')
     rows, curves, sources = compare({label: Path(root) for label, root in runs.items()})
-    write_report(args.output_root, rows, curves, sources, args.reference)
+    write_report(args.output_root, rows, curves, sources, args.reference, plots=not args.no_plots)
     for row in rows:
         if row['joint'] in FOCUS:
             print(f"{row['run']}/{row['episode']}/{row['joint']}: {row['position_rmse']:.4f} {row['position_unit']}")

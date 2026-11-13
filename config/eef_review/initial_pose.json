@@ -1,0 +1,46 @@
+{
+  "joint_targets_rad": {
+    "astribot_torso": [
+      0.5695264850463867,
+      -1.1302705263671875,
+      0.6053858442993164,
+      0.006031792541503905
+    ],
+    "astribot_arm_left": [
+      -0.04552201702880859,
+      0.1252049292602539,
+      -1.2426334609375,
+      1.4670233758544922,
+      -0.26625036224365234,
+      -0.11907725396728516,
+      0.28684278936767577
+    ],
+    "astribot_arm_right": [
+      0.050542813903808596,
+      0.1572486586303711,
+      1.259803758178711,
+      1.5069957526855469,
+      0.32258397674560546,
+      -0.17713099237060548,
+      -0.33387261041259764
+    ],
+    "astribot_head": [
+      0.0042438074340820295,
+      0.8032464591674805
+    ]
+  },
+  "gripper_percent": {
+    "left": 0.0,
+    "right": 0.0
+  },
+  "source": {
+    "hdf5": "/home/zihengkang/ckpts/real_eval_init_pose.hdf5",
+    "frame_index": 0,
+    "dataset": "joints_dict/joints_position_command",
+    "sha256": "3f587353b4728538df9448bdf4441d3dada6ff32b86641ebae7054b8593209c2"
+  },
+  "configuration_source": {
+    "path": "config/tasks/tabletop_objects.json",
+    "sha256": "c4dc9a7ed53714669bff0ab2fb6256f99b6bdf38108a19c09559abb7a1d34409"
+  }
+}

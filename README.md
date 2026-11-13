@@ -35,6 +35,7 @@ It is designed as a **research tool** for users of Astribot.
 - **Config-driven setup**: Easily manage each simulator and robot variant via structured **YAML** configurations.
 - **Research-friendly utilities**: Includes logging, common analysis tools, and a unified environment factory.
 - **Placement analysis**: Extract grasp/release TCP events from Isaac Lab replay and inspect metric robot geometry and 3D density in a read-only Three.js viewer. See [placement analysis](docs/PLACEMENT_ANALYSIS.md).
+- **EEF review**: Compare dataset videos, original EEF targets and offline Astribot SDK IK / CPU USD FK on one timeline. Manage the LAN service with [the review entrypoint](scripts/eef_review/review); implementation history and validation limits are recorded in the [development log](docs/DEVELOPMENT_LOG.md).
 
 ---
 
@@ -186,8 +187,8 @@ scene, evaluation task or success profiles. Dataset identity lives in `source`;
 startup filtering lives in `candidates.selection`. Evaluation experiments are
 separate under `config/experiments/evaluation/`. Schema 4 tasks own their instruction,
 reset selection, ordered stages and `success` predicates in `config/tasks/`.
-See [the placement architecture](docs/PLACEMENT_ARCHITECTURE.md) for configuration
-composition, cache dependencies, result schemas and extension points.
+Configuration composition is implemented in [simulation_config](src/simulation_config/);
+extraction, caching and result handling live in [placement_analysis](src/placement_analysis/).
 
 Isaac Lab runs separately. Replay uses the existing SDK → ROS2 → Isaac Lab →
 ROS2 feedback path. `--capture-only` records feedback without requiring CPU
@@ -336,7 +337,8 @@ Use `--managed-evaluation --check-config` for CPU validation before launch.
 Reports are saved immediately under the output root in a directory named
 `run-<owner-hash>`, with `episode-000001.json`, etc., and `summary.json`.
 Replay acquires an explicit mutually exclusive lease before using the ordinary
-ROS command path. See [managed evaluation protocol](docs/MANAGED_EVALUATION.md).
+ROS command path. The service protocol is implemented in
+[the managed evaluator](src/evaluation/managed.py).
 
 Tasks can declare `initial_pose` with `joint_targets_rad` (part names to joint
 angle lists) and `gripper_percent` (`left`/`right`, 0–100). These targets override
@@ -386,7 +388,7 @@ For ten temporary fixed layouts estimated from the reference photographs, see
 Each config fixes the pen/holder poses on creation and reset, including the pen
 heading, and can be selected with the integrated launcher's `--config` option.
 
-For the tabletop item-classification scene, see [its scene guide](docs/TABLETOP_OBJECTS.md)
+For the tabletop item-classification scene, see [its scene configuration](config/scenes/tabletop_objects.json)
 and [ten fixed layouts](config/experiments/evaluation/item_classification_fixed/README.md).
 Layout 01 preserves the current arrangement; 02–10 follow the numbered photos.
 The item-classification evaluation budget is 6500 steps per episode.
@@ -545,6 +547,10 @@ To switch simulators or robot setups, modify the `astribot_yaml_file` variable i
 ---
 
 ## Joint Space Command
+
+For measured joint response fitting through SDK → ROS2 → Isaac Lab, including
+250 Hz HDF5 replay and per-joint PD/filter settings, see
+[the alignment scripts](scripts/joint_align/) and [candidate presets](config/joint_alignment/README.md).
 
 If you want to directly control the joints, note: The robot exposes joint-space command topic (e.g., `/astribot_arm_left/joint_space_command`) for controlling the arm. The interpretation of the command depends on the control mode:
 

@@ -138,8 +138,7 @@ checks, with their environment and evidence recorded in the development log.
 
 `tests/unit/test_deformable_scene_objects.py` checks elastic parameter rejection,
 connected nondegenerate tetrahedral geometry, fitted material poses and nodal
-resets without Isaac Sim. Use `scripts/validate_deformable_bear.py --captures
---output outputs/evaluation/wanjuxiong_soft_body` in the Isaac Lab environment
-for the separate GPU compression/release check. It creates only a bear, support
-and kinematic press, without ROS. See [the soft bear notes](../docs/TABLETOP_OBJECTS.md#soft-bear)
-for material assumptions and coverage limits.
+resets without Isaac Sim. These checks do not validate GPU compression/release
+or robot grasping. Historical physics results, material assumptions and the
+final model's failed deep-compression check are recorded in the
+[development log](../docs/DEVELOPMENT_LOG.md), under 2026-11-05 and 2026-11-06.

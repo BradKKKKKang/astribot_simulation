@@ -15,7 +15,7 @@ from .scene_assets import (resolve_scene_objects, transformed_primitives,
 def validate_task_reset(scene, reset):
     if reset is None:
         return
-    check_fields(reset, {'objects', 'placement', 'settle_steps'}, 'task.reset')
+    check_fields(reset, {'objects', 'placement', 'settle_steps', 'cloth_grasp'}, 'task.reset')
     names = reset.get('objects')
     if (not isinstance(names, list) or not names or not all(isinstance(n, str) for n in names)
             or len(names) != len(set(names))):
@@ -27,6 +27,23 @@ def validate_task_reset(scene, reset):
     steps=reset.get('settle_steps',0)
     if type(steps) is not int or not 0<=steps<=5000:
         raise ValueError('task.reset.settle_steps must be an integer in [0,5000]')
+    if 'cloth_grasp' in reset:
+        grasp = reset['cloth_grasp']
+        check_fields(grasp, {'object', 'point', 'radius_m', 'hold_steps'}, 'task.reset.cloth_grasp')
+        name = grasp.get('object')
+        if (not isinstance(name, str) or name not in names or
+                scene.get('objects', {}).get(name, {}).get('asset', {}).get('physics', {}).get('body_type') != 'cloth'):
+            raise ValueError('task.reset.cloth_grasp.object must be a reset cloth object')
+        if grasp.get('point') != 'center':
+            raise ValueError('task.reset.cloth_grasp.point must be center')
+        radius = grasp.get('radius_m')
+        if type(radius) not in (int, float) or not math.isfinite(radius) or radius <= 0:
+            raise ValueError('task.reset.cloth_grasp.radius_m must be finite and positive')
+        hold = grasp.get('hold_steps')
+        if type(hold) is not int or not 1 <= hold <= 5000:
+            raise ValueError('task.reset.cloth_grasp.hold_steps must be an integer in [1,5000]')
+        if steps == 0:
+            raise ValueError('task.reset.cloth_grasp requires settling after release')
     if placement['type']=='uniform_in_regions':
         regions=placement.get('regions')
         if len(names)!=1 or not isinstance(regions,list) or not regions:

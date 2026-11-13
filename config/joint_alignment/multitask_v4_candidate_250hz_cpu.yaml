@@ -1,0 +1,444 @@
+simulator_type: IsaacLab
+physics_device: cpu
+use_fabric: true
+robot_name: astribot_s1_whole_body
+model_path: /astribot_descriptions/usd/astribot_s1_usd/astribot_s1_textured.usda
+robot_list:
+- astribot_torso
+- astribot_head
+- astribot_arm_left
+- astribot_gripper_left
+- astribot_arm_right
+- astribot_gripper_right
+joint_names_list:
+- - astribot_torso_joint_1
+  - astribot_torso_joint_2
+  - astribot_torso_joint_3
+  - astribot_torso_joint_4
+- - astribot_head_joint_1
+  - astribot_head_joint_2
+- - astribot_arm_left_joint_1
+  - astribot_arm_left_joint_2
+  - astribot_arm_left_joint_3
+  - astribot_arm_left_joint_4
+  - astribot_arm_left_joint_5
+  - astribot_arm_left_joint_6
+  - astribot_arm_left_joint_7
+- - astribot_gripper_left_joint_L1
+- - astribot_arm_right_joint_1
+  - astribot_arm_right_joint_2
+  - astribot_arm_right_joint_3
+  - astribot_arm_right_joint_4
+  - astribot_arm_right_joint_5
+  - astribot_arm_right_joint_6
+  - astribot_arm_right_joint_7
+- - astribot_gripper_right_joint_L1
+gravity_compensation: true
+torso_joint_1_control:
+  stiffness: 3200.0
+  damping: 320.0
+  effort_limit: 400.0
+  gravity_compensation_scale: 1.1
+torso_joint_2_control:
+  stiffness: 3200.0
+  damping: 320.0
+  effort_limit: 400.0
+  gravity_compensation_scale: 1.0
+torso_joint_3_control:
+  stiffness: 6400.0
+  damping: 240.0
+  effort_limit: 400.0
+  gravity_compensation_scale: 1.0
+gripper_left_control:
+  stiffness: 800.0
+  damping: 8.0
+  effort_limit: 400.0
+  velocity_limit_sim: 16.0
+gripper_right_control:
+  stiffness: 1600.0
+  damping: 12.0
+  effort_limit: 400.0
+  velocity_limit_sim: 16.0
+arm_left_joint_1_control:
+  stiffness: 3200.0
+  damping: 40.0
+  effort_limit: 400.0
+arm_left_joint_2_control:
+  stiffness: 3199.9999999999877
+  damping: 40.00000000001432
+  effort_limit: 400.0
+arm_left_joint_3_control:
+  stiffness: 3199.9999999977726
+  damping: 60.122610836390855
+  effort_limit: 400.0
+arm_left_joint_4_control:
+  stiffness: 3200.0
+  damping: 40.0
+  effort_limit: 400.0
+arm_left_joint_5_control:
+  stiffness: 946.430879888035
+  damping: 14.789978091953907
+  effort_limit: 400.0
+arm_left_joint_6_control:
+  stiffness: 3199.999999992905
+  damping: 40.00000000033404
+  effort_limit: 400.0
+arm_left_joint_7_control:
+  stiffness: 1599.9999999999739
+  damping: 20.000000000000703
+  effort_limit: 400.0
+arm_right_joint_1_control:
+  stiffness: 1600.0
+  damping: 40.0
+  effort_limit: 400.0
+arm_right_joint_2_control:
+  stiffness: 3200.0
+  damping: 80.0
+  effort_limit: 400.0
+arm_right_joint_3_control:
+  stiffness: 1683.44286382163
+  damping: 30.0
+  effort_limit: 400.0
+arm_right_joint_4_control:
+  stiffness: 3200.0
+  damping: 40.0
+  effort_limit: 400.0
+arm_right_joint_5_control:
+  stiffness: 2400.0
+  damping: 30.0
+  effort_limit: 400.0
+arm_right_joint_6_control:
+  stiffness: 3199.999999920744
+  damping: 40.00000002304123
+  effort_limit: 400.0
+arm_right_joint_7_control:
+  stiffness: 3199.9999999999873
+  damping: 40.00000000000291
+  effort_limit: 400.0
+joint_command_filters:
+  astribot_torso_joint_1:
+    time_constant_s: 0.02
+    velocity_lookahead_s: 0.0
+  astribot_torso_joint_2:
+    time_constant_s: 0.0
+    velocity_lookahead_s: 0.0
+  astribot_torso_joint_3:
+    time_constant_s: 0.12
+    velocity_lookahead_s: 0.0
+  astribot_torso_joint_4:
+    time_constant_s: 0.35
+    velocity_lookahead_s: 0.0
+  astribot_head_joint_1:
+    time_constant_s: 0.3013632836103002
+    velocity_lookahead_s: 0.0
+  astribot_head_joint_2:
+    time_constant_s: 0.5
+    velocity_lookahead_s: 0.0
+  astribot_arm_left_joint_1:
+    time_constant_s: 0.004
+    velocity_lookahead_s: 0.0
+  astribot_arm_left_joint_2:
+    time_constant_s: 1.0230881091134841e-14
+    velocity_lookahead_s: 0.0
+  astribot_arm_left_joint_3:
+    time_constant_s: 1.6530694998614925e-19
+    velocity_lookahead_s: 0.0
+  astribot_arm_left_joint_4:
+    time_constant_s: 1.3982434592544664e-18
+    velocity_lookahead_s: 0.0
+  astribot_arm_left_joint_5:
+    time_constant_s: 9.23336675319657e-10
+    velocity_lookahead_s: 0.0
+  astribot_arm_left_joint_6:
+    time_constant_s: 5.497689634461318e-14
+    velocity_lookahead_s: 0.0
+  astribot_arm_left_joint_7:
+    time_constant_s: 8.108060106388174e-16
+    velocity_lookahead_s: 0.0
+  astribot_gripper_left_joint_L1:
+    time_constant_s: 0.008
+    velocity_lookahead_s: 0.0
+  astribot_arm_right_joint_1:
+    time_constant_s: 0.0
+    velocity_lookahead_s: 0.0
+  astribot_arm_right_joint_2:
+    time_constant_s: 0.0
+    velocity_lookahead_s: 0.0
+  astribot_arm_right_joint_3:
+    time_constant_s: 0.0
+    velocity_lookahead_s: 0.0
+  astribot_arm_right_joint_4:
+    time_constant_s: 0.0
+    velocity_lookahead_s: 0.0
+  astribot_arm_right_joint_5:
+    time_constant_s: 0.002
+    velocity_lookahead_s: 0.0
+  astribot_arm_right_joint_6:
+    time_constant_s: 8.176720104521772e-13
+    velocity_lookahead_s: 0.0
+  astribot_arm_right_joint_7:
+    time_constant_s: 2.1008002769347643e-15
+    velocity_lookahead_s: 0.0
+  astribot_gripper_right_joint_L1:
+    time_constant_s: 0.0
+    velocity_lookahead_s: 0.0
+mode: rgb_array
+width: 640
+height: 480
+object_names: []
+camera_names: []
+camera_resolutions:
+  head_rgbd:
+    width: 1280
+    height: 720
+  left_wrist_rgbd:
+    width: 640
+    height: 360
+  right_wrist_rgbd:
+    width: 640
+    height: 360
+sensor_names: []
+vel_compensation_list:
+- true
+- true
+- true
+- false
+- true
+- false
+update_trajectory_map: {}
+dt: 0.004
+frame_skip: 1
+physics_substeps: 1
+decimation: 1
+robot_profile:
+  base_body: astribot_torso_base
+  tcp:
+    left:
+      body: astribot_arm_left_link_7
+      position:
+      - 0.0
+      - -0.195
+      - 0.0
+      quaternion_wxyz:
+      - 0.7071067811865476
+      - 0.7071067811865476
+      - 0.0
+      - 0.0
+    right:
+      body: astribot_arm_right_link_7
+      position:
+      - 0.0
+      - -0.195
+      - 0.0
+      quaternion_wxyz:
+      - 0.7071067811865476
+      - 0.7071067811865476
+      - 0.0
+      - 0.0
+  tcp_calibration: Nominal 15 cm offset along gripper-base +Z; calibrate against the
+    physical grasp center before interpreting object locations.
+  name: astribot_s1
+  model_path: astribot_descriptions/usd/astribot_s1_usd/astribot_s1_textured.usda
+  root_path: /World/astribot_whole_body
+  parts:
+  - name: astribot_torso
+    command_indices:
+    - 3
+    - 4
+    - 5
+    - 6
+    feedback_joints:
+    - astribot_torso_joint_1
+    - astribot_torso_joint_2
+    - astribot_torso_joint_3
+    - astribot_torso_joint_4
+    model_joints:
+    - astribot_torso_joint_1
+    - astribot_torso_joint_2
+    - astribot_torso_joint_3
+    - astribot_torso_joint_4
+  - name: astribot_arm_left
+    command_indices:
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    feedback_joints:
+    - astribot_arm_left_joint_1
+    - astribot_arm_left_joint_2
+    - astribot_arm_left_joint_3
+    - astribot_arm_left_joint_4
+    - astribot_arm_left_joint_5
+    - astribot_arm_left_joint_6
+    - astribot_arm_left_joint_7
+    model_joints:
+    - astribot_arm_left_joint_1
+    - astribot_arm_left_joint_2
+    - astribot_arm_left_joint_3
+    - astribot_arm_left_joint_4
+    - astribot_arm_left_joint_5
+    - astribot_arm_left_joint_6
+    - astribot_arm_left_joint_7
+  - name: astribot_gripper_left
+    command_indices:
+    - 14
+    feedback_joints:
+    - astribot_gripper_left_joint_1
+    model_joints:
+    - astribot_gripper_left_joint_1
+  - name: astribot_arm_right
+    command_indices:
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    feedback_joints:
+    - astribot_arm_right_joint_1
+    - astribot_arm_right_joint_2
+    - astribot_arm_right_joint_3
+    - astribot_arm_right_joint_4
+    - astribot_arm_right_joint_5
+    - astribot_arm_right_joint_6
+    - astribot_arm_right_joint_7
+    model_joints:
+    - astribot_arm_right_joint_1
+    - astribot_arm_right_joint_2
+    - astribot_arm_right_joint_3
+    - astribot_arm_right_joint_4
+    - astribot_arm_right_joint_5
+    - astribot_arm_right_joint_6
+    - astribot_arm_right_joint_7
+  - name: astribot_gripper_right
+    command_indices:
+    - 22
+    feedback_joints:
+    - astribot_gripper_right_joint_1
+    model_joints:
+    - astribot_gripper_right_joint_1
+  - name: astribot_head
+    command_indices:
+    - 23
+    - 24
+    feedback_joints:
+    - astribot_head_joint_1
+    - astribot_head_joint_2
+    model_joints:
+    - astribot_head_joint_1
+    - astribot_head_joint_2
+  dataset_joint_names:
+  - chassis_action_0
+  - chassis_action_1
+  - chassis_action_2
+  - torso_action_0
+  - torso_action_1
+  - torso_action_2
+  - torso_action_3
+  - left_arm_action_0
+  - left_arm_action_1
+  - left_arm_action_2
+  - left_arm_action_3
+  - left_arm_action_4
+  - left_arm_action_5
+  - left_arm_action_6
+  - left_gripper_action_0
+  - right_arm_action_0
+  - right_arm_action_1
+  - right_arm_action_2
+  - right_arm_action_3
+  - right_arm_action_4
+  - right_arm_action_5
+  - right_arm_action_6
+  - right_gripper_action_0
+  - head_action_yaw
+  - head_action_pitch
+  fixed_chassis:
+    part: astribot_chassis
+    command_indices:
+    - 0
+    - 1
+    - 2
+  grippers:
+    left:
+      part: astribot_gripper_left
+      feedback_joint: astribot_gripper_left_joint_1
+      radians_per_percent: 0.01
+      model_joints:
+        astribot_gripper_left_joint_L1: -1
+        astribot_gripper_left_joint_L2: -1
+        astribot_gripper_left_joint_R11: -1
+        astribot_gripper_left_joint_R1: 1
+        astribot_gripper_left_joint_R2: 1
+        astribot_gripper_left_joint_L11: 1
+    right:
+      part: astribot_gripper_right
+      feedback_joint: astribot_gripper_right_joint_1
+      radians_per_percent: 0.01
+      model_joints:
+        astribot_gripper_right_joint_L1: -1
+        astribot_gripper_right_joint_L2: -1
+        astribot_gripper_right_joint_R11: -1
+        astribot_gripper_right_joint_R1: 1
+        astribot_gripper_right_joint_R2: 1
+        astribot_gripper_right_joint_L11: 1
+  simulation_config: config/astribot_s1/simulation_isaaclab_param.yaml
+  simulation_overrides: {}
+  initial_joint_positions:
+    astribot_torso_joint_1: 0.5644434009399414
+    astribot_torso_joint_2: -1.126506798709923
+    astribot_torso_joint_3: 0.5998226371421277
+    astribot_torso_joint_4: -0.005732941695951978
+    astribot_arm_left_joint_1: -0.03996506372084279
+    astribot_arm_left_joint_2: 0.1311748039063338
+    astribot_arm_left_joint_3: -1.2467849121705499
+    astribot_arm_left_joint_4: 1.4603596540410022
+    astribot_arm_left_joint_5: -0.27497016660153456
+    astribot_arm_left_joint_6: -0.11569171014404298
+    astribot_arm_left_joint_7: 0.28716369095470157
+    astribot_arm_right_joint_1: 0.055730433743428086
+    astribot_arm_right_joint_2: 0.14847050927321565
+    astribot_arm_right_joint_3: 1.2556199998093833
+    astribot_arm_right_joint_4: 1.4942992914336686
+    astribot_arm_right_joint_5: 0.3210838361891517
+    astribot_arm_right_joint_6: -0.16698676952373892
+    astribot_arm_right_joint_7: -0.3073447398189693
+    astribot_head_joint_1: 0.019942577398645443
+    astribot_head_joint_2: 0.7923841087036133
+    astribot_gripper_left_joint_L1: -0.00022849545833858733
+    astribot_gripper_left_joint_L2: -0.00022849545833858733
+    astribot_gripper_left_joint_R11: -0.00022849545833858733
+    astribot_gripper_left_joint_R1: 0.00022849545833858733
+    astribot_gripper_left_joint_R2: 0.00022849545833858733
+    astribot_gripper_left_joint_L11: 0.00022849545833858733
+    astribot_gripper_right_joint_L1: -0.0005941312795322252
+    astribot_gripper_right_joint_L2: -0.0005941312795322252
+    astribot_gripper_right_joint_R11: -0.0005941312795322252
+    astribot_gripper_right_joint_R1: 0.0005941312795322252
+    astribot_gripper_right_joint_R2: 0.0005941312795322252
+    astribot_gripper_right_joint_L11: 0.0005941312795322252
+robot_placement:
+  frame: world
+  xy:
+  - 0.0
+  - 0.0
+  yaw: 0.0
+  grounding: geometry_min
+joint_alignment_step_service: true
+torso_joint_4_control:
+  stiffness: 800.0
+  damping: 80.0
+  effort_limit: 400.0
+  gravity_compensation_scale: 0.0
+head_joint_1_control:
+  stiffness: 1599.9999825230202
+  damping: 20.000000188340053
+  effort_limit: 400.0
+head_joint_2_control:
+  stiffness: 800.0
+  damping: 40.0
+  effort_limit: 400.0

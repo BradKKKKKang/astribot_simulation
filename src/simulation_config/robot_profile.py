@@ -291,7 +291,11 @@ def build_simulation_config(profile):
         for key, value in overrides.items():
             if key not in base:
                 raise ValueError(f'unknown simulation override field: {key}')
-            if isinstance(value, dict) and isinstance(base[key], dict):
+            if key == 'joint_command_filters':
+                from src.simulation_config.joint_filter import JointTargetFilter
+                JointTargetFilter(value, {name for names in config['joint_names_list'] for name in names})
+                base[key] = copy.deepcopy(value)
+            elif isinstance(value, dict) and isinstance(base[key], dict):
                 merge(base[key], value)
             else:
                 base[key] = copy.deepcopy(value)

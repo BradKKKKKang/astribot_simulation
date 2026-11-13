@@ -46,7 +46,7 @@
 ## 变更与验证
 
 1. 先阅读适用规范、相关实现、配置、依赖、测试和工作树，明确输入、输出、资源归属、副作用和失败边界；沿现有接口与 helper 最小修复，不为过时 fixture 增加兼容层。
-2. 公共 API、配置、消息、相机、资产或生命周期变化，应同步关联实现、测试和文档；用户行为或协作规则变化时追加 [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md)，历史记录只追加、不回写。
+2. 公共 API、配置、消息、相机、资产或生命周期变化，应同步关联实现、测试和文档；用户行为或协作规则变化时更新 [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md)。日志正文使用中文、日期倒序、最新置顶，同日合并为一个主题；冲突描述以最新决定和实现为准，保留历史验证的日期、适用配置及限制，不虚构重新验证。
 3. 导入检查使用 python -m pytest tests/unit/test_simulator_imports.py，先确认对应环境；缺少可选后端会 skip，Isaac 项检查的是 Isaac Sim 导入，不代表后端运行通过。pytest 默认覆盖率选项来自 pyproject.toml，会要求相应开发依赖并产生报告。
 4. tests/unit/test_camera_viewer.py 是需要 ROS、cv_bridge 和 GUI 的手动订阅工具，收集整个 tests/unit/ 也可能因其顶层导入失败，不能称为纯无 ROS 单元测试。tests/integration/test_simulation_pipeline.py 会创建仿真并发布 ROS；仅在确认隔离和依赖后运行，ROS_VERSION 非 2 或可选后端未安装时会跳过，当前没有 Isaac Lab pipeline 用例。
 5. 文档修改检查标题、链接、路径、事实和空白；脚本或代码修改按需运行无写入的语法检查与聚焦测试，再按风险扩大。只有确认实现会提前返回时，才执行 --help 或 dry-run；安装器和转换工具不得按参数名称推定无副作用。

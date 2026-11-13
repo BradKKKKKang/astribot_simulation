@@ -179,7 +179,10 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         'R1': 1, 'R2': 1, 'L11': 1,
     }
     _CONTROL_PATTERNS = {
-        **{f'torso_joint_{i}_control': f'astribot_torso_joint_{i}' for i in (1, 2, 3)},
+        **{f'arm_{side}_joint_{i}_control': f'astribot_arm_{side}_joint_{i}'
+           for side in ('left', 'right') for i in range(1, 8)},
+        **{f'torso_joint_{i}_control': f'astribot_torso_joint_{i}' for i in (1, 2, 3, 4)},
+        **{f'head_joint_{i}_control': f'astribot_head_joint_{i}' for i in (1, 2)},
         **{f'gripper_{side}_control': f'astribot_gripper_{side}_joint_(L1|L2|L11|R1|R2|R11)'
            for side in ('left', 'right')},
     }
@@ -213,6 +216,10 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.use_fabric = param.get("use_fabric", True)
         for name in self._CONTROL_PATTERNS:
             setattr(self, name, self._validate_joint_control(name, param.get(name, {})))
+        from src.simulation_config.joint_filter import JointTargetFilter
+        self.joint_target_filter = JointTargetFilter(
+            param.get('joint_command_filters', {}),
+            {joint for joints in self.joint_names_list for joint in joints})
         self.camera_resolutions = {
             name: (
                 param.get("camera_resolutions", {}).get(name, {}).get("width", self.width),
@@ -265,6 +272,12 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             self.joint_velocity_command_all, self.joint_torque_command_all = self.update_joint_states()
 
         astribot_simu_log("Isaac Lab environment initialized successfully")
+        self.alignment_stepper = None
+        if param.get('joint_alignment_step_service', False):
+            if self.managed_evaluation or self.dt != .004 or self.frame_skip != 1:
+                raise ValueError('joint alignment stepping requires dt=.004, frame_skip=1 and unmanaged mode')
+            from src.simu_utils.joint_alignment_stepper import JointAlignmentStepper
+            self.alignment_stepper = JointAlignmentStepper(self.node, self.dt)
 
     def setup_simulation_and_scene(self):
         import torch
@@ -552,16 +565,9 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         from isaaclab.actuators import ImplicitActuatorCfg
 
-        # Disjoint actuator groups allow isolated torso and gripper tuning.
-        excluded = '|'.join(self._CONTROL_PATTERNS.values())
-        actuators_cfg = {
-            "all_joints": ImplicitActuatorCfg(
-                joint_names_expr=[f"^(?!(?:{excluded})$).*$"],
-                stiffness=800.0,
-                damping=40.0,
-                effort_limit_sim=400.0,
-            ),
-        }
+        # All model joints now have disjoint groups, including head and torso 4.
+        # Isaac Lab rejects regex actuator groups that match no joints.
+        actuators_cfg = {}
         for name, pattern in self._CONTROL_PATTERNS.items():
             settings = getattr(self, name)
             actuators_cfg[name.replace('_control', '_override')] = ImplicitActuatorCfg(
@@ -597,7 +603,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         defaults = dict(stiffness=800.0, damping=40.0, effort_limit=400.0)
         if name.startswith('torso'):
             defaults['gravity_compensation_scale'] = 0.0
-        else:
+        elif name.startswith('gripper'):
             defaults['velocity_limit_sim'] = 1.0  # Historical USD gripper limit, rad/s.
         if not isinstance(settings, dict) or set(settings) - defaults.keys():
             raise ValueError(f"Unknown {name} settings")
@@ -674,7 +680,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                     self.sim.step(render=False)
                     self.scene.update(dt=self.dt/self.physics_substeps)
                 self._sync_cloth_visuals()
-                self.sim.render()
+                if self.render_mode == 'human' or self.camera_names or self.third_person_camera_cfg:
+                    self.sim.render()
 
             self._capture_video_frame()
             self.render()
@@ -906,6 +913,12 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                     self.joint_velocity_command_all,
                     idx=joint_id
                 )[0]
+                target_filter = getattr(self, 'joint_target_filter', None)
+                if target_filter is not None:
+                    pos_cmd = target_filter.apply(
+                        joint_name, self.joint_position_command_all[joint_id],
+                        self.joint_velocity_command_all[joint_id], pos_cmd,
+                        self.dt * self.frame_skip)
                 joint_position_targets[robot_joint_idx] = pos_cmd
 
             elif mode == 2:
@@ -1000,6 +1013,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
     def _restore_initial_state(self):
         """Creation and reset consume the same resolved placement and joint pose."""
+        if hasattr(self, 'joint_target_filter'):
+            self.joint_target_filter.reset()
         if self.resolved_robot_placement is not None:
             import torch
             root = self.robot.data.default_root_state.clone()
@@ -1039,16 +1054,30 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
             self.sim.forward()
         self.scene.update(dt=self.dt)
         # Initialization physics is completed before managed step 0 is returned.
-        # Hold the task's exact robot pose while the cloth is released and falls.
-        for _ in range((self.task_reset or {}).get('settle_steps',0)):
-            self.robot.write_joint_state_to_sim(self.robot.data.default_joint_pos,
-                                                self.robot.data.default_joint_vel*0)
-            self.robot.set_joint_position_target(self.robot.data.default_joint_pos)
-            for _ in range(self.physics_substeps):
-                self.scene.write_data_to_sim()
-                self.sim.step(render=False)
-                self.scene.update(dt=self.dt/self.physics_substeps)
-        if (self.task_reset or {}).get('settle_steps',0):
+        # Hold the robot pose during optional center grasp, then free settling.
+        reset_config = self.task_reset or {}
+        grasp = reset_config.get('cloth_grasp')
+        hold_steps = grasp['hold_steps'] if grasp else 0
+        initialization_steps = hold_steps + reset_config.get('settle_steps', 0)
+        cloth = self.scene_object_keys.get('cloth', {})
+        from src.simulation_config.isaac_cloth_object import begin_cloth_grasp, release_cloth_grasp
+        try:
+            if grasp:
+                begin_cloth_grasp(cloth, grasp)
+            for step in range(initialization_steps):
+                if grasp and step == hold_steps:
+                    release_cloth_grasp(cloth)
+                self.robot.write_joint_state_to_sim(self.robot.data.default_joint_pos,
+                                                    self.robot.data.default_joint_vel*0)
+                self.robot.set_joint_position_target(self.robot.data.default_joint_pos)
+                for _ in range(self.physics_substeps):
+                    self.scene.write_data_to_sim()
+                    self.sim.step(render=False)
+                    self.scene.update(dt=self.dt/self.physics_substeps)
+        finally:
+            if grasp:
+                release_cloth_grasp(cloth)
+        if initialization_steps:
             self.robot.write_joint_state_to_sim(self.robot.data.default_joint_pos,
                                                 self.robot.data.default_joint_vel*0)
             self.sim.physics_sim_view.update_articulations_kinematic()

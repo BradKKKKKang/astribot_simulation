@@ -111,7 +111,10 @@ class AstribotEnvsFactory:
             # For ROS2, we still need to setup the executor (but not rate)
             if ros_version == '2':
                 if not hasattr(self, 'spin_thread'):
-                    self.executor = rclpy.executors.SingleThreadedExecutor()
+                    if getattr(self.astribot_simu_env.unwrapped, 'alignment_stepper', None) is not None:
+                        self.executor = rclpy.executors.MultiThreadedExecutor(num_threads=2)
+                    else:
+                        self.executor = rclpy.executors.SingleThreadedExecutor()
                     self.executor.add_node(self.astribot_simu_env.unwrapped.node)
                     self.spin_thread = threading.Thread(target=self.executor.spin, daemon=True)
                     self.spin_thread.start()
@@ -125,6 +128,11 @@ class AstribotEnvsFactory:
             next_step = time.monotonic_ns()
             period_ns = int(period_s * 1e9) if period_s else 0
             while app.is_running() and not self.stop_event.is_set():
+                stepper = getattr(self.astribot_simu_env.unwrapped, 'alignment_stepper', None)
+                if stepper is not None:
+                    stepper.process_one(self.astribot_simu_env.unwrapped)
+                    if stepper.stepped:
+                        continue
                 if period_s:
                     remaining_ns = next_step - time.monotonic_ns()
                     if remaining_ns > 0:

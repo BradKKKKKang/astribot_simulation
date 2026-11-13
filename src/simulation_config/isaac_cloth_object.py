@@ -64,6 +64,8 @@ def _initialize(entry):
 
 def reset_cloth(entries, sampled):
     import torch
+    # An interrupted initialization must not leave pins in the next episode.
+    release_cloth_grasp(entries)
     for name,entry in entries.items():
         if sampled is not None and name not in sampled: continue
         _initialize(entry)
@@ -76,6 +78,56 @@ def reset_cloth(entries, sampled):
         view.set_velocities(torch.zeros_like(values),indices)
         entry['reset_pose']=list(pose)
         entry['reset_region']=None if sampled is None else sampled[name].get('reset_region')
+        entry.pop('reset_grasp', None)
+
+
+def center_grasp_particles(points, radius_m):
+    """Select a small material patch around the garment's geometric center.
+
+    Use rest-space geometry so selection is independent of pose and episode.
+    Snap the bounding-box center onto the sewn surface (the center may be inside
+    the shirt), then include nearby particles, including the opposite layer.
+    """
+    center = (points.min(0) + points.max(0)) / 2
+    nearest = int(np.argmin(np.linalg.norm(points - center, axis=1)))
+    selected = np.flatnonzero(np.linalg.norm(points - points[nearest], axis=1) <= radius_m)
+    if len(selected) == len(points):
+        raise ValueError('cloth grasp radius must leave free particles to drape')
+    return selected
+
+
+def begin_cloth_grasp(entries, config):
+    """Temporarily pin a central patch while the rest of the cloth drapes."""
+    import torch
+    entry = entries[config['object']]
+    _initialize(entry)
+    view = entry['view']
+    pins = center_grasp_particles(entry['particle_rest'], config['radius_m'])
+    masses = view.get_masses().clone()
+    indices = torch.zeros(1, dtype=torch.int32, device=masses.device)
+    entry['grasp_masses'] = masses
+    pinned = masses.clone()
+    # PhysX interprets zero particle mass as a fixed particle (zero inverse mass).
+    pinned[:, pins] = 0.
+    view.set_masses(pinned, indices)
+    points = view.get_positions().reshape(-1, 3)
+    entry['reset_grasp'] = {
+        'point': config['point'], 'radius_m': config['radius_m'],
+        'hold_steps': config['hold_steps'], 'particle_count': len(pins),
+        'anchor_world': points[pins].mean(0).cpu().tolist(),
+    }
+
+
+def release_cloth_grasp(entries):
+    """Restore original masses without resetting the draped shape or velocities."""
+    import torch
+    for entry in entries.values():
+        if 'grasp_masses' not in entry:
+            continue
+        masses = entry['grasp_masses']
+        indices = torch.zeros(1, dtype=torch.int32, device=masses.device)
+        entry['view'].set_masses(masses, indices)
+        del entry['grasp_masses']
 
 
 def read_cloth(entries):
@@ -92,6 +144,8 @@ def read_cloth(entries):
           'simulation_bounds_world':{'min':points.min(0).tolist(),'max':points.max(0).tolist()},
           'simulation_particles':len(points),'reset_region':entry.get('reset_region'),
           'release_pose_world':entry.get('reset_pose')}
+        if 'reset_grasp' in entry:
+            result[name]['reset_grasp'] = {**entry['reset_grasp'], 'active': 'grasp_masses' in entry}
     return result
 
 

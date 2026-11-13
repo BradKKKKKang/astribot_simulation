@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay resampled artifacts through the Astribot SDK and record ROS feedback."""
+"""Replay Parquet or timestamped HDF5 positions through SDK -> ROS2 -> simulation."""
 from __future__ import annotations
 
 import argparse
@@ -51,8 +51,55 @@ def _json(path: Path, value) -> None:
     path.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
 
 
+def load_hdf5_episode(path: Path, frequency_hz=250.0):
+    """Keep the source clock and use causal sample-and-hold, including gaps.
+
+    HDF5 contains SDK-output positions, not the original policy/API requests.
+    Velocity and torque feedforward are unknown; measured velocity is feedback.
+    """
+    import h5py
+
+    path = path.expanduser().resolve(strict=True)
+    if not np.isfinite(frequency_hz) or frequency_hz <= 0:
+        raise ValueError('frequency_hz must be positive and finite')
+
+    def read(group, field):
+        keys = sorted((key for key in group if key.startswith(field + '_')),
+                      key=lambda key: int(key.rsplit('_', 1)[1]))
+        if not keys:
+            raise ValueError(f'{group.name}: missing {field}')
+        return np.concatenate([group[key][:] for key in keys])
+
+    streams, states = {}, {}
+    with h5py.File(path, 'r') as source:
+        for part, count in PART_CONFIGS:
+            group = source['joints_dict'][part]
+            ct, command = read(group['command'], 'timestamp'), read(group['command'], 'command')
+            st = read(group['states'], 'timestamp')
+            position, velocity = read(group['states'], 'position'), read(group['states'], 'velocity')
+            for times, arrays in ((ct, [command]), (st, [position, velocity])):
+                if (times.ndim != 1 or len(times) < 2 or not np.isfinite(times).all()
+                        or np.any(np.diff(times) <= 0)
+                        or any(a.shape != (len(times), count) or not np.isfinite(a).all() for a in arrays)):
+                    raise ValueError(f'{part}: invalid timestamps, shape or numeric data')
+            streams[part] = ct, command
+            for i in range(count):
+                states[f'{part}_joint_{i + 1}'] = np.column_stack(
+                    (st, position[:, i], velocity[:, i], np.full(len(st), np.nan)))
+    start = max([times[0] for times, _ in streams.values()] + [v[0, 0] for v in states.values()])
+    end = min([times[-1] for times, _ in streams.values()] + [v[-1, 0] for v in states.values()])
+    if end - start < 1 / frequency_hz:
+        raise ValueError('HDF5 command/state streams have no usable common interval')
+    grid = start + np.arange(int(np.floor((end - start) * frequency_hz)) + 1) / frequency_hz
+    command = np.concatenate([values[np.searchsorted(times, grid, side='right') - 1]
+                              for times, values in streams.values()], axis=1)
+    return path, grid, command, states
+
+
 def load_episode(path: Path):
     path = path.expanduser().resolve(strict=True)
+    if path.suffix.lower() in ('.h5', '.hdf5'):
+        return load_hdf5_episode(path, CONTROL_HZ)
     table = pq.read_table(path)
     commands = table.filter(pc.equal(table["kind"], "command")).to_pylist()
     state_rows = table.filter(pc.equal(table["kind"], "state")).to_pylist()
@@ -75,8 +122,8 @@ def load_episode(path: Path):
         values = np.asarray([row["position"] for row in rows], dtype=np.float64)
         if values.size < 2 or not np.isfinite(times).all() or not np.isfinite(values).all():
             raise ValueError(f"{path}: invalid command stream for {joint}")
-        if not np.allclose(np.diff(times), 0.01, rtol=0, atol=1e-9):
-            raise ValueError(f"{path}: {joint} command stream is not 100 Hz")
+        if not np.allclose(np.diff(times), 1 / CONTROL_HZ, rtol=0, atol=1e-9):
+            raise ValueError(f"{path}: {joint} command stream is not {CONTROL_HZ:g} Hz")
         if any(row.get("mode") != 1 for row in rows):
             raise ValueError(f"{path}: position-mode commands required for {joint}")
         if grid is None:
@@ -105,12 +152,34 @@ def load_episode(path: Path):
 
 
 def _part_command(command):
+    command = np.asarray(command, dtype=float)
+    if command.shape == (25,):
+        if np.any(command[:3] != 0):
+            raise ValueError('fixed-base replay requires zero chassis commands')
+        command = command[3:]
+    if command.shape != (22,) or not np.isfinite(command).all():
+        raise ValueError('expected finite 22-joint or fixed-base 25-dimensional frame')
     result = []
     offset = 0
     for _, count in PART_CONFIGS:
         result.append(command[offset:offset + count].astype(float).tolist())
         offset += count
     return result
+
+
+def _sdk_frame(command):
+    """Dataset order: fixed chassis, torso, left arm/grip, right arm/grip, head."""
+    return np.r_[np.zeros(3), command]
+
+
+def _preposition_target(measured):
+    # Encoder feedback can lie just outside [0, 100]. The SDK clips gripper
+    # commands; verify the legal command, while retaining the measured reference.
+    target = measured.copy()
+    for i, joint in enumerate(JOINTS):
+        if 'gripper' in joint:
+            target[i] = np.clip(target[i], 0., 100.)
+    return target
 
 
 def _state_rows_for_message(msg, part: str, receive_mono_ns: int, receive_system_ns: int):
@@ -320,6 +389,49 @@ class VideoController:
         self.client.destroy()
 
 
+class PhysicsStepClient:
+    """Ask the simulation to verify ROS-delivered targets, then advance 4 ms."""
+    def __init__(self, node):
+        from astribot_msgs.srv import RawRequest
+        self.request_type = RawRequest.Request
+        self.client = node.create_client(RawRequest, '/simulation/joint_alignment_step')
+        if not self.client.wait_for_service(timeout_sec=10):
+            raise TimeoutError('joint alignment step service unavailable')
+
+    def call(self, op, **fields):
+        request = self.request_type()
+        request.request = json.dumps({'op': op, **fields}, allow_nan=False)
+        future = self.client.call_async(request)
+        deadline = time.monotonic() + 12
+        while not future.done():
+            if time.monotonic() >= deadline:
+                raise TimeoutError('joint alignment service did not reply')
+            time.sleep(.0005)
+        result = json.loads(future.result().response)
+        if 'error' in result:
+            raise RuntimeError(result['error'])
+        if result['dt'] != .004:
+            raise ValueError('alignment simulator must use dt=.004')
+        return result
+
+    @staticmethod
+    def rows(response):
+        rows = []
+        for part, count in PART_CONFIGS:
+            values = response['joints'][part]
+            for i in range(count):
+                rows.append({'part': part, 'joint': f'{part}_joint_{i + 1}',
+                             'position': values['position'][i], 'velocity': values['velocity'][i],
+                             'physics_time_s': response['physics_time_s'],
+                             'header_stamp_ns': response['observed_system_ns'],
+                             'received_monotonic_ns': time.monotonic_ns(),
+                             'received_system_ns': time.time_ns()})
+        return rows
+
+    def close(self):
+        self.client.destroy()
+
+
 def _initial_positions(grid_start: float, states):
     return np.asarray([
         np.interp(grid_start, states[joint][:, 0], states[joint][:, 1])
@@ -347,7 +459,7 @@ def preposition(robot, recorder, target, timeout: float):
     while time.monotonic() < deadline:
         if time.monotonic() >= next_send:
             robot.set_joints_position(
-                list(PART_NAMES), _part_command(target),
+                list(PART_NAMES), _part_command(_sdk_frame(target)),
                 control_way="direct", use_wbc=False,
             )
             attempts += 1
@@ -397,7 +509,9 @@ def _metric_for_rows(states, rows, grid_start, grid_end, epoch_system_ns, epoch_
     per_joint = {}
     for joint in JOINTS:
         selected = [row for row in rows if row["joint"] == joint]
-        if basis == "simulator_header_time":
+        if basis == 'physics_time':
+            relative = np.asarray([row['physics_time_s'] for row in selected])
+        elif basis == "simulator_header_time":
             relative = np.asarray([
                 (row["header_stamp_ns"] - epoch_system_ns) / 1e9 for row in selected
             ])
@@ -527,13 +641,41 @@ def _write_parquet(path: Path, rows):
     pq.write_table(pa.Table.from_pylist(rows), path, compression="zstd")
 
 
+def settle_physics(robot, step_client, target, steps):
+    """Hold measured initial positions through SDK/ROS for a fixed physics duration."""
+    response = step_client.call('begin')
+    for index in range(steps):
+        robot.set_joints_position(list(PART_NAMES), _part_command(_sdk_frame(target)),
+                                 control_way='direct', use_wbc=False)
+        response = step_client.call('step', step=index,
+                                    expected=dict(zip(PART_NAMES, _part_command(target))))
+    rows = step_client.rows(response)
+    for row in rows:
+        row['physics_time_s'] = 0.0
+    return rows
+
+
 def replay_episode(robot, recorder, input_path, grid, command, states, output_dir,
-                   preposition_timeout, video_controller=None, video_timeout=10.0):
+                   preposition_timeout, video_controller=None, video_timeout=10.0, step_client=None,
+                   settle_steps=0):
     if output_dir.exists() and any(output_dir.iterdir()):
         raise FileExistsError(f"refusing to overwrite {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
-    target = _initial_positions(float(grid[0]), states)
+    measured_initial = _initial_positions(float(grid[0]), states)
+    target = _preposition_target(measured_initial)
     preposition_meta = preposition(robot, recorder, target, preposition_timeout)
+    preposition_meta['command_clipping_by_joint'] = {
+        joint: {'measured': float(measured_initial[i]), 'command': float(target[i])}
+        for i, joint in enumerate(JOINTS) if target[i] != measured_initial[i]}
+    step_rows = []
+    if step_client is not None:
+        step_rows.extend(settle_physics(robot, step_client, target, settle_steps))
+        preposition_meta['settle_physics_steps'] = settle_steps
+        preposition_meta['settle_physics_duration_s'] = settle_steps / CONTROL_HZ
+        preposition_meta['post_settle_position_error_by_joint'] = {
+            row['joint']: row['position'] - float(target[i]) for i, row in enumerate(step_rows)}
+        preposition_meta['post_settle_velocity_by_joint'] = {
+            row['joint']: row['velocity'] for row in step_rows}
     video_meta = None
     if video_controller is not None:
         # Let the position controller settle before the first recorded frame.
@@ -546,14 +688,23 @@ def replay_episode(robot, recorder, input_path, grid, command, states, output_di
 
     try:
         for index, frame in enumerate(command):
+            frame25 = _sdk_frame(frame)
             deadline_ns = epoch_mono_ns + index * PERIOD_NS
-            _wait_until(deadline_ns)
+            if step_client is None:
+                _wait_until(deadline_ns)
+            else:
+                deadline_ns = time.monotonic_ns()
             call_start_ns = time.monotonic_ns()
             robot.set_joints_position(
-                list(PART_NAMES), _part_command(frame),
+                list(PART_NAMES), _part_command(frame25),
                 control_way="direct", use_wbc=False,
             )
             call_end_ns = time.monotonic_ns()
+            if step_client is not None:
+                response = step_client.call('step', step=index + settle_steps,
+                                            expected=dict(zip(PART_NAMES, _part_command(frame))))
+                response['physics_time_s'] = (response['steps'] - settle_steps) / CONTROL_HZ
+                step_rows.extend(step_client.rows(response))
             api_rows.append({
                 "frame_index": index,
                 "artifact_time_s": float(grid[index]),
@@ -565,10 +716,13 @@ def replay_episode(robot, recorder, input_path, grid, command, states, output_di
                 "start_lateness_ms": (call_start_ns - deadline_ns) / 1e6,
                 "completion_deadline_miss": call_end_ns > deadline_ns + PERIOD_NS,
                 "position": frame.astype(float).tolist(),
+                "position_25": frame25.tolist(),
             })
             if index % 500 == 0 or index == len(command) - 1:
                 print(f"{input_path.parent.name}: SDK frame {index + 1}/{len(command)}", flush=True)
     finally:
+        if step_client is not None:
+            step_client.call('end')
         if video_controller is not None:
             video_meta = video_controller.stop(video_timeout)
 
@@ -591,6 +745,8 @@ def replay_episode(robot, recorder, input_path, grid, command, states, output_di
     _write_parquet(output_dir / "api_commands.parquet", api_rows)
     _write_parquet(output_dir / "sdk_command_messages.parquet", sdk_rows)
     _write_parquet(output_dir / "sim_states.parquet", sim_rows)
+    if step_rows:
+        _write_parquet(output_dir / 'sim_step_states.parquet', step_rows)
     errors = {
         "simulator_header_time": _metric_for_rows(
             states, sim_rows, float(grid[0]), float(grid[-1]), epoch_system_ns, epoch_mono_ns,
@@ -602,6 +758,11 @@ def replay_episode(robot, recorder, input_path, grid, command, states, output_di
         ),
         "torque_comparable": False,
     }
+    if step_rows:
+        # Wall-clock topic metrics are invalid when physics advances on request.
+        errors = {'physics_time': _metric_for_rows(
+            states, step_rows, float(grid[0]), float(grid[-1]), epoch_system_ns, epoch_mono_ns,
+            'physics_time'), 'torque_comparable': False}
     _json(output_dir / "tracking_error.json", errors)
     command_delivery = _command_delivery_metrics(api_rows, sdk_rows)
     _json(output_dir / "sdk_command_error.json", command_delivery)
@@ -613,11 +774,21 @@ def replay_episode(robot, recorder, input_path, grid, command, states, output_di
         (row["received_system_ns"] - row["header_stamp_ns"]) / 1e6
         for row in sim_rows if row["header_stamp_ns"] > 0
     ])
+    source_digest = hashlib.sha256()
+    with input_path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            source_digest.update(chunk)
     meta = {
         "status": "complete",
+        "time_mode": 'physics_step' if step_client is not None else 'wall_clock',
+        "metric_time_basis": 'physics_time' if step_client is not None else 'simulator_header_time',
+        "physics_steps": len(command) if step_client is not None else None,
+        "simulator_verified_each_position_target": step_client is not None,
         "input_parquet": str(input_path),
-        "input_sha256": hashlib.sha256(input_path.read_bytes()).hexdigest(),
-        "control_path": "Parquet 100 Hz position frames -> Astribot SDK set_joints_position(direct) -> ROS2 joint_space_command -> Isaac Lab callback -> ROS2 joint_space_states",
+        "input_file": str(input_path),
+        "input_sha256": source_digest.hexdigest(),
+        "input_sampling": "causal zero-order hold on common interval" if input_path.suffix in ('.h5', '.hdf5') else "source uniform grid",
+        "control_path": "fixed-base 25-dimensional position frames -> Astribot SDK set_joints_position(direct) -> ROS2 joint_space_command -> Isaac Lab callback -> ROS2 joint_space_states",
         "frequency_hz": CONTROL_HZ,
         "sdk_frequency_hz": CONTROL_HZ,
         "command_frames": len(command),
@@ -653,10 +824,16 @@ def replay_episode(robot, recorder, input_path, grid, command, states, output_di
 
 def _write_summary(path: Path, meta, errors):
     lines = [
-        f"# SDK 100 Hz replay: {Path(meta['input_parquet']).parent.name}",
+        f"# SDK {meta['frequency_hz']:g} Hz replay: {Path(meta['input_file']).stem}",
         "",
         "Commands were submitted through the Astribot SDK and observed on ROS2 command topics. "
         "Simulation states were captured from ROS2 state topics with both header and SDK-process receive timestamps.",
+        "",
+        ("Primary metrics use the post-step ROS service feedback and the exact 4 ms physics clock. "
+         "Every target was verified against the simulator's ROS subscriber state before advancing. "
+         "ROS topic rates and API timing below describe wall time, not the physical input cadence."
+         if meta['time_mode'] == 'physics_step' else
+         "Primary metrics use simulator ROS header timestamps; real-time pacing must be verified separately."),
         "",
         f"- Frames / SDK API calls: {meta['command_frames']} / {meta['api_calls']}",
         f"- SDK command messages by part: {meta['sdk_command_messages_by_part']}",
@@ -665,7 +842,7 @@ def _write_summary(path: Path, meta, errors):
         f"- Preposition duration: {meta['preposition']['duration_s']:.3f} s",
         f"- Maximum initial angular residual: {max(abs(value) for joint, value in meta['preposition']['position_error_by_joint'].items() if 'gripper' not in joint):.6f} rad",
         f"- API start lateness p95: {meta['api_start_lateness_p95_ms']:.3f} ms",
-        f"- API calls completing after the next 10 ms deadline: {meta['api_completion_deadline_misses']}",
+        f"- API calls completing after the next frame deadline: {meta['api_completion_deadline_misses']}",
         f"- Simulator header-to-receiver delay p95: {meta['state_message_transport_delay_ms']['p95']:.3f} ms",
         "",
         "| Time basis | Group | Position RMSE | Velocity RMSE |",
@@ -694,23 +871,43 @@ def _write_summary(path: Path, meta, errors):
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("parquet", nargs="+", type=Path, help="100 Hz resampled episode Parquet files")
+    result.add_argument("parquet", nargs="+", type=Path, help="episode Parquet or raw HDF5 files")
+    result.add_argument("--control-hz", type=float, default=100.0)
+    result.add_argument("--inspect-only", action="store_true", help="validate and summarize input without ROS/SDK")
+    result.add_argument("--physics-step", action="store_true", help="advance 4 ms only after each SDK target arrives on ROS2")
     result.add_argument("--output-root", type=Path, default=Path("results/alignment_sdk_100hz"))
     result.add_argument("--connect-timeout", type=float, default=30.0)
     result.add_argument("--preposition-timeout", type=float, default=10.0)
+    result.add_argument("--settle-steps", type=int, default=0,
+                        help="fixed SDK/ROS physics steps at initial pose before capture")
     result.add_argument("--video-service", help="enable third-person capture via this simulator ROS service")
     result.add_argument("--video-timeout", type=float, default=20.0)
     return result
 
 
 def main(argv=None):
+    global CONTROL_HZ, PERIOD_NS
     args = parser().parse_args(argv)
+    if args.physics_step and args.control_hz != 250:
+        raise ValueError('--physics-step requires --control-hz 250')
+    if args.settle_steps < 0 or (args.settle_steps and not args.physics_step):
+        raise ValueError('--settle-steps requires physics-step mode and a nonnegative count')
+    if not np.isfinite(args.control_hz) or args.control_hz <= 0:
+        raise ValueError('--control-hz must be positive and finite')
+    CONTROL_HZ = args.control_hz
+    PERIOD_NS = round(1e9 / CONTROL_HZ)
+    episodes = [load_episode(path) for path in args.parquet]
+    if args.inspect_only:
+        for path, grid, command, states in episodes:
+            print(json.dumps({'input': str(path), 'frames': len(grid), 'joints': command.shape[1],
+                              'duration_s': float(grid[-1] - grid[0]), 'frequency_hz': CONTROL_HZ,
+                              'torque_recorded': bool(all(np.isfinite(v[:, 3]).all() for v in states.values()))}))
+        return 0
     if os.environ.get("ROS_VERSION") != "2" or os.environ.get("ROS_LOCALHOST_ONLY") != "1":
         raise RuntimeError("source ROS2 and SDK environments, then set ROS_LOCALHOST_ONLY=1")
     if not os.environ.get("ROS_DOMAIN_ID"):
         raise RuntimeError("set an isolated ROS_DOMAIN_ID before starting simulator and SDK replay")
 
-    episodes = [load_episode(path) for path in args.parquet]
     args.output_root.mkdir(parents=True, exist_ok=True)
     print(
         f"Waiting for simulation state topics in ROS domain {os.environ['ROS_DOMAIN_ID']} "
@@ -719,12 +916,16 @@ def main(argv=None):
     )
     wait_for_simulation(args.connect_timeout)
 
+    # Load the SDK package before its Cython utility's short-name imports.
+    # The native robotics_library_py module otherwise shadows its parent package.
+    from astribot_sdk.core.common.robotics_library_py import robotics_library_base
     from astribot_ros_middleware import astribot_ros_middleware as middleware
     from astribot_sdk.core.astribot_api.astribot_client import Astribot
 
     robot = None
     recorder = None
     video_controller = None
+    step_client = None
     results = []
     try:
         robot = Astribot(freq=CONTROL_HZ)
@@ -732,15 +933,19 @@ def main(argv=None):
             raise RuntimeError("SDK did not acquire control rights from the simulation")
         recorder = TopicRecorder(robot)
         recorder.wait_for_state(args.connect_timeout)
+        if args.physics_step:
+            step_client = PhysicsStepClient(robot.astribot_interface.node)
         if args.video_service:
             video_controller = VideoController(robot.astribot_interface.node, args.video_service)
         for path, grid, command, states in episodes:
-            output_dir = args.output_root / path.parent.name
+            output_dir = args.output_root / (path.stem if path.suffix in ('.hdf5', '.h5') else path.parent.name)
             meta, errors = replay_episode(
                 robot, recorder, path, grid, command, states, output_dir,
                 args.preposition_timeout,
                 video_controller=video_controller,
                 video_timeout=args.video_timeout,
+                step_client=step_client,
+                settle_steps=args.settle_steps,
             )
             results.append({"episode": path.parent.name, "metadata": meta, "errors": errors})
     finally:
@@ -748,6 +953,8 @@ def main(argv=None):
             recorder.close()
         if video_controller is not None:
             video_controller.close()
+        if step_client is not None:
+            step_client.close()
         if robot is not None:
             try:
                 robot.stop_robot()
@@ -761,7 +968,16 @@ def main(argv=None):
 
 if __name__ == "__main__":
     try:
-        raise SystemExit(main())
+        result = main()
+        # This CLI owns a dedicated SDK process. Its native package registers
+        # overlapping Python/C++ destructors which abort after ROS shutdown.
+        # main has already stopped the robot, closed captures and written results.
+        # Match the dedicated SDK worker lifecycle used by eef_review.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        if '--inspect-only' in sys.argv:
+            raise SystemExit(result)
+        os._exit(result)
     except (ValueError, RuntimeError, OSError, TimeoutError, ImportError) as error:
         print(f"SDK replay failed: {error}", file=sys.stderr)
         raise SystemExit(1)

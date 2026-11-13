@@ -69,6 +69,79 @@
         damping: 8.0
         effort_limit: 400.0
         velocity_limit_sim: 16.0
+    # Previously shared drives, now independently configurable with identical defaults.
+    torso_joint_4_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+        gravity_compensation_scale: 0.0
+    head_joint_1_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    head_joint_2_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    # Independent arm drives; values preserve the pre-alignment defaults.
+    arm_left_joint_1_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_left_joint_2_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_left_joint_3_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_left_joint_4_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_left_joint_5_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_left_joint_6_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_left_joint_7_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_right_joint_1_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_right_joint_2_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_right_joint_3_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_right_joint_4_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_right_joint_5_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_right_joint_6_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    arm_right_joint_7_control:
+        stiffness: 800.0
+        damping: 40.0
+        effort_limit: 400.0
+    # Optional per-model-joint time_constant_s / velocity_lookahead_s.
+    joint_command_filters: {}
     # Show the Isaac Sim window while also publishing the configured cameras.
     # Use "rgb_array" for headless capture.
     mode: "human"
