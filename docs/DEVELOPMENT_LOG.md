@@ -7,7 +7,7 @@
 ## 2026-11-13：EEF 新样本接入、坐标解释与资料整理
 
 - **新增来源**：在已有正式 SQLite 索引旁登记 CE additional11 和 UMI aligned_sample 两个样本来源。按 manifest 当前选择及 ROOT_COMPLETE 回执接入，不扫描保留的历史额外 episode；目录支持来源、完整映射类别及无有效 EEF 状态筛选。源合同及其哈希保留，分别解析 published_configuration 与 UMI source_policies；未确认单位或动作语义的类别仅供浏览。
-- **来源名称**：按用户要求，来源下拉框改用数据集所在父目录名 `ce_data_astribot`、`aligned_sample`、`additional11_config20_episode10_20261113`；轨迹数量不再附加“正式数据与样本”分类文案，长目录名可通过悬停查看完整名称。该命名变更通过 7 项来源相关测试、前端构建、线上 API 和浏览器显示/筛选验证。
+- **来源名称**：来源下拉框显示 `ce_data_astribot`、`umi`、`additional11_config20_episode10_20261113`；其中 UMI 按用户后续要求使用 `umi`，读取目录仍为 `aligned_sample`。轨迹数量不再附加“正式数据与样本”分类文案，长目录名可通过悬停查看完整名称。父目录命名变更通过 7 项来源相关测试、前端构建、线上 API 和浏览器显示/筛选验证；后续 `umi` 文案通过配置及线上来源列表核对。
 - **HABIT 与 RealOmin**：按用户决定，HABIT 保留当前保存的 XYZ 和 EEF 朝向，直接按 SDK chassis 米制解释，明确记录这是研究假设而非标定。RealOmin 对每条轨迹的左右臂分别建立 `A0 @ inverse(S0)` 固定变换，A0 来自当前初姿的 SDK FK，S0 固定为首帧 State；State/Action 使用同一变换，保留原始数值和目标，不抹去 Action 首帧偏移。显示、IK、USD FK 残差采用同一组转换目标，缓存绑定对齐模式、锚点与合同版本；该映射不恢复来源双臂的真实间距。
 - **聚焦验证**：系统 Python 禁用不兼容的自动加载 pytest 插件后，EEF 合同、正式索引、新样本路由与坐标变换测试 47 项通过；前端 10 项测试及构建通过。新增用例覆盖双臂不同变换、非单位首帧朝向、State/Action 共用锚点、首帧缺失拒绝、原始值保留、历史样本排除、回执变更拒绝、空 robot_type、混合目录分页与正式 episode ID 稳定性。
 - **实际接入与回放**：线上目录共 54 类、974,614 条，保留正式数据 973,490 条，新增 CE 160 条和 UMI 964 条。新增可计算 76 条（ABC 有效 EEF 10 条、HABIT 2 条、RealOmin 64 条），994 条待单位确认，54 条无有效 EEF。HABIT episode 2485 与 RealOmin task-0026/episode 1825 各 419 帧，State/Action 四项共 1,676 帧完成隔离 SDK IK/CPU USD FK；控制消息计数为 0，SDK/USD FK 最大位置差 0.000113 mm。SDK 均返回成功，但 HABIT 两通道各 419 帧触发异常，最大位置残差约 599 mm、角度残差约 49.9°；RealOmin 两通道各 14 帧触发异常，最大位置残差约 23.2 mm、角度残差约 0.124°。保留这些残差，不把 SDK 返回成功表述为全部目标达成。

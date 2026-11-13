@@ -149,7 +149,7 @@
     },
     {
       "id": "umi",
-      "label": "aligned_sample",
+      "label": "umi",
       "root": "/mnt/oss/cognition/UMI_data/aligned_sample"
     }
   ],
