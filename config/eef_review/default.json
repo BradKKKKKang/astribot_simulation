@@ -138,6 +138,228 @@
       "unit": "meter",
       "evidence": "User confirmed on 2026-11-11 that A1 Franka and RoboMIND Franka / FR3 EEF positions are meters: 都是米，可补充单位记录",
       "mapping_sha256": "4e23f9e75912137c3fb466e8fa3d87c2734814c857f76418695d8d321d08e4be"
+    },
+    "ABC-130K/train__yam__d2cebeb53e56": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "90d1e455ff2badd5418a67d01950cb938c4ae5faa16fb164f69092a7dbd5225c"
+    },
+    "ABC-130K/train__yam__efba471b1dae": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "127e2b52e17d61fb95b9322d9734dc94e25b28e491e16fdc8d69eafb2e2cae97"
+    },
+    "ABC-130K/val__yam__d2cebeb53e56": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "59eeb3bc7b31c2d97d24c6d1ef491553ba558b2766be64d45a4c6012aef90bd0"
+    },
+    "ABC-130K/val__yam__efba471b1dae": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "3ce85431e90b05a0496386ab2153d482d00803ba5632590f3bb638757cd632ed"
+    },
+    "AgiBotDigitalWorld/dataset__agibot_g1__c90a1c9bd1d6": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "a92d143847bf928ac431b3b3440435b889bcd94a4fceb1d7380d904b2fdeb370"
+    },
+    "AgiBotWorld2026/ImitationLearning__g2a__183ec7ef8b06": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "a428d12f61b22cd7a1febc76569efb5a1422cd39520d49084cc6cbac5999191b"
+    },
+    "AgiBotWorld2026/ImitationLearning__g2a__2f8917d07642": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "f3a148a39a39cabf479a0d316f8da0fda9bed44c5fbccef9810d0b9e44535fc9"
+    },
+    "AgiBotWorld2026/ImitationLearning__g2a__53a00d6f6398": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "ea87f4a6f36af571ab43ae96924a4732325c396b98499cfe24cebd9c293101c2"
+    },
+    "AgiBotWorld2026/ImitationLearning__g2a__c8fdfdb5e3b8": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "e71ad30039465f9f330e167f686ce95f86196aa23b1a0657beacd896404c8fc1"
+    },
+    "AgiBotWorld2026/ImitationLearning__g2a__e9a35e89cfbc": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "520a49e7fa03c68c56c18822c32ca3796e7c8a3c43d84554e8edf755fc6314a4"
+    },
+    "AgiBotWorld2026/RichInteraction__g2a__2531f32436f9": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "d120f7848950708512ee3d65619914ec0dcfe64b14f28b5253458ae49d7af44d"
+    },
+    "AgiBotWorld2026/RichInteraction__g2a__3ebb3791f275": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "4675e12559e50f0da1d5f31c835f86676008c5c14736729066ce710dd0676ffe"
+    },
+    "AgiBotWorld2026/RichInteraction__g2a__c8fdfdb5e3b8": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "4629266dc35dad9adb2a9f99358a642ecb428e753bb599aa158e502cd3143f5a"
+    },
+    "AgiBotWorld2026/simulation__g2_swift_picker__0af3904aed46": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "f6b49a8d271720c5d20d71538359a645c175a49535f6e6909287a6eb86cf1c38"
+    },
+    "AgiBotWorldChallenge-2025/Manipulation-RealRobot__agibot_g1__0c7101e83693": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "7dd2bca8e3b441b88d0fe8aec0fc4af404a2cbfc39f71215f4f1588090af81e6"
+    },
+    "AgiBotWorldChallenge-2025/Manipulation-RealRobot__agibot_g1__546a7c12919b": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "4c5447d42df248612052531b02dc1cd4e3a1a7bbe5718cc5658d95efd42b0029"
+    },
+    "AgiBotWorldChallenge-2025/Manipulation-RealRobot__agibot_g1__91baf46b1ff6": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "77efc08af70fc65007e53af04bc98238ee0eb4ba347a3bc9ec06691d60202779"
+    },
+    "AgiBotWorldChallenge-2025/Manipulation-RealRobot__agibot_g1__a7bd0003d2b2": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "c96a1934e018ce00009f05ec1187d5da000cf1490d84fa5ea48cab6f9b42e168"
+    },
+    "AgiBotWorldChallenge-2025/Manipulation-RealRobot__agibot_g1__e1835b05268b": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "f064387a02293e240ff20a7267bee42537d17d1e004f0b82980bd20387613300"
+    },
+    "AgiBotWorldChallenge-2025/Manipulation-SimData__agibot_g1__3e496e6f76c7": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "848c79f7b85dc7c3c053d68c847295ffd2a895d350a3df60ee37d10dfe7839d6"
+    },
+    "AgiBotWorldChallenge-2025/Manipulation-SimData__agibot_g1__e71ab96e2bfe": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "b0d4f77f973cfca0d87adf796588f35990a6d2a8f2d650738516cb3eb0c6c1ab"
+    },
+    "AgiBotWorldChallenge-2025/WorldModel__agibot_g1__af1910be3576": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "68f13ab8ac6df4e24b003d08d70af3812a2b62bfb49b69ecb3bdef0969eec689"
+    },
+    "Dexora_Real-World_Dataset/dataset__airbot_play__9682c61d0d62": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "50ff6ac2552038dc283e9508a158725dc87ce9dcee85d7aebacd73c782870fce"
+    },
+    "Galaxea-Open-World-Dataset-fix-coordinate-no-motion_filtered/dataset__r1lite__2c0accdd7714": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "54017f8cccbafc850a610a544830ff8da781f16f278216e4a614912abff8ce89"
+    },
+    "Galaxea-Open-World-Dataset-fix-coordinate-no-motion_filtered/dataset__r1pro__70c82a215371": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "83fc3493367891c1121c9f7fc95b233eda6776d2411c9765c53291f1b42152d2"
+    },
+    "GenieSim3.0/dataset__g2a__814e1bdb946e": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "6c37ac83a1583b6a98f70d8cb3e4284b6c8036a0ee066cf9de9cfd86627744e5"
+    },
+    "HABIT/dataset__human__f9cb9d371cc5": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "4d3f3d4f00920b7964623cfb0b95fc52a9278a4d4c59ffd956ff6212dc7d638f"
+    },
+    "agibot_data/dataset__agibot-go1__0524851b02e7": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "6bbd581ebd6c727ca6e658be979d3fe2768d9a5f2d2bd1c2f9d885bf65670135"
+    },
+    "agibot_data_extracted_selected_x2/dataset__agibot-go1__04ce7c821156": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "e17615328e40446cf61f20dca421a38f6510f41fe377737d968bd5c4c9a90b99"
+    },
+    "baihu-dataset-en_aligned/dataset__FOURIER-GR2__24edaa8de085": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "368d8084fe1dea9caae9f6a2b81fb349d7356f8731e51405f0e7498d929693b9"
+    },
+    "baihu-dataset-en_aligned/dataset__QINGLOONG__d524d86c4ca8": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "1be5e0f675fb96ba9793c4980410f83df0526879783382dc0ee8460aaab45331"
+    },
+    "baihu-dataset-en_aligned/dataset__ZY-A2D__216eb2d727a8": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "7faf6a679bd7aed3f2ca63f5c71f9e821d55ce4a978819a5f5da50a1561fe643"
+    },
+    "FastUMI_aligned/dual_arm__eef_both__cam2__fbc65ea0577e": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "fbc65ea0577ed622dca0554b31084d9e57770f38d15377749832a300af3451c8"
+    },
+    "FastUMI_aligned/single_arm__eef_right__cam1__66dcf3f1d533": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "66dcf3f1d533f96676aea13d7815705e16e5b44175b9c21ffc377556aa20df94"
+    },
+    "HY_aligned/dual_arm__eef_both__cam3__ff982203131f": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "ff982203131f81bd3138d6fc969e0cf903f27e9cb954458ccbff25857740bfe7"
+    },
+    "HiFi/dual_arm__eef_both__cam6__329305534eaa": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "329305534eaacc65c50425883a22de3fc036e9130b8bfd926f900ddd549bd1df"
+    },
+    "realomin_10kh/dual_arm__eef_both__cam2__1f6893398564": {
+      "unit": "meter",
+      "assumed": true,
+      "evidence": "2026-11-13 用户明确指定：都按米来。当前新增 CE/UMI 的已保存 EEF XYZ 统一按米解释，不重新缩放。",
+      "mapping_sha256": "1f68933985646de1aa62dbdf9a5ec91375c48fafc9709d194bc9fa4a4585530a"
     }
   },
   "source_mode": "mixed",

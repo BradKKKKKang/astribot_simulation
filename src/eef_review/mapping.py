@@ -14,7 +14,13 @@ def describe(group):
     if 'published_configuration' in contract and dataset in PUBLISHED_DATASETS:
         published = contract['published_configuration']
         action = published.get('action_kind')
-        absolute = dataset == 'ABC-130K' and action == 'original matched commanded pose; no temporal shift or substitution'
+        absolute = action in {
+            'original matched commanded pose; no temporal shift or substitution',
+            'absolute next-state target; final row holds state[t]',
+            'EEF pose action[t] = transformed state arm pose[t+1], within episode',
+            'state[t+1] within episode; final action=state[t]',
+            'same-row published source absolute target; original arm_pose/end_pose TCP relation unverified',
+        }
         return {'kind': 'published', 'profile': details.get('profile', 'published_' + dataset),
                 'coordinates': published.get('coordinates', {}),
                 'action_kind': 'absolute_pose' if absolute else action,
@@ -27,6 +33,13 @@ def describe(group):
         policies = contract.get('source_policies', {})
         absolute = (policies.get('action_layout', {}).get('type') == 'absolute_next_state_target'
                     or policies.get('umi', {}).get('action_temporal_alignment') == 'next_state_exact_within_episode; terminal row UNKNOWN')
+        # HY's augmented EEF action is episode-local next-State pose with native
+        # gripper action. Verified in extras/action_augmentation/semantics.json
+        # and its completion receipt across all 22 registered source roots.
+        if (dataset == 'HY_aligned'
+                and policies.get('padding', {}).get('version') == 'praxis.hy-lumo-dimensions-inplace.v1'
+                and policies.get('extras/pose_transform.json', {}).get('schema_version') == 'praxis.hy-rxminus90-rot6d.v1'):
+            absolute = True
         return {'kind': 'umi', 'profile': 'umi_' + dataset, 'has_pose': bool(contract.get('eef_sides')),
                 'coordinates': {'position_unit': 'unverified',
                                 'target_frame': 'per_arm_first_state' if first_state else 'saved UMI reference',

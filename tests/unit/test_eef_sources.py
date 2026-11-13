@@ -130,6 +130,33 @@ def test_unknown_robot_type_is_nullable_and_does_not_confirm_units():
     assert admission(group, robot_type=None)['status'] == 'pending_units'
 
 
+def test_hy_metric_confirmation_uses_reviewed_absolute_pose_profile():
+    group = {'dataset': 'HY_aligned', 'details': {}, 'contract': {
+        'schema': 'umi_aligned_sample_mapping_v1', 'eef_sides': ['left', 'right'],
+        'source_policies': {'padding': {'version': 'praxis.hy-lumo-dimensions-inplace.v1'},
+                            'extras/pose_transform.json': {'schema_version': 'praxis.hy-rxminus90-rot6d.v1'}}}}
+    assert admission(group)['status'] == 'pending_units'
+    evidence = {'unit': 'meter', 'evidence': 'user instruction', 'mapping_sha256': digest(group['contract'])}
+    assert admission(group, unit_evidence=evidence)['status'] == 'admitted'
+    group['contract']['source_policies']['padding']['version'] = 'unknown'
+    assert admission(group, unit_evidence=evidence)['status'] == 'pending_units'
+    evidence['mapping_sha256'] = digest(group['contract'])
+    assert admission(group, unit_evidence=evidence)['status'] == 'deferred'
+
+
+@pytest.mark.parametrize('action,expected', [
+    ('EEF pose action[t] = transformed state arm pose[t+1], within episode', 'admitted'),
+    ('state[t+1] within episode; final action=state[t]', 'admitted'),
+    ('same-row source action; no new Viewer shift', 'deferred'),
+    ('stored mapped action (time semantics unverified)', 'deferred'),
+])
+def test_metric_confirmation_does_not_invent_unstated_action_semantics(action, expected):
+    group = {'dataset': 'AgiBotWorld2026', 'details': {}, 'contract': {'published_configuration': {
+        'action_kind': action, 'coordinates': {'position_unit': 'unverified'}}}}
+    evidence = {'unit': 'meter', 'evidence': 'user instruction', 'mapping_sha256': digest(group['contract'])}
+    assert admission(group, unit_evidence=evidence)['status'] == expected
+
+
 def test_mixed_pagination_routing_filters_and_formal_identity(formal_root, tmp_path):
     base, sample, _, index, _ = formal_root
     build(base, sample, index, {}, workers=1)

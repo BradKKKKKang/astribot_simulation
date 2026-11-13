@@ -50,7 +50,9 @@ positions and orientations directly as SDK chassis targets under an explicit met
 RealOmin places each arm's first State pose at the corresponding initial Astribot TCP, then applies
 that fixed per-episode transform to both State and Action. Source values are retained, and the viewer,
 IK and FK residuals use the same placed targets. This placement does not reconstruct the original
-distance between the source arms. Other unresolved unit/action contracts remain viewable without IK.
+distance between the source arms. The current registered CE/UMI samples interpret saved XYZ as meters
+under mapping-hash-bound user instructions, without rescaling. Unresolved absolute-action contracts
+remain viewable without IK.
 
 ---
 
