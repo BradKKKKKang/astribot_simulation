@@ -144,12 +144,12 @@
   "sample_sources": [
     {
       "id": "ce11",
-      "label": "CE 新增样本",
+      "label": "additional11_config20_episode10_20261113",
       "root": "/mnt/oss/cognition/QW_Data/ce_data_astribot/eef_sample/additional11_config20_episode10_20261113"
     },
     {
       "id": "umi",
-      "label": "UMI 样本",
+      "label": "aligned_sample",
       "root": "/mnt/oss/cognition/UMI_data/aligned_sample"
     }
   ],

@@ -214,11 +214,12 @@ async function loadCatalog() {
   const query = new URLSearchParams({ q: $('#search').value, source: $('#source').value, group: $('#group').value, review: $('#filter').value, processing: $('#processing').value, mode: selectedMode, offset, limit: 40, all: ['excluded', 'deferred'].includes($('#filter').value) ? '1' : '0' });
   const data = await api('/api/catalog?' + query);
   if (token !== catalogGeneration) return;
-  total = data.total; $('#count').textContent = `${({formal:'正式数据', mixed:'正式数据与样本', sample:'样本'}[data.source_kind] || '样本')} · ${total.toLocaleString()} 条轨迹`; $('#page-number').textContent = `${Math.floor(offset / 40) + 1} / ${Math.max(1, Math.ceil(total / 40))}`;
+  total = data.total; $('#count').textContent = `${total.toLocaleString()} 条轨迹`; $('#page-number').textContent = `${Math.floor(offset / 40) + 1} / ${Math.max(1, Math.ceil(total / 40))}`;
   $('#prev-page').disabled = offset === 0; $('#next-page').disabled = offset + 40 >= total;
   const sourceValue = $('#source').value, groupValue = $('#group').value;
   $('#source').innerHTML = '<option value="">全部来源</option>' + (data.sources || []).map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join('');
   $('#source').value = sourceValue;
+  $('#source').title = data.sources?.find(s => s.id === sourceValue)?.label || '全部来源';
   const groups = (data.group_options || data.groups.map(id => ({id, label:id}))).filter(g => !sourceValue || g.source_id === sourceValue);
   $('#group').innerHTML = '<option value="">全部类别</option>' + groups.map(g => `<option value="${esc(g.id)}">${esc(g.label)}${g.episodes !== undefined ? ` · ${g.episodes} 条` : ''}</option>`).join('');
   $('#group').value = groups.some(g => g.id === groupValue) ? groupValue : '';

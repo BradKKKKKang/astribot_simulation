@@ -92,7 +92,7 @@ class CombinedReader:
                     raise ValueError('duplicate sample identity')
                 self.sample_routes[key] = source['id']
         self.readers['formal'] = FormalReader(config['remote_root'], cache, config['remote_index'], preview=self.preview)
-        self.sources.append({'id': 'formal', 'label': '正式数据', 'kind': 'formal'})
+        self.sources.append({'id': 'formal', 'label': Path(config['remote_root']).name, 'kind': 'formal'})
         self.groups, self.group_options = {}, []
         for source in self.sources:
             reader = self.readers[source['id']]
