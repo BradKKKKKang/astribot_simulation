@@ -13,11 +13,11 @@ from .preview import PreviewCache
 
 
 class Reader:
-    def __init__(self, root, cache):
+    def __init__(self, root, cache, *, units=None, policies=None, source_id=None, preview=None):
         self.root = Path(root).resolve()
-        self.catalog = Catalog(read_json(self.root / 'SAMPLE_MANIFEST.json'))
+        self.catalog = Catalog(read_json(self.root / 'SAMPLE_MANIFEST.json'), units, policies, source_id)
         self.group_digest = digest(read_json(self.root / 'MAPPING_GROUPS.json'))
-        self.preview = PreviewCache(cache)
+        self.preview = preview if preview is not None else PreviewCache(cache)
         self.stats = {'read_bytes': 0, 'requests': 0, 'disconnects': 0}
 
     def episode(self, key):
@@ -143,10 +143,14 @@ def main():
     parser.add_argument('--root', required=True)
     parser.add_argument('--cache', default=str(Path.home() / '.cache/astribot-eef-review/media'))
     parser.add_argument('--port', type=int, default=8765)
-    parser.add_argument('--mode', choices=['sample', 'formal'], default='sample')
+    parser.add_argument('--mode', choices=['sample', 'formal', 'mixed'], default='sample')
+    parser.add_argument('--config')
     parser.add_argument('--index', default=str(Path.home() / '.cache/astribot-eef-review/formal/index.sqlite'))
     args = parser.parse_args()
-    if args.mode == 'formal':
+    if args.mode == 'mixed':
+        from .sources import CombinedReader
+        reader = CombinedReader(read_json(args.config), args.cache)
+    elif args.mode == 'formal':
         from .formal_reader import FormalReader
         reader = FormalReader(args.root, args.cache, args.index)
     else:

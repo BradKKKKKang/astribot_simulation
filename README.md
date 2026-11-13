@@ -37,6 +37,21 @@ It is designed as a **research tool** for users of Astribot.
 - **Placement analysis**: Extract grasp/release TCP events from Isaac Lab replay and inspect metric robot geometry and 3D density in a read-only Three.js viewer. See [placement analysis](docs/PLACEMENT_ANALYSIS.md).
 - **EEF review**: Compare dataset videos, original EEF targets and offline Astribot SDK IK / CPU USD FK on one timeline. Manage the LAN service with [the review entrypoint](scripts/eef_review/review); implementation history and validation limits are recorded in the [development log](docs/DEVELOPMENT_LOG.md).
 
+EEF review uses [config/eef_review/default.json](config/eef_review/default.json). In `mixed` mode,
+the existing formal SQLite index and the explicitly registered `sample_sources` share one directory;
+the source and mapping filters include samples awaiting semantic review and episodes without valid EEF.
+Only the episodes selected by each sample manifest and matching completion receipts are registered.
+Source datasets remain read-only. `scripts/eef_review/review restart` prepares the model and SDK initial
+TCP poses, deploys the reader and restarts the dedicated LAN service; `build-index` only rebuilds the
+existing formal source index and is not needed to add sample packages.
+
+Mapping-hash-bound `alignment_policies` record the selected interpretation. HABIT uses its saved
+positions and orientations directly as SDK chassis targets under an explicit meter assumption.
+RealOmin places each arm's first State pose at the corresponding initial Astribot TCP, then applies
+that fixed per-episode transform to both State and Action. Source values are retained, and the viewer,
+IK and FK residuals use the same placed targets. This placement does not reconstruct the original
+distance between the source arms. Other unresolved unit/action contracts remain viewable without IK.
+
 ---
 
 ## Project Structure

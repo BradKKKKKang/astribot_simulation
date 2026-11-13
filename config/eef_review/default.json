@@ -140,7 +140,33 @@
       "mapping_sha256": "4e23f9e75912137c3fb466e8fa3d87c2734814c857f76418695d8d321d08e4be"
     }
   },
-  "source_mode": "formal",
+  "source_mode": "mixed",
+  "sample_sources": [
+    {
+      "id": "ce11",
+      "label": "CE 新增样本",
+      "root": "/mnt/oss/cognition/QW_Data/ce_data_astribot/eef_sample/additional11_config20_episode10_20261113"
+    },
+    {
+      "id": "umi",
+      "label": "UMI 样本",
+      "root": "/mnt/oss/cognition/UMI_data/aligned_sample"
+    }
+  ],
+  "alignment_policies": {
+    "HABIT/dataset__human__f9cb9d371cc5": {
+      "mode": "chassis",
+      "position_unit_assumption": "meter",
+      "mapping_sha256": "4d3f3d4f00920b7964623cfb0b95fc52a9278a4d4c59ffd956ff6212dc7d638f",
+      "evidence": "2026-11-13 用户指定 HABIT 沿用 SDK chassis base 流程，优先检查已保存 EEF 朝向；位置数值按 SDK 米制直接解释，不视为物理标定或单位验证。"
+    },
+    "realomin_10kh/dual_arm__eef_both__cam2__1f6893398564": {
+      "mode": "episode_first_state",
+      "position_unit_assumption": "meter",
+      "mapping_sha256": "1f68933985646de1aa62dbdf9a5ec91375c48fafc9709d194bc9fa4a4585530a",
+      "evidence": "2026-11-13 用户指定 RealOmin 按 episode 建立双臂到 chassis 的位姿变换；各臂首帧 State 对齐 Astribot 初始 TCP，State/Action 共用固定变换，沿用 SDK 米制解释。"
+    }
+  },
   "sample_root": "/mnt/oss/cognition/QW_Data/ce_data_astribot/eef_sample",
   "remote_index": "/root/.cache/astribot-eef-review/formal/index.sqlite"
 }

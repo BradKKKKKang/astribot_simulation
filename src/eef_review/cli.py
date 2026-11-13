@@ -15,8 +15,8 @@ import time
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
-from .common import REPO, atomic_json, load_config, read_json
-from .runtime import usd_environment
+from .common import REPO, atomic_json, digest, load_config, read_json
+from .runtime import sdk_environment, sdk_fingerprint, usd_environment
 
 
 def json_url(url, body=None):
@@ -47,6 +47,20 @@ def prepare(config):
     atomic_json(cache / 'runtime.json', config)
     subprocess.run([config['usd_python'], '-m', 'src.eef_review.fk_worker', '--prepare', str(cache / 'runtime.json')],
                    cwd=REPO, env=usd_environment(config), check=True)
+    if any(p['mode'] == 'episode_first_state' for p in config.get('alignment_policies', {}).values()):
+        # The query worker uses localhost-only ROS feedback and emits no control commands.
+        initial = read_json(config['initial_pose'])
+        path = cache / 'initial-sdk' / 'job.json'
+        atomic_json(path, {'key': digest(initial), 'config': config, 'initial_pose': initial,
+                           'trajectory': {'frames': []}, 'mode': 'state'})
+        with (path.parent / 'worker.log').open('ab') as log:
+            subprocess.run(['/usr/bin/python3', '-m', 'src.eef_review.sdk_worker', str(path)],
+                           cwd=REPO, env=sdk_environment(config), check=True, timeout=90, stdout=log, stderr=log)
+        model = read_json(cache / 'model.json')
+        model['initial_tcp'] = read_json(path.parent / 'sdk.json')['initial_fk']
+        model['initial_pose_sha256'] = digest(initial)
+        model['initial_sdk_fingerprint'] = sdk_fingerprint(config)
+        atomic_json(cache / 'model.json', model)
 
 
 def deploy_remote(config, start_reader=True):
@@ -189,7 +203,7 @@ def main():
                 if job['status'] == 'complete':
                     item['summary'] = json_url(url + '/api/results/' + job['key'])['summary']
             report.append(item)
-            prefix = 'acceptance-formal' if config.get('source_mode') == 'formal' else 'acceptance'
+            prefix = 'acceptance-' + config.get('source_mode', 'sample')
             atomic_json(Path(config['cache']) / f'{prefix}-{args.mode}-{args.per_group}.json', report)
             print(json.dumps({k: v for k, v in item.items() if k != 'summary'}, ensure_ascii=False), flush=True)
     elif args.command == 'clean-cache':

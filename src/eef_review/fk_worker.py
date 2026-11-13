@@ -93,7 +93,8 @@ def run(job, directory):
     atomic_json(directory / 'result.json', {'key': job['key'], 'episode_id': job['episode_id'], 'mode': job['mode'],
                 'summary': summary, 'model': job['model'], 'chunk_size': size,
                 'chunks': (len(frames) + size - 1) // size, 'provenance': job['provenance'],
-                'basis': 'source base = SDK chassis (unverified across robots); USD z = chassis z - 0.097 m',
+                'basis': 'targets and achieved TCP in SDK chassis; source placement recorded in alignment',
+                'alignment': job['trajectory'].get('alignment', {'mode': 'chassis'}),
                 'tool_offsets_m': job['config']['tool_offsets_m']})
 
 

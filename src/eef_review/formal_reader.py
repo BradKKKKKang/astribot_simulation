@@ -17,14 +17,14 @@ def file_version(path):
 
 
 class FormalReader:
-    def __init__(self, root, cache, index):
+    def __init__(self, root, cache, index, *, preview=None):
         self.root = Path(root).resolve()
         self.catalog = FormalCatalog(index)
         self.reader_version = digest([Path(__file__).read_text(), Path(__file__).with_name('formal_index.py').read_text()])
         self.catalog.manifest = {**self.catalog.manifest, 'reader_version': self.reader_version,
                                  'id': digest([self.catalog.version, self.reader_version])}
         self.catalog.version = self.catalog.manifest['id']
-        self.preview = PreviewCache(cache)
+        self.preview = preview if preview is not None else PreviewCache(cache)
         self.scratch = Path(cache).parent / 'formal' / 'episode-reads'
         self.scratch.mkdir(parents=True, exist_ok=True)
         self.read_slots = threading.BoundedSemaphore(2)

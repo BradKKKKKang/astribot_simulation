@@ -78,6 +78,7 @@ export class EefScene extends PlacementScene {
       new THREE.LineDashedMaterial({color:0xffce79,dashSize:.022,gapSize:.015,depthTest:false}));
     this.dataAxes.computeLineDistances(); this.dataAxes.renderOrder = 1001;
     this.dataAxes.matrixAutoUpdate = false; this.referenceFrame.add(this.dataAxes);
+    this.armReferences = new THREE.Group(); this.referenceFrame.add(this.armReferences);
     this.frameLabels = [
       ['X',[.44,0,0],'#ff7777'], ['Y',[0,.44,0],'#69da9d'], ['Z',[0,0,.44],'#7caeff'], ['世界 · SDK chassis',[0,0,0],'#ffe0a7'],
     ].map(([text,position,color],i) => {
@@ -87,12 +88,19 @@ export class EefScene extends PlacementScene {
     });
     this.setReferenceFrame(null);
   }
-  setReferenceFrame(episode) {
-    this.reference = referenceDescription(episode);
+  setReferenceFrame(episode, alignment) {
+    this.reference = referenceDescription(episode, alignment);
     this.referenceFrame.position.set(0, 0, 0);
-    this.dataAxes.visible = this.reference.showData;
+    const anchored = this.reference.alignment.mode === 'episode_first_state';
+    this.dataAxes.visible = this.reference.showData && !anchored;
     this.dataAxes.matrix.set(...this.reference.dataToChassis.flat());
-    this.frameLabels[3].element.textContent = this.reference.showData ? '世界 · chassis · 数据系' : '世界 · SDK chassis';
+    this.clear(this.armReferences);
+    if (anchored) for (const placement of Object.values(this.reference.alignment.per_arm || {})) {
+      const axes = new THREE.AxesHelper(.22);
+      axes.matrixAutoUpdate = false; axes.matrix.set(...placement.data_to_chassis.flat());
+      this.armReferences.add(axes);
+    }
+    this.frameLabels[3].element.textContent = this.dataAxes.visible ? '世界 · chassis · 数据系' : '世界 · SDK chassis';
     this.element.dataset.dataFrame = this.reference.name;
     this.alignModel();
     this.updateFrameNote(); this.requestRender();
@@ -103,7 +111,10 @@ export class EefScene extends PlacementScene {
   updateFrameNote() {
     const note = document.querySelector('#frame-note');
     if (!note || !this.reference) return;
-    const relation = this.reference.showData ? `校正数据系：${this.reference.name} · 与 chassis 暂同原点、同轴向（未标定）` : '参考系：SDK chassis';
+    const relation = this.reference.alignment.mode === 'episode_first_state'
+      ? '左右数据参考轴：每条轨迹首帧 State 对齐初始 TCP；State/Action 共用固定变换'
+      : this.reference.explicit ? '用户指定：保存的 EEF 位姿直接按 chassis 解释（未标定）'
+      : this.reference.showData ? `校正数据系：${this.reference.name} · 与 chassis 暂同原点、同轴向（未标定）` : '参考系：SDK chassis';
     note.textContent = `世界原点 = SDK chassis 原点 (0, 0, 0)\n${relation}`;
   }
   updateFrameLabels() {

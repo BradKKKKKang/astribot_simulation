@@ -4,12 +4,12 @@ import { nearestFrame, nextAnomaly } from './timeline.js';
 import { VideoGroup, selectCameraSlots } from './video-group.js';
 
 const $ = selector => document.querySelector(selector);
-const labels = { admitted: '可计算', pending_units: '单位待核实', excluded: '已排除', deferred: '暂缓' };
+const labels = { admitted: '可计算', pending_units: '单位待核实', excluded: '已排除', deferred: '暂缓', no_eef: '无有效 EEF' };
 const esc = text => String(text ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 let stored = {}; try { stored = JSON.parse(localStorage.getItem('eef-review') || '{}'); } catch { /* invalid preferences */ }
 $('#app').innerHTML = `
 <header><div><h1><span>ASTRIBOT / RESEARCH</span>EEF 轨迹审查</h1><p>数据集视频 · 原始目标 · 运动学回放</p></div><div class="header-actions"><button id="toggle-catalog" aria-controls="episode-directory" aria-expanded="true">收起目录</button><div id="connection">连接共享服务…</div></div></header>
-<div class="layout"><aside id="episode-directory"><label for="search">查找任务或数据集</label><input id="search" placeholder="搜索轨迹…"><label for="group">映射类别</label><select id="group"><option value="">全部候选类别</option></select><select id="filter" aria-label="准入状态"><option value="">全部审查状态</option><option value="admitted">可计算</option><option value="pending_units">单位待核实</option><option value="excluded">已排除</option><option value="deferred">暂缓</option></select><select id="processing" aria-label="计算状态"><option value="">全部计算状态</option><option value="complete">已完成缓存</option><option value="anomaly">含异常帧</option><option value="queued">排队中</option><option value="running">计算中</option><option value="failed">计算失败</option><option value="uncomputed">尚未计算</option></select><div id="count" class="muted"></div><div id="catalog"></div><div id="pagination"><button id="prev-page">上一页</button><span id="page-number"></span><button id="next-page">下一页</button></div><div class="muted">源数据只读 · 含已审核的 Franka 数据<br>每个浏览器独立播放，共享计算缓存</div></aside>
+<div class="layout"><aside id="episode-directory"><label for="search">查找任务或数据集</label><input id="search" placeholder="搜索轨迹…"><label for="source">数据来源</label><select id="source" aria-label="数据来源"><option value="">全部来源</option></select><label for="group">映射类别</label><select id="group"><option value="">全部候选类别</option></select><select id="filter" aria-label="准入状态"><option value="">全部审查状态</option><option value="admitted">可计算</option><option value="pending_units">单位待核实</option><option value="excluded">已排除</option><option value="deferred">暂缓</option><option value="no_eef">无有效 EEF</option></select><select id="processing" aria-label="计算状态"><option value="">全部计算状态</option><option value="complete">已完成缓存</option><option value="anomaly">含异常帧</option><option value="queued">排队中</option><option value="running">计算中</option><option value="failed">计算失败</option><option value="uncomputed">尚未计算</option></select><div id="count" class="muted"></div><div id="catalog"></div><div id="pagination"><button id="prev-page">上一页</button><span id="page-number"></span><button id="next-page">下一页</button></div><div class="muted">源数据只读 · 含已审核的 Franka 数据<br>每个浏览器独立播放，共享计算缓存</div></aside>
 <main><div class="titlebar"><div><h2 id="title">选择一条轨迹</h2><div id="subtitle" class="muted">从左侧目录开始，或等待恢复上次查看的位置。</div></div><div class="toolbar"><select id="mode" aria-label="机器人回放通道"><option value="state">State 回放</option><option value="action">Action 回放</option></select><label><input type="checkbox" id="action-layer">Action 目标</label></div></div>
 <div id="notice">源 base 暂按 SDK chassis；跨本体基座尚未对齐。此页用于运动学审查。</div>
 <div class="views"><section class="panel"><div class="panel-head"><span>ASTRIBOT S1 / 3D</span><label class="frame-toggle"><input id="reference-visible" type="checkbox" checked>参考系</label><span id="loading">载入共享模型…</span></div><div id="scene"></div><div class="legend"><span class="left">● 左臂目标</span><span class="right">● 右臂目标</span><span>○ 达成 EEF</span><span>— 位置残差</span></div><div id="frame-note" class="frame-note"></div></section>
@@ -19,7 +19,7 @@ $('#app').innerHTML = `
 <div class="camera-card camera-right"><div class="camera-caption"><strong>RIGHT</strong><span id="right-status">等待轨迹</span></div><video id="video-right" preload="metadata" muted playsinline></video><div id="right-message" class="camera-message">等待轨迹</div></div>
 </div><div class="video-actions"><span id="video-kind">主相机驱动时间轴</span><button id="preview">生成 / 使用 H.264 预览</button></div><div id="media-status">可用相机共用时间轴</div></section></div>
 <section class="panel timeline"><div class="controls"><button id="play" class="primary" disabled>▶ 播放</button><button id="previous" disabled>上一帧</button><button id="next" disabled>下一帧</button><button id="anomaly" disabled>下一异常</button><select id="speed" aria-label="播放速度"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select><button id="compute" disabled>计算运动学回放</button><span id="time">0.000 s / 0 帧</span></div><input id="seek" type="range" min="0" max="0" value="0" step="1" disabled aria-label="轨迹帧"><div id="sync">视频实际呈现时间驱动机器人</div></section>
-<div class="diagnostics"><section class="panel diagnostic"><h3>末端误差 / 当前位置 · 姿态</h3><div class="metric-row"><div><div class="muted left-text">左臂</div><div id="left-error" class="metric">—</div><div id="left-angle" class="muted">—</div></div><div><div class="muted right-text">右臂</div><div id="right-error" class="metric">—</div><div id="right-angle" class="muted">—</div></div></div></section><section class="panel diagnostic"><h3>夹爪 / 0 开 · 100 闭</h3><canvas id="gripper-plot"></canvas><div id="grippers" class="muted">—</div></section><section class="panel diagnostic"><h3>计算与诊断</h3><div id="diagnosis" class="status-details">尚未计算。目标和视频可先行检查。</div></section></div><div id="error" role="alert"></div><details><summary>来源、坐标与计算记录</summary><pre id="provenance"></pre></details><footer>残差取原始采样点。失败帧显示保留姿态并明确标记；暂停、拖动和倍速只读取缓存。</footer></main></div>`;
+<div class="diagnostics"><section class="panel diagnostic"><h3>末端误差 / 当前位置 · 姿态</h3><div class="metric-row"><div><div class="muted left-text">左臂</div><div id="left-error" class="metric">—</div><div id="left-angle" class="muted">—</div></div><div><div class="muted right-text">右臂</div><div id="right-error" class="metric">—</div><div id="right-angle" class="muted">—</div></div></div></section><section class="panel diagnostic"><h3 id="gripper-title">夹爪 / 0 开 · 100 闭</h3><canvas id="gripper-plot"></canvas><div id="grippers" class="muted">—</div></section><section class="panel diagnostic"><h3>计算与诊断</h3><div id="diagnosis" class="status-details">尚未计算。目标和视频可先行检查。</div></section></div><div id="error" role="alert"></div><details><summary>来源、坐标与计算记录</summary><pre id="provenance"></pre></details><footer>残差取原始采样点。失败帧显示保留姿态并明确标记；暂停、拖动和倍速只读取缓存。</footer></main></div>`;
 
 $('#toggle-catalog').onclick = () => {
   const collapsed = $('.layout').classList.toggle('catalog-collapsed');
@@ -98,7 +98,9 @@ function updateSync(frame, actualTime) {
 function updateMediaStatus() {
   const messages = {empty:'等待轨迹',missing:'数据未提供此相机',loading:'读取视频…',preview:'准备 H.264 预览…',error:'视频未就绪'};
   for (const [name, slot] of Object.entries(videos.slots)) {
-    const ready = slot.state === 'ready', text = slot.error || messages[slot.state] || '';
+    const ready = slot.state === 'ready';
+    const promoted = slot.state === 'missing' && videos.head.camera?.camera === `observation.images.${name}`;
+    const text = slot.error || (promoted ? '该相机已用作主视图' : messages[slot.state]) || '';
     $(`#${name}-status`).textContent = ready ? `${slot.camera.kind === 'formal_episode_preview' ? '正式片段 H.264' : slot.derived ? '预览 H.264' : '样本 H.264'} · ${slot.camera.fps} FPS` : messages[slot.state];
     $(`#${name}-message`).hidden = ready && !slot.error;
     $(`#${name}-message`).textContent = text;
@@ -159,7 +161,8 @@ async function loadEpisode(id, restore = false) {
     episode = await api('/api/episodes/' + id, { signal: controller.signal });
     if (token !== generation) return;
     $('#title').textContent = episode.task; $('#subtitle').textContent = `${episode.dataset} / ${episode.profile} / episode_${String(episode.episode).padStart(6, '0')}`;
-    $('#notice').textContent = `${episode.basis_warning}。${labels[episode.review.status]}：${episode.review.reason}`;
+    $('#notice').textContent = `${episode.basis_warning}。${labels[episode.review.status]}${episode.alignment_policy ? '' : '：' + episode.review.reason}`;
+    $('#gripper-title').textContent = episode.dataset === 'HABIT' ? '夹爪 / 保存值（开闭方向未声明）' : '夹爪 / 0 开 · 100 闭';
     $('#provenance').textContent = JSON.stringify(episode, null, 2);
     scene.setReferenceFrame(episode);
     $('#compute').disabled = !metricAllowed();
@@ -169,13 +172,15 @@ async function loadEpisode(id, restore = false) {
     const cameraLoading = loadCamera().catch(showError);
     trajectory = await api(`/api/episodes/${id}/trajectory`, { signal: controller.signal });
     if (token !== generation) return;
+    scene.setReferenceFrame(episode, trajectory.alignment);
+    $('#provenance').textContent = JSON.stringify({episode, alignment: trajectory.alignment}, null, 2);
     await cameraLoading;
     if (token !== generation) return;
     scene.trajectory(trajectory.frames, selectedMode, metricAllowed());
     $('#seek').max = trajectory.frames.length - 1;
     for (const id of ['previous', 'next', 'seek']) $('#' + id).disabled = false;
     updateMediaStatus();
-    $('#loading').textContent = metricAllowed() ? '目标已载入 · 等待计算' : '单位待核实 · 仅视频与数值';
+    $('#loading').textContent = metricAllowed() ? '目标已载入 · 等待计算' : '仅视频与原始数值 · ' + labels[episode.review.status];
     index = restore ? nearestFrame(trajectory.frames.map(f => f.sample_timestamp), restoreTime) : 0;
     await display(index, video.currentTime);
     if (restoreTime) await seek(index);
@@ -206,14 +211,19 @@ async function compute() {
 
 async function loadCatalog() {
   const token = ++catalogGeneration;
-  const query = new URLSearchParams({ q: $('#search').value, group: $('#group').value, review: $('#filter').value, processing: $('#processing').value, mode: selectedMode, offset, limit: 40, all: ['excluded', 'deferred'].includes($('#filter').value) ? '1' : '0' });
+  const query = new URLSearchParams({ q: $('#search').value, source: $('#source').value, group: $('#group').value, review: $('#filter').value, processing: $('#processing').value, mode: selectedMode, offset, limit: 40, all: ['excluded', 'deferred'].includes($('#filter').value) ? '1' : '0' });
   const data = await api('/api/catalog?' + query);
   if (token !== catalogGeneration) return;
-  total = data.total; $('#count').textContent = `${data.source_kind === 'formal' ? '正式数据 · ' : '样本 · '}${total.toLocaleString()} 条轨迹`; $('#page-number').textContent = `${Math.floor(offset / 40) + 1} / ${Math.max(1, Math.ceil(total / 40))}`;
+  total = data.total; $('#count').textContent = `${({formal:'正式数据', mixed:'正式数据与样本', sample:'样本'}[data.source_kind] || '样本')} · ${total.toLocaleString()} 条轨迹`; $('#page-number').textContent = `${Math.floor(offset / 40) + 1} / ${Math.max(1, Math.ceil(total / 40))}`;
   $('#prev-page').disabled = offset === 0; $('#next-page').disabled = offset + 40 >= total;
-  if ($('#group').options.length === 1) $('#group').innerHTML += data.groups.map(g => `<option value="${esc(g)}">${esc(g.split('/')[0] + ' / ' + g.split('/')[1].split('__')[0] + ' · ' + g.slice(-6))}</option>`).join('');
-  const rows = data.episodes.filter(row => $('#filter').value || !['excluded', 'deferred'].includes(row.review.status));
-  $('#catalog').innerHTML = rows.map(row => `<button data-id="${row.id}" class="${episode?.id === row.id ? 'active' : ''}" ${['excluded', 'deferred'].includes(row.review.status) ? 'disabled' : ''}><strong>${esc(row.profile)} · ${row.episode}</strong><small>${esc(row.root.split('/').slice(-1)[0])}</small><small>${esc(row.dataset)}</small><span class="pill ${row.review.status === 'admitted' ? '' : 'pending'}">${labels[row.review.status]}</span><small>${({complete:'缓存已完成',queued:'排队中',running:'计算中',failed:'计算失败',uncomputed:'尚未计算'}[row.computation?.status] || '')}${row.computation?.anomaly_count ? ` · ${row.computation.anomaly_count} 异常帧` : ''}</small></button>`).join('') || '<div class="empty">没有匹配的轨迹。调整筛选条件查看其他类别。</div>';
+  const sourceValue = $('#source').value, groupValue = $('#group').value;
+  $('#source').innerHTML = '<option value="">全部来源</option>' + (data.sources || []).map(s => `<option value="${esc(s.id)}">${esc(s.label)}</option>`).join('');
+  $('#source').value = sourceValue;
+  const groups = (data.group_options || data.groups.map(id => ({id, label:id}))).filter(g => !sourceValue || g.source_id === sourceValue);
+  $('#group').innerHTML = '<option value="">全部类别</option>' + groups.map(g => `<option value="${esc(g.id)}">${esc(g.label)}${g.episodes !== undefined ? ` · ${g.episodes} 条` : ''}</option>`).join('');
+  $('#group').value = groups.some(g => g.id === groupValue) ? groupValue : '';
+  const rows = data.episodes;
+  $('#catalog').innerHTML = rows.map(row => `<button data-id="${row.id}" class="${episode?.id === row.id ? 'active' : ''}" ><strong>${esc(row.profile)} · ${row.episode}</strong><small>${esc(row.root.split('/').slice(-1)[0] || row.dataset)}</small><small>${esc(row.dataset)}</small><span class="pill ${row.review.status === 'admitted' ? '' : 'pending'}">${labels[row.review.status]}</span><small>${({complete:'缓存已完成',queued:'排队中',running:'计算中',failed:'计算失败',uncomputed:'尚未计算'}[row.computation?.status] || '')}${row.computation?.anomaly_count ? ` · ${row.computation.anomaly_count} 异常帧` : ''}</small></button>`).join('') || '<div class="empty">没有匹配的轨迹。调整筛选条件查看其他类别。</div>';
   document.querySelectorAll('#catalog button').forEach(button => button.addEventListener('click', () => loadEpisode(button.dataset.id)));
 }
 
@@ -228,6 +238,7 @@ $('#camera').onchange = () => loadCamera().catch(showError); $('#preview').oncli
 $('#action-layer').onchange = () => display(index);
 $('#mode').onchange = async () => { selectedMode = $('#mode').value; save(); if (episode) await loadEpisode(episode.id, true); };
 let searchTimer; $('#search').oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { offset = 0; loadCatalog().catch(showError); }, 220); };
+$('#source').onchange = () => { $('#group').value = ''; offset = 0; loadCatalog().catch(showError); };
 for (const id of ['group', 'filter', 'processing']) $('#' + id).onchange = () => { offset = 0; loadCatalog().catch(showError); };
 $('#prev-page').onclick = () => { offset = Math.max(0, offset - 40); loadCatalog().catch(showError); };
 $('#next-page').onclick = () => { offset += 40; loadCatalog().catch(showError); };

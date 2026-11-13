@@ -28,6 +28,8 @@ def main():
                                '--port', str(config['remote_port']), '--mode', config.get('source_mode', 'sample')]}
         if config.get('remote_index'):
             commands['reader'] += ['--index', config['remote_index']]
+        if config.get('source_mode') == 'mixed':
+            commands['reader'] += ['--config', str(Path(args.config).resolve())]
     else:
         commands = {
             'tunnel': ['ssh', '-N', '-L', f'127.0.0.1:{config["tunnel_port"]}:127.0.0.1:{config["remote_port"]}',

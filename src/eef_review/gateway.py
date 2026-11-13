@@ -14,6 +14,7 @@ from aiohttp import ClientSession, ClientTimeout, web
 
 from .catalog import Catalog, RemoteCatalog, admission
 from .common import REPO, atomic_json, confined, digest, load_config, read_json
+from .mapping import alignment_policy, episode_review
 from .runtime import sdk_environment, sdk_fingerprint, usd_environment
 
 LOG = logging.getLogger(__name__)
@@ -44,13 +45,17 @@ class ReviewService:
         # build identity when its complete solver-source manifest still matches.
         code_root = Path(__file__).parent
         core = digest([(name, digest((code_root / name).read_bytes())) for name in
-                       ['common.py', 'fk_worker.py', 'runtime.py', 'sdk_worker.py', 'trajectory.py']])
+                       ['common.py', 'fk_worker.py', 'runtime.py', 'sdk_worker.py', 'trajectory.py', 'alignment.py', 'mapping.py']])
         version_path = self.cache / 'compute-version.json'
         recorded = read_json(version_path) if version_path.exists() else {}
         self.implementation = recorded['implementation'] if recorded.get('core') == core else core
         atomic_json(version_path, {'core': core, 'implementation': self.implementation})
         self.model = read_json(self.cache / 'model.json')
         self.initial_pose = read_json(self.config['initial_pose'])
+        if any(p['mode'] == 'episode_first_state' for p in self.config.get('alignment_policies', {}).values()):
+            if (not self.model.get('initial_tcp') or self.model.get('initial_pose_sha256') != digest(self.initial_pose)
+                    or self.model.get('initial_sdk_fingerprint') != self.sdk_version):
+                raise ValueError('prepare the SDK initial TCP poses for the current initial pose before starting')
         await self.refresh_catalog()
         for path in (self.cache / 'results').glob('*/result.json'):
             result = read_json(path)
@@ -74,6 +79,8 @@ class ReviewService:
         for path in sorted((self.cache / 'work').glob('*/job.json')):
             job = read_json(path)
             if job.get('config', {}).get('source_mode', 'sample') != self.config.get('source_mode', 'sample'):
+                continue
+            if job.get('config', {}).get('alignment_policies', {}) != self.config.get('alignment_policies', {}):
                 continue
             if (job['provenance'].get('implementation') == self.implementation
                     and job['provenance'].get('sdk') == self.sdk_version
@@ -117,7 +124,7 @@ class ReviewService:
                 raise
             manifest = read_json(path)
             check_mode(manifest)
-        if manifest.get('source_kind') == 'formal':
+        if manifest.get('source_kind') in ('formal', 'mixed'):
             self.catalog = RemoteCatalog(manifest)
         else:
             self.catalog = Catalog(manifest, self.config['unit_evidence'])
@@ -154,8 +161,15 @@ class ReviewService:
     def public_episode(self, key, metadata):
         row = {k: v for k, v in self.catalog.entries[key].items() if not k.startswith('_')}
         group = self.catalog.groups[row['group']]
-        review = admission(group, metadata['robot_type'], self.config['unit_evidence'].get(row['group']))
+        policy = alignment_policy(group, self.config.get('alignment_policies', {}))
+        review = admission(group, metadata['robot_type'], self.config['unit_evidence'].get(row['group']), policy)
         source = metadata['source']
+        review = episode_review(review, source.get('eef_valid_pose_frames'))
+        basis_warning = '源 base 暂按 SDK chassis；跨本体基座尚未对齐'
+        if policy:
+            basis_warning = ('每条轨迹左右臂首帧 State 分别对齐 Astribot 初始 TCP；不恢复原始双臂间距'
+                             if policy['mode'] == 'episode_first_state' else
+                             '按用户指定直接采用 SDK chassis 解释；保留当前 EEF 朝向，位置单位和物理基座未标定')
         videos = []
         for video in source['videos']:
             output = video['output']
@@ -168,26 +182,32 @@ class ReviewService:
         return {**row, 'review': review, 'source_version': metadata['source_version'],
                 'robot_type': metadata['robot_type'], 'frames': source['frames'], 'fps': source['fps'],
                 'task': ' / '.join(source.get('source_episode_metadata', {}).get('tasks', [])) or row['root'].split('/')[-1],
-                'videos': videos, 'basis_warning': '源 base 暂按 SDK chassis；跨本体基座尚未对齐',
+                'videos': videos, 'basis_warning': basis_warning, 'alignment_policy': policy,
                 'reference_frames': {'data_to_chassis': self.config['source_base_to_chassis'],
                                      'chassis_to_usd_translation_m': self.config['sdk_to_usd_translation_m'],
-                                     'alignment_status': 'assumed_identity', 'alignment_verified': False},
+                                     'alignment_status': policy['mode'] if policy else 'assumed_identity',
+                                     'alignment_verified': False},
                 'sample_time_column': source['sample_time_column']}
 
     async def trajectory(self, key):
         from .trajectory import adapt
+        from .alignment import place
         import pyarrow.parquet as pq
         metadata = await self.episode(key)
+        episode = self.public_episode(key, metadata)
         async with self.locks.setdefault('trajectory:' + key, asyncio.Lock()):
-            adapter_version = digest(Path(__file__).with_name('trajectory.py').read_bytes())
-            path = self.cache / 'trajectories' / (digest([key, metadata['source_version'], adapter_version]) + '.json')
+            adapter_version = digest([digest(Path(__file__).with_name(name).read_bytes())
+                                      for name in ('trajectory.py', 'alignment.py')])
+            policy = episode['alignment_policy']
+            initial_tcp = self.model.get('initial_tcp') if policy and policy['mode'] == 'episode_first_state' else None
+            path = self.cache / 'trajectories' / (digest([key, metadata['source_version'], adapter_version, policy, initial_tcp]) + '.json')
             if path.exists():
                 return read_json(path)
             async with self.session.get(self.config['upstream'] + f'/episodes/{key}/eef.parquet') as response:
                 if response.status != 200:
                     raise web.HTTPBadGateway(text='trajectory unavailable')
                 content = await response.read()
-            value = await asyncio.to_thread(lambda: adapt(pq.read_table(io.BytesIO(content))))
+            value = await asyncio.to_thread(lambda: place(adapt(pq.read_table(io.BytesIO(content))), policy, initial_tcp))
             if value['frame_count'] != metadata['source']['frames']:
                 raise ValueError('parquet frame count differs from source metadata')
             value['parquet_sha256'] = digest(content)
@@ -210,6 +230,7 @@ class ReviewService:
                       'sdk_to_usd': self.config['sdk_to_usd_translation_m'],
                       'strategy': 'acknowledged_continuous_seed_hold_initial_torso_v1',
                       'unit_evidence': episode['review'].get('unit_evidence'),
+                      'alignment': trajectory.get('alignment'), 'alignment_policy': episode.get('alignment_policy'),
                       'thresholds': self.config['thresholds'], 'implementation': self.implementation}
         cache_key = digest(provenance)
         result_path = self.cache / 'results' / cache_key / 'result.json'

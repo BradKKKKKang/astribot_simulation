@@ -4,7 +4,13 @@
 
 各日期下的验证均为当时记录，不代表本次整理重新执行。不同批次的测试数量不累加；历史参数和实验指标只适用于对应配置，当前入口和参数以 README、源码及配置为准。
 
-## 2026-11-13：EEF 临时文件清理与开发日志整理
+## 2026-11-13：EEF 新样本接入、坐标解释与资料整理
+
+- **新增来源**：在已有正式 SQLite 索引旁登记 CE additional11 和 UMI aligned_sample 两个样本来源。按 manifest 当前选择及 ROOT_COMPLETE 回执接入，不扫描保留的历史额外 episode；目录支持来源、完整映射类别及无有效 EEF 状态筛选。源合同及其哈希保留，分别解析 published_configuration 与 UMI source_policies；未确认单位或动作语义的类别仅供浏览。
+- **HABIT 与 RealOmin**：按用户决定，HABIT 保留当前保存的 XYZ 和 EEF 朝向，直接按 SDK chassis 米制解释，明确记录这是研究假设而非标定。RealOmin 对每条轨迹的左右臂分别建立 `A0 @ inverse(S0)` 固定变换，A0 来自当前初姿的 SDK FK，S0 固定为首帧 State；State/Action 使用同一变换，保留原始数值和目标，不抹去 Action 首帧偏移。显示、IK、USD FK 残差采用同一组转换目标，缓存绑定对齐模式、锚点与合同版本；该映射不恢复来源双臂的真实间距。
+- **聚焦验证**：系统 Python 禁用不兼容的自动加载 pytest 插件后，EEF 合同、正式索引、新样本路由与坐标变换测试 47 项通过；前端 10 项测试及构建通过。新增用例覆盖双臂不同变换、非单位首帧朝向、State/Action 共用锚点、首帧缺失拒绝、原始值保留、历史样本排除、回执变更拒绝、空 robot_type、混合目录分页与正式 episode ID 稳定性。
+- **实际接入与回放**：线上目录共 54 类、974,614 条，保留正式数据 973,490 条，新增 CE 160 条和 UMI 964 条。新增可计算 76 条（ABC 有效 EEF 10 条、HABIT 2 条、RealOmin 64 条），994 条待单位确认，54 条无有效 EEF。HABIT episode 2485 与 RealOmin task-0026/episode 1825 各 419 帧，State/Action 四项共 1,676 帧完成隔离 SDK IK/CPU USD FK；控制消息计数为 0，SDK/USD FK 最大位置差 0.000113 mm。SDK 均返回成功，但 HABIT 两通道各 419 帧触发异常，最大位置残差约 599 mm、角度残差约 49.9°；RealOmin 两通道各 14 帧触发异常，最大位置残差约 23.2 mm、角度残差约 0.124°。保留这些残差，不把 SDK 返回成功表述为全部目标达成。
+- **网页与媒体验证**：两条样本的元数据、轨迹、视频 HEAD/Range/ETag 校验通过；独立浏览器验证了 54 类目录、三个来源、拖动定位、RealOmin State/Action 切换和两种参考系说明，未出现页面错误。Dexora 无 EEF 样本的视频可播放、计算按钮禁用，计算 API 返回 422；HABIT 夹爪标注保存值及未声明的开闭方向，腕部相机作为主视图时不再误报该相机缺失。证据位于 `outputs/eef_review/additional-sources-validation.json`、`additional-sources-http.json` 与 `additional-sources-browser/`。原始数据只读，未运行真实硬件；本轮代表验证不覆盖所有新增轨迹。
 
 - 删除已完成并验收的 EEF 实施计划，以及固定 40 条样本汇总、Franka 扩容、三视图和隧道中断的一次性验收脚本；相关功能摘要、验证结果和限制保留在本日志。
 - 清理 `outputs/eef_ik_usd_fk/` 中的临时 SDK/仿真对照、overlay 合成、批量启动脚本及其专用渲染页面，共 86 个文件；一并删除依赖这些脚本的跨任务 GPU/视频单次验收入口。加上已完成计划和五个固定验收脚本，首轮共删除 93 个文件。已有视频、截图、轨迹、配置、指标及报告保留；正式入口继续使用 `scripts/eef_review/review` 和 `scripts/joint_align/`。

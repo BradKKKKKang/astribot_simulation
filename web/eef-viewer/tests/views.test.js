@@ -5,6 +5,15 @@ import { selectCameraSlots } from '../src/video-group.js';
 import { alignRobotToChassis, referenceDescription } from '../src/view-geometry.js';
 import { EefScene } from '../src/scene.js';
 
+test('episode arm references are recorded without moving the common chassis frame', () => {
+  const left = [[1,0,0,.4],[0,1,0,.2],[0,0,1,.9],[0,0,0,1]];
+  const alignment = {mode:'episode_first_state',per_arm:{left:{data_to_chassis:left}}};
+  const result = referenceDescription({review:{status:'admitted'}, alignment_policy:{mode:'episode_first_state'}}, alignment);
+  assert.deepEqual(result.alignment, alignment);
+  assert.deepEqual(result.dataToChassis, [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]);
+  assert.ok(result.explicit);
+});
+
 test('stereo head names never replace left/right wrist views', () => {
   const cameras = ['head_left','head_right','left','right'].map(name => ({camera:`observation.images.${name}`}));
   const selected = selectCameraSlots(cameras, 'observation.images.head_right');
