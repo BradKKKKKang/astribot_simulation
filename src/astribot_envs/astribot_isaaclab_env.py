@@ -179,7 +179,10 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         'R1': 1, 'R2': 1, 'L11': 1,
     }
     _CONTROL_PATTERNS = {
-        **{f'torso_joint_{i}_control': f'astribot_torso_joint_{i}' for i in (1, 2, 3)},
+        **{f'arm_{side}_joint_{i}_control': f'astribot_arm_{side}_joint_{i}'
+           for side in ('left', 'right') for i in range(1, 8)},
+        **{f'torso_joint_{i}_control': f'astribot_torso_joint_{i}' for i in (1, 2, 3, 4)},
+        **{f'head_joint_{i}_control': f'astribot_head_joint_{i}' for i in (1, 2)},
         **{f'gripper_{side}_control': f'astribot_gripper_{side}_joint_(L1|L2|L11|R1|R2|R11)'
            for side in ('left', 'right')},
     }
@@ -212,6 +215,10 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         self.use_fabric = param.get("use_fabric", True)
         for name in self._CONTROL_PATTERNS:
             setattr(self, name, self._validate_joint_control(name, param.get(name, {})))
+        from src.simulation_config.joint_filter import JointTargetFilter
+        self.joint_target_filter = JointTargetFilter(
+            param.get('joint_command_filters', {}),
+            {joint for joints in self.joint_names_list for joint in joints})
         self.camera_resolutions = {
             name: (
                 param.get("camera_resolutions", {}).get(name, {}).get("width", self.width),
@@ -533,16 +540,9 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
         from isaaclab.actuators import ImplicitActuatorCfg
 
-        # Disjoint actuator groups allow isolated torso and gripper tuning.
-        excluded = '|'.join(self._CONTROL_PATTERNS.values())
-        actuators_cfg = {
-            "all_joints": ImplicitActuatorCfg(
-                joint_names_expr=[f"^(?!(?:{excluded})$).*$"],
-                stiffness=800.0,
-                damping=40.0,
-                effort_limit_sim=400.0,
-            ),
-        }
+        # All model joints now have disjoint groups, including head and torso 4.
+        # Isaac Lab rejects regex actuator groups that match no joints.
+        actuators_cfg = {}
         for name, pattern in self._CONTROL_PATTERNS.items():
             settings = getattr(self, name)
             actuators_cfg[name.replace('_control', '_override')] = ImplicitActuatorCfg(
@@ -578,7 +578,7 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
         defaults = dict(stiffness=800.0, damping=40.0, effort_limit=400.0)
         if name.startswith('torso'):
             defaults['gravity_compensation_scale'] = 0.0
-        else:
+        elif name.startswith('gripper'):
             defaults['velocity_limit_sim'] = 1.0  # Historical USD gripper limit, rad/s.
         if not isinstance(settings, dict) or set(settings) - defaults.keys():
             raise ValueError(f"Unknown {name} settings")
@@ -880,6 +880,12 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
                     self.joint_velocity_command_all,
                     idx=joint_id
                 )[0]
+                target_filter = getattr(self, 'joint_target_filter', None)
+                if target_filter is not None:
+                    pos_cmd = target_filter.apply(
+                        joint_name, self.joint_position_command_all[joint_id],
+                        self.joint_velocity_command_all[joint_id], pos_cmd,
+                        self.dt * self.frame_skip)
                 joint_position_targets[robot_joint_idx] = pos_cmd
 
             elif mode == 2:
@@ -973,6 +979,8 @@ class AstribotIsaacLabEnv(AstribotBaseEnv):
 
     def _restore_initial_state(self):
         """Creation and reset consume the same resolved placement and joint pose."""
+        if hasattr(self, 'joint_target_filter'):
+            self.joint_target_filter.reset()
         if self.resolved_robot_placement is not None:
             import torch
             root = self.robot.data.default_root_state.clone()

@@ -96,6 +96,33 @@ def test_compensation_uses_dataset_units_before_clamping(env):
     assert env.get_joint_position(env.joint_names_all[2]) == pytest.approx(100)
 
 
+@pytest.mark.parametrize('managed', [False, True])
+def test_v4_targets_use_simulation_time_and_filter_before_gripper_conversion(env, managed):
+    import math
+    from src.simulation_config.joint_filter import JointTargetFilter
+    from src.simulation_config.robot_profile import build_simulation_config, default_robot_profile
+
+    config = build_simulation_config(default_robot_profile())
+    env.dt, env.frame_skip = config['dt'], config['frame_skip']
+    env.managed_evaluation = managed
+    env.joint_target_filter = JointTargetFilter(
+        config['joint_command_filters'],
+        {joint for joints in config['joint_names_list'] for joint in joints})
+    env.joint_position_command_all = [0., 0., 0.]
+    env.joint_velocity_command_all = [1000., 1000., 1000.]
+    env._apply_control()
+    assert env.robot.targets.count_nonzero() == 0
+    env.real_time_fps = 2.  # Rendering speed must not affect the filter.
+    env.joint_position_command_all = [.4, 80., 50.]
+    env._apply_control()
+    env.robot.data.joint_pos = env.robot.targets.clone()
+    assert env.get_joint_position(env.joint_names_all[0]) == pytest.approx(
+        .4 * (1 - math.exp(-.01 / .004)))
+    for side, percent in [('left', 80 * (1 - math.exp(-.01 / .008))), ('right', 50.)]:
+        for suffix in SIGNS:
+            assert env.get_joint_position(f'astribot_gripper_{side}_joint_{suffix}') == pytest.approx(percent)
+
+
 def test_velocity_mode_uses_each_grippers_feedback_in_dataset_units(env):
     env.joint_position_command_all = [0.37, 50, 75]
     env._apply_control()

@@ -2,6 +2,13 @@
 
 本日志供agent记录工作内容。最新改动放在文档最前面。
 
+## 2026-11-16：默认机器人配置同步 eef_align 的 v4 参数
+
+- **配置来源**：将 `eef_align` 的 `a0b9481` 中 S1 Isaac Lab 默认 YAML 与共享机器人 JSON 同步到 `main`，启用 v4 的 22 组独立 PD 参数和 22 组指令滤波参数；GPU 仿真时间为 100 Hz（`dt=0.01`、`frame_skip=1`、`physics_substeps=1`、`decimation=1`）。滤波时间常数保持秒单位，速度前瞻为零。
+- **加载与控制**：同步双臂、头部及躯干第四关节的执行器分组和参数校验，移除不再匹配任何关节的兜底执行器组；引入原分支的 `JointTargetFilter` 和机器人配置覆盖逻辑。位置指令先按仿真时间滤波，再做夹爪百分比与六关节角度转换；恢复初始状态时清除滤波历史。
+- **验证**：在现有 `astribot_simu_il` Python 环境中，滤波、躯干／双臂／头部控制、夹爪、初始位姿、实验配置、场景配置、managed evaluation 和仿真节拍专项测试共 171 passed。默认 YAML、机器人 JSON、滤波模块及机器人配置解析模块与来源逐字节一致；22 组控制与滤波参数及时间设置均与来源的 `multitask_v4_candidate_100hz_gpu.yaml` 一致，核心执行器创建、参数校验和控制方法与来源 AST 一致。
+- **边界**：本次仅做 CPU／mock 和静态检查，未启动 Isaac、ROS、SDK 回放或真实硬件。v4 原始拟合使用 250 Hz，本次配置同步不证明 100 Hz 下的物理对齐精度或墙钟吞吐率。未迁入源分支的相机畸变、布料仿真和标定服务；保留现有子模块改动。
+
 ## 2026-10-30: Fix empty RGB on managed Eval reset
 
 - Reproduced Atlas `INIT_MOVE_FAILED` during the first managed reset with the actual headless Isaac environment: disabling/re-enabling Lab-owned Hydra textures caused all three previously valid RGB annotators to return empty arrays, followed by a three-dimensional indexing error. Five and forty render-only warmup frames did not restore the render variables; the warmup-only candidate was discarded.

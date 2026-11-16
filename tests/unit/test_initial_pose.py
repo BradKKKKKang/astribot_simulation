@@ -126,11 +126,15 @@ def test_integrated_cli_imports_and_displays_selected_pose(dataset, capsys):
 
 def test_reset_restores_imported_joint_state_and_hold_commands(dataset, monkeypatch):
     torch = pytest.importorskip('torch')
+    from src.simulation_config.joint_filter import JointTargetFilter
     from tests.unit.test_isaaclab_gripper import load_env_class
     path, values, profile = dataset
     initial = initial_joint_positions(load_initial_pose(path, 0, profile), profile)
     env = object.__new__(load_env_class(monkeypatch))
     env.device, env.dt = 'cpu', .01
+    filtered_joint = 'astribot_head_joint_1'
+    env.joint_target_filter = JointTargetFilter(
+        {filtered_joint: {'time_constant_s': .3}}, {filtered_joint})
     env.robot_profile_data = profile.as_dict()
     env.resolved_robot_placement = {'articulation_root_pose_world': [0, 0, .1, 1, 0, 0, 0],
                                     'initial_joint_positions': initial}
@@ -151,7 +155,9 @@ def test_reset_restores_imported_joint_state_and_hold_commands(dataset, monkeypa
     env.sim = SimpleNamespace(physics_sim_view=SimpleNamespace(update_articulations_kinematic=lambda: None),
                               forward=lambda: None)
     for _ in range(2):
+        env.joint_target_filter.apply(filtered_joint, 999., 0., 999., env.dt)
         env._restore_initial_state()
+        assert env.joint_target_filter.apply(filtered_joint, 0., 0., 0., env.dt) == 0.
         for part in env.robot_profile_data['parts']:
             assert env.robot_dict[part['name']].joint_position_command == pytest.approx(
                 [values[i] for i in part['command_indices']])

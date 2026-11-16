@@ -49,6 +49,17 @@ range clamping, and feedback units. It does not start a simulator or ROS node:
 python -m pytest tests/unit/test_isaaclab_gripper.py -o addopts='' -q
 ```
 
+The v4 control regressions also cover independent arm/head/torso gains,
+simulation-time filtering before gripper conversion, filter override validation,
+and clearing filter history when restoring the initial pose. They use CPU
+tensors and mocked runtime dependencies:
+
+```bash
+python -m pytest -o addopts='' -q tests/unit/test_joint_filter.py \
+  tests/unit/test_isaaclab_torso_control.py tests/unit/test_isaaclab_gripper.py \
+  tests/unit/test_initial_pose.py
+```
+
 ```bash
 # Quick: Only check installations
 pytest tests/unit/ -v

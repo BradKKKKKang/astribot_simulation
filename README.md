@@ -478,6 +478,14 @@ The `config/` folder contains YAML files for each robot variant (`astribot_s0`, 
 | `simulation_maniskill_param_chassis_fixed.yaml` | ManiSkill backend with fixed chassis. |
 | `simulation_isaaclab_param.yaml` | Isaac Lab backend. |
 
+The S1 Isaac Lab YAML and shared [robot profile](config/robots/astribot_s1.json)
+use the v4 joint-response parameters: independent PD gains for both arms, all
+four torso joints, the head and both grippers, plus simulation-time command
+filters with zero velocity lookahead. GPU physics runs at 100 Hz (`dt: 0.01`,
+`frame_skip: 1`, `physics_substeps: 1`, `decimation: 1`). Filter time constants
+remain in seconds. The original v4 calibration used 250 Hz; those results do
+not establish alignment or wall-clock throughput at 100 Hz.
+
 **Tip:**
 To switch simulators or robot setups, modify the `astribot_yaml_file` variable in `astribot_simulation.py` to point to the desired YAML file. No code change is needed beyond this.
 

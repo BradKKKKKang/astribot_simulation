@@ -220,5 +220,11 @@
     }
   },
   "simulation_config": "config/astribot_s1/simulation_isaaclab_param.yaml",
-  "simulation_overrides": {}
+  "simulation_overrides": {
+    "physics_device": "cuda:0",
+    "dt": 0.01,
+    "frame_skip": 1,
+    "physics_substeps": 1,
+    "decimation": 1
+  }
 }
