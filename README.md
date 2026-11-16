@@ -330,6 +330,17 @@ Restart the simulation to apply changes. These trial settings still require a
 dynamic grasp check; increasing collision thickness alone does not establish
 successful pickup.
 
+After restarting, managed T-shirt runs also record
+`diagnostics.cloth_proximity.tshirt.left/right` in each `steps.jsonl` state.
+`closing_axis_gap_m` measures the finger hulls' projected separation;
+`between_fingers_candidates` counts particles in the expanded gap bounding box.
+`rest_candidates` and `contact_candidates` count particles near each finger and
+`both`, using cloth-only offset bands; rigid collider offsets are excluded.
+These conservative geometric candidates can overcount at convex corners and do
+not establish contact force or grasp success. `inside_hull_particles` counts
+particles more than 0.1 mm inside a hull. Missing evidence is marked unavailable.
+Older traces cannot reconstruct these counts from whole-garment bounds.
+
 For Atlas synchronous batches, launch with `--managed-evaluation` (ROS2/Isaac Lab).
 Physics initially pauses; Atlas requests each complete 0.01 s step, resets each
 episode, and owns batch scheduling. This mode requires explicit

@@ -2,6 +2,13 @@
 
 本日志供agent记录工作内容。最新改动放在文档最前面。
 
+## 2026-11-16：排查 T-shirt 闭合间隙并补充逐粒子夹持诊断
+
+- **已有运行证据**：离线读取加厚后的 `fold_tshirt_fix/run-4e95fd1f513e548ac3760256/episode-000001`，分析 step 0–5943（59.43 s）的实际指尖位姿、关节目标／反馈与 PhysX cooked convex hull。沿闭合轴的名义间隙为 90%→11.79 mm、95%→6.31 mm、98%→3.03 mm、100%→0.85 mm。step 612 左手反馈 98.77%，投影间隙约 2.18 mm；step 4095 右手反馈 100.01%，投影间隙约 0.84 mm。数据不支持“夹爪始终关不拢”为唯一原因。
+- **夹持与受力边界**：闭合超过 95% 的采样中，六关节最大跟踪误差的中位数为左 0.000383 rad／右 0.000230 rad；有左 77 帧／右 143 帧的指尖最低碰撞顶点距桌面小于 0.1 mm。PD 估计未达到 400 的驱动限幅，但它不是实测夹持力，不能据此证明法向力充分。旧日志缺少布料粒子位置，无法确定是否进入两指或何时滑出。汇总与首轮动作图位于 `outputs/diagnostics/tshirt_grasp_20261116/`；没有重跑或修改历史轨迹。
+- **新增观测**：`GraspDiagnostics` 使用当前粒子和 cooked 指尖凸包，在每个 managed state（含 reset）记录 `cloth_proximity`：闭合轴投影间隙、两指间包围区域候选数、分别接近两指与同时接近两指的候选数，以及深入凸包超过 0.1 mm 的粒子数。几何带只用 cloth offsets，不含刚体 offsets；偏移半空间在凸角处会保守高估，候选数不等于接触报告、夹持力或抓取成功。缺失 view／凸包明确报 unavailable。保持控制、碰撞参数和物理状态不变；README 说明重启生效及旧日志限制。
+- **验证**：`astribot_simu_il` Python 3.10，CPU／mock 聚焦测试共 101 passed（grasp_diagnostics、cloth_scene、isaaclab_gripper、managed_evaluation）；覆盖双侧／单侧／空夹候选、刚体变换不变性、分离凸包、凸角高估、缺失 view，以及 reset／step 记录。用本次运行的 cooked 凸包和真实衣服初始几何检查空接触结果；源网格规模的近指尖 CPU 计算约 2.9 ms／手，不代表完整仿真开销。未启动新的 Isaac、ROS 或硬件会话，新增 GPU 运行时采样及实际夹取需下一次运行确认。
+
 ## 2026-11-16：增加 T-shirt 抓取试验的碰撞厚度
 
 - **参数**：共享 `config/assets/fold_tshirt.json` 的 `cloth.rest_offset` 从 0.0012 m 提高到 0.003 m，`contact_offset` 从 0.003 m 提高到 0.006 m。现有 authoring 同时将它们传给 solid rest／particle contact offset，作用于衣服与刚体以及粒子间接触；名义碰撞厚度由约 2.4 mm 增至 6 mm。固定平铺与随机释放实验均继承这一调整，渲染中面、质量、摩擦和弹簧参数保持原值。

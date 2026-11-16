@@ -80,6 +80,43 @@ class GraspDiagnostics:
         with (directory / 'collision_geometry.json').open('x', encoding='utf-8') as stream:
             json.dump(geometry, stream, allow_nan=False)
         self.metadata['geometry_status'] = geometry['status']
+        self.cloth_entries = env.scene_object_keys.get('cloth', {})
+        self.cloth_settings = {spec['name']: spec['asset']['physics']['cloth']
+                               for spec in env.scene_object_specs
+                               if spec['asset']['physics']['body_type'] == 'cloth'}
+        self.cloth_hulls, self.cloth_geometry_error = {}, None
+        if self.cloth_entries:
+            from .cloth_grasp_diagnostics import compile_finger_hulls
+            self.metadata['cloth_proximity_note'] = (
+                'Geometric candidates from current particles and cooked finger hulls; '
+                'cloth-only offset bands, excluding rigid collider offsets. Offset '
+                'half-spaces overestimate proximity at corners. Counts are NOT '
+                'contact forces or proof of grasp. Gap is a closing-axis projection.')
+            try:
+                self.cloth_hulls = {name: compile_finger_hulls(geometry['bodies'][name])
+                                    for name in self.fingers}
+            except Exception as error:
+                self.cloth_geometry_error = str(error)
+
+    def _sample_cloth(self, finger_poses):
+        from .cloth_grasp_diagnostics import sample_cloth_grasp
+        result = {}
+        for name, entry in self.cloth_entries.items():
+            try:
+                if self.cloth_geometry_error:
+                    raise RuntimeError(self.cloth_geometry_error)
+                points = _array(entry['view'].get_positions()).reshape(-1, 3)
+                settings = self.cloth_settings[name]
+                result[name] = {}
+                for side in ('left', 'right'):
+                    names = {key: f'astribot_gripper_{side}_Link_{key}' for key in ('L11', 'R11')}
+                    result[name][side] = sample_cloth_grasp(
+                        points, {key: finger_poses[value] for key, value in names.items()},
+                        {key: self.cloth_hulls[value] for key, value in names.items()},
+                        settings['rest_offset'], settings['contact_offset'])
+            except Exception as error:
+                result[name] = {'status': 'unavailable', 'error': str(error)}
+        return result
 
     def _geometry(self):
         """Export cooked PhysX hulls, not an independent approximation of visuals."""
@@ -139,6 +176,8 @@ class GraspDiagnostics:
                               for name, key in self.env.scene_object_keys['dynamic'].items()},
                   'contacts': {name: {'status': 'unavailable', 'error': error}
                                for name, error in self.failures.items()}}
+        if self.cloth_entries:
+            result['cloth_proximity'] = self._sample_cloth(result['finger_pose_world'])
         if reset:
             result['contacts'] = {'status': 'not_sampled', 'reason': 'reset has no completed physics step'}
             return result
