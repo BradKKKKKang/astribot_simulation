@@ -73,10 +73,7 @@ artifacts/
 config/
 outputs/
 
-# EEF review configuration is reproducible source; caches stay in outputs/.
+# Joint-alignment presets are reproducible source; caches stay in outputs/.
 !config/
 config/*
-!config/eef_review/
 !config/joint_alignment/
-web/eef-viewer/dist/
-web/eef-viewer/test-results/

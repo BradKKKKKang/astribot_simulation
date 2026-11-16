@@ -972,7 +972,7 @@ if __name__ == "__main__":
         # This CLI owns a dedicated SDK process. Its native package registers
         # overlapping Python/C++ destructors which abort after ROS shutdown.
         # main has already stopped the robot, closed captures and written results.
-        # Match the dedicated SDK worker lifecycle used by eef_review.
+        # Let the OS release native resources without invoking those destructors twice.
         sys.stdout.flush()
         sys.stderr.flush()
         if '--inspect-only' in sys.argv:

@@ -164,6 +164,7 @@ def test_fixed_settling_uses_sdk_and_verified_steps_without_state_assignment():
 def test_robot_profile_accepts_arm_gain_and_validates_named_filter_override():
     from src.simulation_config.robot_profile import RobotProfile, default_robot_profile, build_simulation_config
     data = default_robot_profile().as_dict()
+    baseline = build_simulation_config(RobotProfile(data))
     data['simulation_overrides'] = {
         'arm_right_joint_7_control': {'stiffness': 1200.},
         'head_joint_1_control': {'damping': 80.},
@@ -171,11 +172,11 @@ def test_robot_profile_accepts_arm_gain_and_validates_named_filter_override():
         'joint_command_filters': {'astribot_arm_right_joint_7': {'time_constant_s': .02}}}
     config = build_simulation_config(RobotProfile(data))
     assert config['arm_right_joint_7_control']['stiffness'] == 1200.
-    assert config['arm_right_joint_7_control']['damping'] == 40.
+    assert config['arm_right_joint_7_control']['damping'] == baseline['arm_right_joint_7_control']['damping']
     assert config['head_joint_1_control']['damping'] == 80.
-    assert config['head_joint_1_control']['stiffness'] == 800.
+    assert config['head_joint_1_control']['stiffness'] == baseline['head_joint_1_control']['stiffness']
     assert config['torso_joint_4_control']['stiffness'] == 1600.
-    assert config['torso_joint_4_control']['damping'] == 40.
+    assert config['torso_joint_4_control']['damping'] == baseline['torso_joint_4_control']['damping']
     assert config['joint_command_filters']['astribot_arm_right_joint_7']['time_constant_s'] == .02
     data['simulation_overrides']['joint_command_filters'] = {'unknown_joint': {}}
     with pytest.raises(ValueError, match='unknown joint'):

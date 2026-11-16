@@ -35,24 +35,10 @@ It is designed as a **research tool** for users of Astribot.
 - **Config-driven setup**: Easily manage each simulator and robot variant via structured **YAML** configurations.
 - **Research-friendly utilities**: Includes logging, common analysis tools, and a unified environment factory.
 - **Placement analysis**: Extract grasp/release TCP events from Isaac Lab replay and inspect metric robot geometry and 3D density in a read-only Three.js viewer. See [placement analysis](docs/PLACEMENT_ANALYSIS.md).
-- **EEF review**: Compare dataset videos, original EEF targets and offline Astribot SDK IK / CPU USD FK on one timeline. Manage the LAN service with [the review entrypoint](scripts/eef_review/review); implementation history and validation limits are recorded in the [development log](docs/DEVELOPMENT_LOG.md).
 
-EEF review uses [config/eef_review/default.json](config/eef_review/default.json). In `mixed` mode,
-the existing formal SQLite index and the explicitly registered `sample_sources` share one directory;
-the source and mapping filters include samples awaiting semantic review and episodes without valid EEF.
-Only the episodes selected by each sample manifest and matching completion receipts are registered.
-Source datasets remain read-only. `scripts/eef_review/review restart` prepares the model and SDK initial
-TCP poses, deploys the reader and restarts the dedicated LAN service; `build-index` only rebuilds the
-existing formal source index and is not needed to add sample packages.
-
-Mapping-hash-bound `alignment_policies` record the selected interpretation. HABIT uses its saved
-positions and orientations directly as SDK chassis targets under an explicit meter assumption.
-RealOmin places each arm's first State pose at the corresponding initial Astribot TCP, then applies
-that fixed per-episode transform to both State and Action. Source values are retained, and the viewer,
-IK and FK residuals use the same placed targets. This placement does not reconstruct the original
-distance between the source arms. The current registered CE/UMI samples interpret saved XYZ as meters
-under mapping-hash-bound user instructions, without rescaling. Unresolved absolute-action contracts
-remain viewable without IK.
+EEF dataset review (Aliyun data → SDK IK → CPU USD FK → Web) is maintained in the
+standalone `astribot_eefvisu` repository, normally checked out alongside this repository.
+Use its `scripts/eefvisu` entrypoint to manage the service at <http://10.11.12.73:8780/>.
 
 ---
 
@@ -300,6 +286,10 @@ camera sensors as well. Preview processes are stopped when the launcher exits.
 The robot profile references `config/astribot_s1/simulation_isaaclab_param.yaml`,
 which enables `head_rgbd` (1280 × 720), `left_wrist_rgbd` and `right_wrist_rgbd`
 (640 × 360 each). Raw images use `/astribot_whole_body/camera/<name>/image_raw`.
+The shared robot uses the v4 candidate PD/filter parameters with GPU PhysX at
+100 Hz simulation time (`dt=0.01`, one physics substep). The standalone
+[GPU preset](config/joint_alignment/README.md) uses the same controls; the
+historical 250 Hz alignment results do not validate the 100 Hz response.
 The three link-relative camera poses are authored in
 `astribot_descriptions/usd/astribot_s1_usd/astribot_s1.usda` and inherited by the
 textured robot model. They use the penholder episode 3, frame 0 robot-image

@@ -2,6 +2,11 @@
     # Isaac Lab 2.1.1 / Isaac Sim 4.5: synchronize GPU poses via Fabric.
     physics_device: "cuda:0"
     use_fabric: True
+    # 100 Hz simulation time; one control update per physics step.
+    dt: 0.01
+    frame_skip: 1
+    physics_substeps: 1
+    decimation: 1
     robot_name: astribot_s1_whole_body
     model_path: "/astribot_descriptions/usd/astribot_s1_usd/astribot_s1_textured.usda"
     robot_list: [
@@ -40,8 +45,8 @@
         ['astribot_gripper_right_joint_L1'],
     ]
     gravity_compensation: True
-    # Torso pitch: fitted against three 100 Hz replay feedback streams.
-    # Independent torso gravity feedforward and gripper transient response.
+    # Shared v4 candidate PD/filter parameters, now used at 100 Hz.
+    # The original calibration and alignment results used 250 Hz.
     torso_joint_1_control:
         stiffness: 3200.0
         damping: 320.0
@@ -49,12 +54,12 @@
         gravity_compensation_scale: 1.1
     torso_joint_2_control:
         stiffness: 3200.0
-        damping: 160.0
+        damping: 320.0
         effort_limit: 400.0
         gravity_compensation_scale: 1.0
     torso_joint_3_control:
-        stiffness: 3200.0
-        damping: 160.0
+        stiffness: 6400.0
+        damping: 240.0
         effort_limit: 400.0
         gravity_compensation_scale: 1.0
     # Radians/s for all six signed joints of each gripper. The legacy
@@ -65,83 +70,149 @@
         effort_limit: 400.0
         velocity_limit_sim: 16.0
     gripper_right_control:
-        stiffness: 800.0
-        damping: 8.0
+        stiffness: 1600.0
+        damping: 12.0
         effort_limit: 400.0
         velocity_limit_sim: 16.0
-    # Previously shared drives, now independently configurable with identical defaults.
+    # Independent torso yaw and head drives from the v4 candidate.
     torso_joint_4_control:
         stiffness: 800.0
-        damping: 40.0
+        damping: 80.0
         effort_limit: 400.0
         gravity_compensation_scale: 0.0
     head_joint_1_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 1599.9999825230202
+        damping: 20.000000188340053
         effort_limit: 400.0
     head_joint_2_control:
         stiffness: 800.0
         damping: 40.0
         effort_limit: 400.0
-    # Independent arm drives; values preserve the pre-alignment defaults.
+    # Independent arm drives from the v4 candidate.
     arm_left_joint_1_control:
-        stiffness: 800.0
+        stiffness: 3200.0
         damping: 40.0
         effort_limit: 400.0
     arm_left_joint_2_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 3199.9999999999877
+        damping: 40.00000000001432
         effort_limit: 400.0
     arm_left_joint_3_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 3199.9999999977726
+        damping: 60.122610836390855
         effort_limit: 400.0
     arm_left_joint_4_control:
-        stiffness: 800.0
+        stiffness: 3200.0
         damping: 40.0
         effort_limit: 400.0
     arm_left_joint_5_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 946.430879888035
+        damping: 14.789978091953907
         effort_limit: 400.0
     arm_left_joint_6_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 3199.999999992905
+        damping: 40.00000000033404
         effort_limit: 400.0
     arm_left_joint_7_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 1599.9999999999739
+        damping: 20.000000000000703
         effort_limit: 400.0
     arm_right_joint_1_control:
-        stiffness: 800.0
+        stiffness: 1600.0
         damping: 40.0
         effort_limit: 400.0
     arm_right_joint_2_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 3200.0
+        damping: 80.0
         effort_limit: 400.0
     arm_right_joint_3_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 1683.44286382163
+        damping: 30.0
         effort_limit: 400.0
     arm_right_joint_4_control:
-        stiffness: 800.0
+        stiffness: 3200.0
         damping: 40.0
         effort_limit: 400.0
     arm_right_joint_5_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 2400.0
+        damping: 30.0
         effort_limit: 400.0
     arm_right_joint_6_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 3199.999999920744
+        damping: 40.00000002304123
         effort_limit: 400.0
     arm_right_joint_7_control:
-        stiffness: 800.0
-        damping: 40.0
+        stiffness: 3199.9999999999873
+        damping: 40.00000000000291
         effort_limit: 400.0
-    # Optional per-model-joint time_constant_s / velocity_lookahead_s.
-    joint_command_filters: {}
+    # v4 time constants remain in seconds; zero lookahead replaces legacy prediction.
+    joint_command_filters:
+        astribot_torso_joint_1:
+          time_constant_s: 0.02
+          velocity_lookahead_s: 0.0
+        astribot_torso_joint_2:
+          time_constant_s: 0.0
+          velocity_lookahead_s: 0.0
+        astribot_torso_joint_3:
+          time_constant_s: 0.12
+          velocity_lookahead_s: 0.0
+        astribot_torso_joint_4:
+          time_constant_s: 0.35
+          velocity_lookahead_s: 0.0
+        astribot_head_joint_1:
+          time_constant_s: 0.3013632836103002
+          velocity_lookahead_s: 0.0
+        astribot_head_joint_2:
+          time_constant_s: 0.5
+          velocity_lookahead_s: 0.0
+        astribot_arm_left_joint_1:
+          time_constant_s: 0.004
+          velocity_lookahead_s: 0.0
+        astribot_arm_left_joint_2:
+          time_constant_s: 1.0230881091134841e-14
+          velocity_lookahead_s: 0.0
+        astribot_arm_left_joint_3:
+          time_constant_s: 1.6530694998614925e-19
+          velocity_lookahead_s: 0.0
+        astribot_arm_left_joint_4:
+          time_constant_s: 1.3982434592544664e-18
+          velocity_lookahead_s: 0.0
+        astribot_arm_left_joint_5:
+          time_constant_s: 9.23336675319657e-10
+          velocity_lookahead_s: 0.0
+        astribot_arm_left_joint_6:
+          time_constant_s: 5.497689634461318e-14
+          velocity_lookahead_s: 0.0
+        astribot_arm_left_joint_7:
+          time_constant_s: 8.108060106388174e-16
+          velocity_lookahead_s: 0.0
+        astribot_gripper_left_joint_L1:
+          time_constant_s: 0.008
+          velocity_lookahead_s: 0.0
+        astribot_arm_right_joint_1:
+          time_constant_s: 0.0
+          velocity_lookahead_s: 0.0
+        astribot_arm_right_joint_2:
+          time_constant_s: 0.0
+          velocity_lookahead_s: 0.0
+        astribot_arm_right_joint_3:
+          time_constant_s: 0.0
+          velocity_lookahead_s: 0.0
+        astribot_arm_right_joint_4:
+          time_constant_s: 0.0
+          velocity_lookahead_s: 0.0
+        astribot_arm_right_joint_5:
+          time_constant_s: 0.002
+          velocity_lookahead_s: 0.0
+        astribot_arm_right_joint_6:
+          time_constant_s: 8.176720104521772e-13
+          velocity_lookahead_s: 0.0
+        astribot_arm_right_joint_7:
+          time_constant_s: 2.1008002769347643e-15
+          velocity_lookahead_s: 0.0
+        astribot_gripper_right_joint_L1:
+          time_constant_s: 0.0
+          velocity_lookahead_s: 0.0
     # Show the Isaac Sim window while also publishing the configured cameras.
     # Use "rgb_array" for headless capture.
     mode: "human"

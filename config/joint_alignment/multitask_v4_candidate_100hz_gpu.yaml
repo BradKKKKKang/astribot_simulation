@@ -1,5 +1,6 @@
+# v4 controls at 100 Hz; the original alignment results were measured at 250 Hz.
 simulator_type: IsaacLab
-physics_device: cpu
+physics_device: cuda:0
 use_fabric: true
 robot_name: astribot_s1_whole_body
 model_path: /astribot_descriptions/usd/astribot_s1_usd/astribot_s1_textured.usda
@@ -206,7 +207,7 @@ vel_compensation_list:
 - true
 - false
 update_trajectory_map: {}
-dt: 0.004
+dt: 0.01
 frame_skip: 1
 physics_substeps: 1
 decimation: 1
@@ -428,7 +429,8 @@ robot_placement:
   - 0.0
   yaw: 0.0
   grounding: geometry_min
-joint_alignment_step_service: true
+# The calibration step service is specific to the historical 250 Hz trials.
+joint_alignment_step_service: false
 torso_joint_4_control:
   stiffness: 800.0
   damping: 80.0
