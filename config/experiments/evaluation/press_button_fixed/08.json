@@ -1,0 +1,133 @@
+{
+  "schema_version": 4,
+  "kind": "evaluation",
+  "name": "press_button_fixed_08",
+  "robot": {
+    "ref": "../../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../../scenes/press_button.json",
+    "overrides": {
+      "objects": {
+        "blue_button": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.011025723737262464,
+              -0.13015111454211037
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "red_button": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.23401715495386044,
+              -0.049000171871109555
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "yellow_button": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.455479053751763,
+              -0.08390225831270935
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      }
+    }
+  },
+  "task": {
+    "name": "press_button",
+    "instruction": "按下按钮",
+    "initial_pose": {
+      "joint_targets_rad": {
+        "astribot_torso": [
+          0.4070776019897461,
+          -0.9652944063720703,
+          0.6342440291137695,
+          0.023360054870605468
+        ],
+        "astribot_arm_left": [
+          0.07397337481689453,
+          0.07468880072021485,
+          -1.249786018310547,
+          1.6208319696044922,
+          -0.39032339080810546,
+          -0.2257743364868164,
+          0.24581572027587892
+        ],
+        "astribot_arm_right": [
+          -0.15746309124755858,
+          0.08860318133544923,
+          1.2638854842529297,
+          1.6495128425292969,
+          0.29343968963623046,
+          -0.16732722039794923,
+          -0.29330330499267576
+        ],
+        "astribot_head": [
+          -0.012526534121194168,
+          0.851917274206308
+        ]
+      },
+      "gripper_percent": {
+        "left": 0.0,
+        "right": 0.0
+      }
+    },
+    "success": {
+      "predicates": []
+    },
+    "reset": null
+  },
+  "output": {
+    "root": "outputs/evaluation/press_button_fixed/08"
+  },
+  "robot_placement": {
+    "frame": "world",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "yaw": 0.0,
+    "grounding": "geometry_min"
+  },
+  "runtime": {
+    "simulation": {
+      "dt": 0.01,
+      "frame_skip": 1
+    },
+    "evaluation": {
+      "episodes": 1,
+      "max_steps": 6500,
+      "seed": 0
+    }
+  }
+}

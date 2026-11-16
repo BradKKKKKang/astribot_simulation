@@ -1,0 +1,28 @@
+{
+  "name": "purple_plate",
+  "source": {
+    "path": "~/assets/panzi.glb",
+    "sha256": "b8431d2e156e2921753285b9f0e85768ded635551fa74e8315106abff96c35f0",
+    "description": "Pass-6 panzi. Diameter assumed 20 cm from scene reference; uniform 0.20 scale gives height 1.7992 cm."
+  },
+  "source_transform": {
+    "quaternion_wxyz": [
+      0.7071067811865476,
+      0.7071067811865476,
+      0,
+      0
+    ],
+    "scale": [
+      0.2,
+      0.2,
+      0.2
+    ]
+  },
+  "physics": {
+    "body_type": "dynamic",
+    "collision": "sdf",
+    "friction": 0.6,
+    "restitution": 0,
+    "mass": 0.15
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "lanzi",
+  "source": {
+    "path": "~/assets/lanzi.glb",
+    "sha256": "b25076ed254c640181bd23b0718657ef97f2318484aea147f831c4a87687f761",
+    "description": "Final metric pass-6 GLB; preserve embedded node scales, colors and textures."
+  },
+  "source_transform": {
+    "quaternion_wxyz": [
+      0.7071067811865476,
+      0.7071067811865476,
+      0,
+      0
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "physics": {
+    "body_type": "dynamic",
+    "collision": "sdf",
+    "friction": 0.6,
+    "restitution": 0,
+    "mass": 0.25
+  }
+}

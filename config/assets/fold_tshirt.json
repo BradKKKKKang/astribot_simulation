@@ -1,0 +1,37 @@
+{
+  "name": "fold_tshirt",
+  "source": {
+    "path": "/home/zihengkang/assets/fold_tshirt/fold_tshirt_cloth.glb",
+    "sha256": "a71f9d8601440e78bdf2894f94af00ebc0e8f175789ec0f75eed9c9948dc6a5c",
+    "description": "Metric sewn garment midsurface, 44,568 triangles. Render and simulate the same surface to avoid skinning artifacts."
+  },
+  "source_transform": {
+    "quaternion_wxyz": [
+      0.7071067811865476,
+      0.7071067811865476,
+      0,
+      0
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "physics": {
+    "body_type": "cloth",
+    "collision": "particle_cloth",
+    "mass": 0.18,
+    "friction": 2.0,
+    "cloth": {
+      "stretch_stiffness": 10000.0,
+      "shear_stiffness": 1000.0,
+      "bend_stiffness": 0.08,
+      "spring_damping": 0.02,
+      "velocity_damping": 0.005,
+      "rest_offset": 0.0012,
+      "solver_iterations": 32,
+      "contact_offset": 0.003
+    }
+  }
+}

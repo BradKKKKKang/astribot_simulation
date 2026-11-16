@@ -1,0 +1,232 @@
+{
+  "ref": "astribot_lab.json",
+  "overrides": {
+    "name": "tabletop_objects",
+    "simulation": {
+      "ambient_light_intensity": 0.45,
+      "ground": {
+        "enabled": true,
+        "color": [
+          0,
+          0,
+          0
+        ]
+      },
+      "light": {
+        "enabled": false
+      },
+      "background": {
+        "usd_path": "config/scenes/backgrounds/black_enclosure.usda",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "quaternion_wxyz": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "objects": {
+      "table": {
+        "label": "White table",
+        "roles": [
+          "support"
+        ],
+        "asset": {
+          "ref": "../assets/white_table.json"
+        },
+        "scale": [
+          0.8571428571428571,
+          0.8571428571428571,
+          1
+        ],
+        "placement": {
+          "frame": "world",
+          "xy": [
+            0.625,
+            0
+          ],
+          "quaternion_wxyz": [
+            0.7071067811865476,
+            0,
+            0,
+            0.7071067811865476
+          ],
+          "grounding": "geometry_min"
+        }
+      },
+      "steamer": {
+        "label": "Steamer",
+        "roles": [
+          "container"
+        ],
+        "asset": {
+          "ref": "../assets/lanzi.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            0.202,
+            -0.089
+          ],
+          "quaternion_wxyz": [
+            0.5000000000000001,
+            0,
+            0,
+            0.8660254037844386
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      },
+      "plate": {
+        "label": "Plate",
+        "roles": [
+          "container"
+        ],
+        "asset": {
+          "ref": "../assets/purple_plate.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            -0.192,
+            -0.123
+          ],
+          "quaternion_wxyz": [
+            1.0,
+            0,
+            0,
+            0.0
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      },
+      "drumstick": {
+        "label": "Drumstick",
+        "roles": [
+          "handled_object"
+        ],
+        "asset": {
+          "ref": "../assets/jitui.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            0.475,
+            0.061
+          ],
+          "quaternion_wxyz": [
+            0.6427876096865394,
+            0,
+            0,
+            0.766044443118978
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      },
+      "bun": {
+        "label": "Bun",
+        "roles": [
+          "handled_object"
+        ],
+        "asset": {
+          "ref": "../assets/baozi-elastic-001.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            0.233,
+            0.149
+          ],
+          "quaternion_wxyz": [
+            1.0,
+            0,
+            0,
+            0.0
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      },
+      "bread": {
+        "label": "Bread",
+        "roles": [
+          "handled_object"
+        ],
+        "asset": {
+          "ref": "../assets/mianbao.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            -0.097,
+            0.17
+          ],
+          "quaternion_wxyz": [
+            0.6087614290087207,
+            0,
+            0,
+            0.7933533402912352
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      },
+      "bear": {
+        "label": "Bear",
+        "roles": [
+          "handled_object"
+        ],
+        "asset": {
+          "ref": "../assets/wanjuxiong.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            -0.261,
+            0.164
+          ],
+          "quaternion_wxyz": [
+            0.09229595564125735,
+            -0.09229595564125735,
+            -0.7010573846499779,
+            0.7010573846499779
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      },
+      "pig": {
+        "label": "Pig",
+        "roles": [
+          "handled_object"
+        ],
+        "asset": {
+          "ref": "../assets/wanjuzhu.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            -0.401,
+            0.18
+          ],
+          "quaternion_wxyz": [
+            0.6427876096865394,
+            0,
+            0,
+            0.766044443118978
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      }
+    }
+  }
+}

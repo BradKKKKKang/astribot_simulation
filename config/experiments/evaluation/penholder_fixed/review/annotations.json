@@ -1,0 +1,1068 @@
+{
+  "image_coordinates": "Original supplied JPEG pixels; viewport crops remove viewer UI only. Normalized comparison size: 1280x720. No homography, nonrigid warp or object-specific image alignment.",
+  "method": "Use actual integrated Isaac camera intrinsics/extrinsics and source mesh. Fit table XY and flat pen heading to manually annotated cap/rear endpoints (01 cap tip and vertical cap axis only); fixed 15 cm length. Fit holder XY to full-mesh projected silhouette bounding-box center; preserve asset scale and rotation.",
+  "limitations": [
+    "Photo endpoints/boxes and foreground polygons are manual annotations, not calibrated measurements.",
+    "01 rear endpoint is unobserved; full 15 cm pen inferred from cap tip and axis.",
+    "Foreground polygons record photo occlusion only; raw simulator images remain unmasked for independent review.",
+    "Holder silhouette/scale and robot/camera alignment differ from reality; center fit does not establish metric placement accuracy."
+  ],
+  "layouts": [
+    {
+      "config": "01_20261103-154119.json",
+      "photo": "20261103-154119.jpg",
+      "viewport_xyxy": [
+        11,
+        12,
+        918,
+        522
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          228,
+          322
+        ],
+        null
+      ],
+      "pen_axis_constraint_px": [
+        0,
+        1
+      ],
+      "holder_bbox_xyxy_px": [
+        128,
+        165,
+        222,
+        251
+      ],
+      "occlusion": {
+        "object": "pen",
+        "occluder": "left_gripper",
+        "foreground_polygon_px": [
+          [
+            204,
+            350
+          ],
+          [
+            222,
+            345
+          ],
+          [
+            236,
+            328
+          ],
+          [
+            257,
+            320
+          ],
+          [
+            262,
+            326
+          ],
+          [
+            253,
+            351
+          ],
+          [
+            243,
+            366
+          ],
+          [
+            253,
+            378
+          ],
+          [
+            278,
+            375
+          ],
+          [
+            301,
+            389
+          ],
+          [
+            330,
+            374
+          ],
+          [
+            332,
+            348
+          ],
+          [
+            341,
+            329
+          ],
+          [
+            348,
+            328
+          ],
+          [
+            351,
+            351
+          ],
+          [
+            359,
+            359
+          ],
+          [
+            359,
+            381
+          ],
+          [
+            348,
+            398
+          ],
+          [
+            310,
+            412
+          ],
+          [
+            303,
+            434
+          ],
+          [
+            274,
+            457
+          ],
+          [
+            222,
+            449
+          ],
+          [
+            229,
+            408
+          ],
+          [
+            221,
+            395
+          ],
+          [
+            206,
+            379
+          ]
+        ],
+        "description": "Most barrel and rear end hidden behind left gripper; only cap tip and cap axis observed.",
+        "rear_endpoint_observed": false
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.354,
+            0.188
+          ],
+          "quaternion_wxyz": [
+            0.4329029903,
+            -0.5591019594,
+            0.4329029903,
+            0.5591019594
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.509,
+            -0.065
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.32277568813189367,
+          0.14131500654675497
+        ],
+        "pen_heading_deg": 16.524663061467667,
+        "holder_xy_m": [
+          0.4479116609725205,
+          -0.09359998161417676
+        ],
+        "pen_endpoint_residual_px": [
+          -5.684341886080802e-14,
+          0.0,
+          5.684341886080802e-14
+        ],
+        "holder_projected_size_px": [
+          143.547777313265,
+          131.1407620935992
+        ],
+        "holder_reference_size_px": [
+          132.65711135611903,
+          121.41176470588238
+        ]
+      },
+      "simulation_comparison": "Photo: barrel/rear end hidden. Simulation: barrel and rear end exposed; cap aligned. Hidden rear is not a measured landmark."
+    },
+    {
+      "config": "02_20261103-154116.json",
+      "photo": "20261103-154116.jpg",
+      "viewport_xyxy": [
+        17,
+        17,
+        924,
+        527
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          129,
+          335
+        ],
+        [
+          101,
+          441
+        ]
+      ],
+      "pen_axis_constraint_px": null,
+      "holder_bbox_xyxy_px": [
+        133,
+        206,
+        230,
+        295
+      ],
+      "occlusion": {
+        "object": "pen",
+        "occluder": null,
+        "foreground_polygon_px": [],
+        "description": "",
+        "rear_endpoint_observed": true
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.52,
+            0.203
+          ],
+          "quaternion_wxyz": [
+            0.4657637839,
+            -0.5320376843,
+            0.4657637839,
+            0.5320376843
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.468,
+            0.006
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.48696000020519215,
+          0.16421775600680255
+        ],
+        "pen_heading_deg": 8.200167630321683,
+        "holder_xy_m": [
+          0.42238433736939196,
+          -0.024016859655779845
+        ],
+        "pen_endpoint_residual_px": [
+          0.21912512318868949,
+          2.19167753339093,
+          -0.17941002615657453,
+          -1.773085250247732
+        ],
+        "holder_projected_size_px": [
+          150.39340354694812,
+          135.44275869653268
+        ],
+        "holder_reference_size_px": [
+          136.89084895259091,
+          125.64705882352945
+        ]
+      },
+      "simulation_comparison": "Both objects visible in photo and simulation."
+    },
+    {
+      "config": "03_20261103-154113.json",
+      "photo": "20261103-154113.jpg",
+      "viewport_xyxy": [
+        27,
+        12,
+        934,
+        522
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          186,
+          321
+        ],
+        [
+          112,
+          416
+        ]
+      ],
+      "pen_axis_constraint_px": null,
+      "holder_bbox_xyxy_px": [
+        370,
+        228,
+        450,
+        320
+      ],
+      "occlusion": {
+        "object": "pen",
+        "occluder": null,
+        "foreground_polygon_px": [],
+        "description": "",
+        "rear_endpoint_observed": true
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.479,
+            0.178
+          ],
+          "quaternion_wxyz": [
+            0.5837917502,
+            -0.3989826968,
+            0.5837917502,
+            0.3989826968
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.087,
+            0.068
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.45903662520307553,
+          0.14262379607177061
+        ],
+        "pen_heading_deg": -20.493255651604283,
+        "holder_xy_m": [
+          0.09078474467826245,
+          0.016067869478490246
+        ],
+        "pen_endpoint_residual_px": [
+          -0.6412495227829993,
+          1.444480199444854,
+          0.5996183548596292,
+          -1.1480622768366402
+        ],
+        "holder_projected_size_px": [
+          128.50789583297274,
+          141.93979206441315
+        ],
+        "holder_reference_size_px": [
+          112.89966923925022,
+          129.88235294117652
+        ]
+      },
+      "simulation_comparison": "Both objects visible; simulated holder is larger and its lower edge is closer to the left fingertip."
+    },
+    {
+      "config": "04_20261103-154110.json",
+      "photo": "20261103-154110.jpg",
+      "viewport_xyxy": [
+        28,
+        10,
+        935,
+        520
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          130,
+          268
+        ],
+        [
+          142,
+          353
+        ]
+      ],
+      "pen_axis_constraint_px": null,
+      "holder_bbox_xyxy_px": [
+        378,
+        231,
+        457,
+        322
+      ],
+      "occlusion": {
+        "object": "pen",
+        "occluder": null,
+        "foreground_polygon_px": [],
+        "description": "",
+        "rear_endpoint_observed": true
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.544,
+            0.087
+          ],
+          "quaternion_wxyz": [
+            0.3663004112,
+            -0.6048338687,
+            0.3663004112,
+            0.6048338687
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.075,
+            0.074
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.5181312912188375,
+          0.05665708493901681
+        ],
+        "pen_heading_deg": 28.101393303930294,
+        "holder_xy_m": [
+          0.08083731931114109,
+          0.02308217563372474
+        ],
+        "pen_endpoint_residual_px": [
+          1.4121584446084796,
+          3.7828989536349695,
+          -1.2598272338401841,
+          -3.135542763130047
+        ],
+        "holder_projected_size_px": [
+          128.5508842373374,
+          142.55257151899434
+        ],
+        "holder_reference_size_px": [
+          111.4884233737597,
+          128.47058823529414
+        ]
+      },
+      "simulation_comparison": "Both objects visible; simulated holder is larger and its lower edge is closer to the left fingertip."
+    },
+    {
+      "config": "05_20261103-154108.json",
+      "photo": "20261103-154108.jpg",
+      "viewport_xyxy": [
+        15,
+        23,
+        922,
+        533
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          366,
+          326
+        ],
+        [
+          426,
+          402
+        ]
+      ],
+      "pen_axis_constraint_px": null,
+      "holder_bbox_xyxy_px": [
+        120,
+        211,
+        220,
+        302
+      ],
+      "occlusion": {
+        "object": "pen",
+        "occluder": null,
+        "foreground_polygon_px": [],
+        "description": "",
+        "rear_endpoint_observed": true
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.082,
+            0.143
+          ],
+          "quaternion_wxyz": [
+            0.2960371394,
+            -0.6421541965,
+            0.2960371394,
+            0.6421541965
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.476,
+            0.004
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.09681537744151643,
+          0.10663900028673606
+        ],
+        "pen_heading_deg": 41.98461947467719,
+        "holder_xy_m": [
+          0.4369169797448414,
+          -0.02366942004935893
+        ],
+        "pen_endpoint_residual_px": [
+          -0.4341095725994819,
+          -0.6253221646678639,
+          0.39173432043821776,
+          0.5040407065782802
+        ],
+        "holder_projected_size_px": [
+          151.67634593308907,
+          135.30258615538662
+        ],
+        "holder_reference_size_px": [
+          141.12458654906283,
+          128.47058823529414
+        ]
+      },
+      "simulation_comparison": "Photo pen is clear of the gripper. Simulated left fingertip additionally occludes part of the cap."
+    },
+    {
+      "config": "06_20261103-154105.json",
+      "photo": "20261103-154105.jpg",
+      "viewport_xyxy": [
+        12,
+        14,
+        919,
+        524
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          374,
+          292
+        ],
+        [
+          309,
+          373
+        ]
+      ],
+      "pen_axis_constraint_px": null,
+      "holder_bbox_xyxy_px": [
+        128,
+        211,
+        230,
+        303
+      ],
+      "occlusion": {
+        "object": "pen",
+        "occluder": "left_gripper",
+        "foreground_polygon_px": [
+          [
+            316,
+            356
+          ],
+          [
+            333,
+            343
+          ],
+          [
+            337,
+            328
+          ],
+          [
+            346,
+            314
+          ],
+          [
+            354,
+            315
+          ],
+          [
+            357,
+            333
+          ],
+          [
+            366,
+            348
+          ],
+          [
+            365,
+            367
+          ],
+          [
+            358,
+            382
+          ],
+          [
+            318,
+            397
+          ],
+          [
+            307,
+            380
+          ],
+          [
+            285,
+            386
+          ],
+          [
+            278,
+            378
+          ]
+        ],
+        "description": "Barrel and rear-tip edge partially hidden by left gripper fingers/linkage.",
+        "rear_endpoint_observed": true
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.17,
+            0.111
+          ],
+          "quaternion_wxyz": [
+            0.612680736,
+            -0.3530188603,
+            0.612680736,
+            0.3530188603
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.451,
+            0.034
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.17237209569940234,
+          0.07458522839596206
+        ],
+        "pen_heading_deg": -28.93682351428984,
+        "holder_xy_m": [
+          0.4127101538805651,
+          -0.007494323936345035
+        ],
+        "pen_endpoint_residual_px": [
+          0.23033527265101839,
+          -0.4094328207780791,
+          -0.21624251923651627,
+          0.3303088644964305
+        ],
+        "holder_projected_size_px": [
+          151.81313534565612,
+          136.57101228073378
+        ],
+        "holder_reference_size_px": [
+          143.9470782800441,
+          129.88235294117646
+        ]
+      },
+      "simulation_comparison": "Photo barrel/rear edge partly occluded. Simulation obscures more of the barrel/rear; boundaries differ."
+    },
+    {
+      "config": "07_20261103-154101.json",
+      "photo": "20261103-154101.jpg",
+      "viewport_xyxy": [
+        17,
+        14,
+        924,
+        524
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          394,
+          323
+        ],
+        [
+          384,
+          427
+        ]
+      ],
+      "pen_axis_constraint_px": null,
+      "holder_bbox_xyxy_px": [
+        306,
+        190,
+        390,
+        279
+      ],
+      "occlusion": {
+        "object": "pen",
+        "occluder": null,
+        "foreground_polygon_px": [],
+        "description": "",
+        "rear_endpoint_observed": true
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.096,
+            0.184
+          ],
+          "quaternion_wxyz": [
+            0.4973751642,
+            -0.502611128,
+            0.4973751642,
+            0.502611128
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.186,
+            -0.019
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.10350898216238037,
+          0.13473473212320516
+        ],
+        "pen_heading_deg": 2.4967773092316032,
+        "holder_xy_m": [
+          0.1769348357207699,
+          -0.053033317110948136
+        ],
+        "pen_endpoint_residual_px": [
+          -0.0016562140003770764,
+          -0.16822652382285241,
+          0.00010561093586147763,
+          0.13560978135876667
+        ],
+        "holder_projected_size_px": [
+          127.75613644218714,
+          136.4096179200432
+        ],
+        "holder_reference_size_px": [
+          118.54465270121278,
+          125.64705882352939
+        ]
+      },
+      "simulation_comparison": "Photo pen is clear of the gripper. Simulation places its left edge close to the finger silhouette, with a smaller visible gap."
+    },
+    {
+      "config": "08_20261103-154055.json",
+      "photo": "20261103-154055.jpg",
+      "viewport_xyxy": [
+        11,
+        30,
+        918,
+        540
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          301,
+          340
+        ],
+        [
+          331,
+          435
+        ]
+      ],
+      "pen_axis_constraint_px": null,
+      "holder_bbox_xyxy_px": [
+        325,
+        236,
+        407,
+        326
+      ],
+      "occlusion": {
+        "object": "pen",
+        "occluder": "left_gripper",
+        "foreground_polygon_px": [
+          [
+            306,
+            383
+          ],
+          [
+            325,
+            373
+          ],
+          [
+            330,
+            351
+          ],
+          [
+            339,
+            332
+          ],
+          [
+            346,
+            331
+          ],
+          [
+            350,
+            351
+          ],
+          [
+            360,
+            361
+          ],
+          [
+            362,
+            385
+          ],
+          [
+            357,
+            402
+          ],
+          [
+            310,
+            421
+          ],
+          [
+            297,
+            408
+          ],
+          [
+            279,
+            401
+          ],
+          [
+            278,
+            388
+          ]
+        ],
+        "description": "Two barrel segments hidden by left gripper linkage; both red ends visible.",
+        "rear_endpoint_observed": true
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.2,
+            0.181
+          ],
+          "quaternion_wxyz": [
+            0.3731383152,
+            -0.6006394906,
+            0.3731383152,
+            0.6006394906
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.138,
+            0.048
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.19937555043855948,
+          0.13408614589441162
+        ],
+        "pen_heading_deg": 27.32198954936143,
+        "holder_xy_m": [
+          0.13287613357406944,
+          -0.000979292377178576
+        ],
+        "pen_endpoint_residual_px": [
+          0.5916999882913956,
+          1.465624142791114,
+          -0.5228008125346264,
+          -1.1868419004965745
+        ],
+        "holder_projected_size_px": [
+          129.64379994052183,
+          140.25518778143362
+        ],
+        "holder_reference_size_px": [
+          115.72216097023147,
+          127.05882352941177
+        ]
+      },
+      "simulation_comparison": "Both have partial pen occlusion, but the simulated palm/linkage covers a larger/different barrel area."
+    },
+    {
+      "config": "09_20261103-154050.json",
+      "photo": "20261103-154050.jpg",
+      "viewport_xyxy": [
+        28,
+        38,
+        935,
+        548
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          342,
+          172
+        ],
+        [
+          390,
+          224
+        ]
+      ],
+      "pen_axis_constraint_px": null,
+      "holder_bbox_xyxy_px": [
+        167,
+        275,
+        270,
+        369
+      ],
+      "occlusion": {
+        "object": "penholder",
+        "occluder": "left_gripper",
+        "foreground_polygon_px": [
+          [
+            228,
+            363
+          ],
+          [
+            247,
+            348
+          ],
+          [
+            256,
+            336
+          ],
+          [
+            269,
+            331
+          ],
+          [
+            278,
+            334
+          ],
+          [
+            282,
+            345
+          ],
+          [
+            270,
+            366
+          ],
+          [
+            266,
+            385
+          ],
+          [
+            249,
+            399
+          ],
+          [
+            231,
+            386
+          ]
+        ],
+        "description": "Lower-right penholder edge partially hidden behind left gripper.",
+        "rear_endpoint_observed": true
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.221,
+            -0.223
+          ],
+          "quaternion_wxyz": [
+            0.2943549711,
+            -0.6429270184,
+            0.2943549711,
+            0.6429270184
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.404,
+            0.11
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.21451070932748187,
+          -0.22490801704863625
+        ],
+        "pen_heading_deg": 42.297325700534365,
+        "holder_xy_m": [
+          0.35532558858755686,
+          0.058920366815717586
+        ],
+        "pen_endpoint_residual_px": [
+          1.3552901874984968,
+          2.3602117923035735,
+          -1.24504277114994,
+          -1.9898915392839172
+        ],
+        "holder_projected_size_px": [
+          156.0608063127846,
+          141.72604585541012
+        ],
+        "holder_reference_size_px": [
+          145.35832414553474,
+          132.70588235294116
+        ]
+      },
+      "simulation_comparison": "Photo holder lower-right edge is partially occluded. Simulated holder remains visible with a different finger separation."
+    },
+    {
+      "config": "10_20261103-154047.json",
+      "photo": "20261103-154047.jpg",
+      "viewport_xyxy": [
+        31,
+        48,
+        938,
+        558
+      ],
+      "pen_endpoints_cap_rear_px": [
+        [
+          274,
+          220
+        ],
+        [
+          233,
+          292
+        ]
+      ],
+      "pen_axis_constraint_px": null,
+      "holder_bbox_xyxy_px": [
+        395,
+        260,
+        474,
+        352
+      ],
+      "occlusion": {
+        "object": "pen",
+        "occluder": null,
+        "foreground_polygon_px": [],
+        "description": "",
+        "rear_endpoint_observed": true
+      },
+      "before": {
+        "pen": {
+          "xy": [
+            0.406,
+            -0.102
+          ],
+          "quaternion_wxyz": [
+            0.5464051499,
+            -0.4488222501,
+            0.5464051499,
+            0.4488222501
+          ]
+        },
+        "penholder": {
+          "xy": [
+            0.064,
+            0.059
+          ]
+        }
+      },
+      "fit": {
+        "pen_xy_m": [
+          0.389045851550436,
+          -0.11895785897097777
+        ],
+        "pen_heading_deg": -10.499434524220554,
+        "holder_xy_m": [
+          0.06293671885035086,
+          0.008772479433804894
+        ],
+        "pen_endpoint_residual_px": [
+          -0.09717545625545654,
+          0.5773848957318819,
+          0.09371751025292951,
+          -0.4805579436248877
+        ],
+        "holder_projected_size_px": [
+          125.97545371727574,
+          141.77398915800273
+        ],
+        "holder_reference_size_px": [
+          111.4884233737597,
+          129.88235294117646
+        ]
+      },
+      "simulation_comparison": "Both objects visible in photo and simulation."
+    }
+  ],
+  "subsequent_size_update": {
+    "pen_dimensions_m": [
+      0.02,
+      0.02,
+      0.16
+    ],
+    "placement_refitted": false,
+    "note": "XY/yaw and fit entries describe the prior 150 x 16 mm fit. New capture/report projects actual 160 x 20 mm mesh endpoints; photo annotations and occlusion records remain unchanged."
+  }
+}

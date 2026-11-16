@@ -1,0 +1,136 @@
+{
+  "ref": "astribot_lab.json",
+  "overrides": {
+    "name": "press_button",
+    "simulation": {
+      "ambient_light_intensity": 0.45,
+      "ground": {
+        "enabled": true,
+        "color": [
+          0,
+          0,
+          0
+        ]
+      },
+      "light": {
+        "enabled": false
+      },
+      "background": {
+        "usd_path": "config/scenes/backgrounds/black_enclosure.usda",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "quaternion_wxyz": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "objects": {
+      "table": {
+        "label": "White table",
+        "roles": [
+          "support"
+        ],
+        "asset": {
+          "ref": "../assets/white_table.json"
+        },
+        "scale": [
+          0.8984236464407024,
+          0.8762756228645072,
+          1
+        ],
+        "placement": {
+          "frame": "world",
+          "xy": [
+            0.6287631995911092,
+            0.04614724014831866
+          ],
+          "quaternion_wxyz": [
+            0.7074612224389741,
+            0,
+            0,
+            0.7067521621793261
+          ],
+          "grounding": "geometry_min"
+        }
+      },
+      "blue_button": {
+        "label": "Blue button",
+        "roles": [
+          "handled_object"
+        ],
+        "asset": {
+          "ref": "../assets/blue_button.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            0.2034377561215014,
+            0.0964246654501882
+          ],
+          "quaternion_wxyz": [
+            0.9999998743083791,
+            0,
+            0,
+            0.0005013813178669743
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      },
+      "red_button": {
+        "label": "Red button",
+        "roles": [
+          "handled_object"
+        ],
+        "asset": {
+          "ref": "../assets/red_button.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            0.4084039430268696,
+            0.1578910640116091
+          ],
+          "quaternion_wxyz": [
+            0.9999998743083791,
+            0,
+            0,
+            0.0005013813178669743
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      },
+      "yellow_button": {
+        "label": "Yellow button",
+        "roles": [
+          "handled_object"
+        ],
+        "asset": {
+          "ref": "../assets/yellow_button.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            -0.14473751833299756,
+            0.17534604801718587
+          ],
+          "quaternion_wxyz": [
+            0.9999998743083791,
+            0,
+            0,
+            0.0005013813178669743
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.001
+        }
+      }
+    }
+  }
+}

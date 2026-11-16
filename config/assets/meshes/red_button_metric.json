@@ -1,0 +1,18 @@
+{
+  "source": "/home/zihengkang/assets/red_button.glb",
+  "source_sha256": "fe0e8764dc8a3dccb370f040d161d496a083c78f383b8f971736284fe521a7b0",
+  "output_sha256": "1c1e0f04fe3ecead444281300b381bde37649c2a002465eadf9533f03284f4c7",
+  "units": "metres",
+  "up_axis": "+Y",
+  "dimensions_gltf_xyz_m": [
+    0.088,
+    0.035,
+    0.088
+  ],
+  "black_housing_and_seat_height_m": 0.022,
+  "colored_cap_height_m": 0.013,
+  "dimensions_basis": "User measured base diameter and black/colored heights",
+  "binary_payload_preserved": true,
+  "binary_sha256": "24cc2a5d3d5bfcdd22b2ce266b41636dffa4e3b380144a1ff355f6c40a553b18",
+  "materials_preserved": true
+}

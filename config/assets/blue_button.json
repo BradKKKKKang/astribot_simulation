@@ -1,0 +1,28 @@
+{
+  "name": "blue_button",
+  "source": {
+    "path": "meshes/blue_button_metric.glb",
+    "sha256": "6b5046006da6ba5cd9ea8ab64e2c77249b8d7b5612643424ce6de12be8dc8f28",
+    "description": "Metric derivative of user GLB: base diameter 0.088 m, black housing plus seat 0.022 m, colored cap 0.013 m. Original materials retained; no actuated button travel."
+  },
+  "source_transform": {
+    "quaternion_wxyz": [
+      0.7071067811865476,
+      0.7071067811865476,
+      0,
+      0
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "physics": {
+    "body_type": "dynamic",
+    "collision": "convex_hull",
+    "friction": 1.0,
+    "restitution": 0,
+    "mass": 0.1
+  }
+}

@@ -1,0 +1,2394 @@
+{
+  "method": "Mesh projected silhouette center and long-axis fit using the existing head camera and plumb_bob lens model. No camera, table, asset scale or robot pose fitting. Occluded extents are estimates.",
+  "camera": {
+    "position": [
+      0.2376450151205063,
+      -0.05967225134372711,
+      1.4443618059158325
+    ],
+    "quaternion_wxyz_opencv": [
+      -0.2032531201839447,
+      0.6888075470924377,
+      -0.6759074330329895,
+      0.16547368466854095
+    ],
+    "K": [
+      [
+        747.7324829101562,
+        0.0,
+        640.0
+      ],
+      [
+        0.0,
+        747.7324829101562,
+        360.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "distortion_applied": true
+  },
+  "distortion_coefficients": [
+    0.00268249,
+    -0.0404815,
+    8.09985e-06,
+    -0.000577883,
+    0.027629
+  ],
+  "baseline_scene_sha256": "8f9feeb30cc82287c73227d21ee6c619e77d393db472c211cbd5a36501039be6",
+  "baseline_placements": {
+    "table": {
+      "frame": "world",
+      "xy": [
+        0.625,
+        0
+      ],
+      "quaternion_wxyz": [
+        0.7071067811865476,
+        0,
+        0,
+        0.7071067811865476
+      ],
+      "grounding": "geometry_min"
+    },
+    "steamer": {
+      "frame": "table.tabletop",
+      "xy": [
+        0.202,
+        -0.089
+      ],
+      "quaternion_wxyz": [
+        0.5000000000000001,
+        0,
+        0,
+        0.8660254037844386
+      ],
+      "grounding": "geometry_min",
+      "clearance": 0.001
+    },
+    "plate": {
+      "frame": "table.tabletop",
+      "xy": [
+        -0.192,
+        -0.123
+      ],
+      "quaternion_wxyz": [
+        1.0,
+        0,
+        0,
+        0.0
+      ],
+      "grounding": "geometry_min",
+      "clearance": 0.001
+    },
+    "drumstick": {
+      "frame": "table.tabletop",
+      "xy": [
+        0.475,
+        0.061
+      ],
+      "quaternion_wxyz": [
+        0.6427876096865394,
+        0,
+        0,
+        0.766044443118978
+      ],
+      "grounding": "geometry_min",
+      "clearance": 0.001
+    },
+    "bun": {
+      "frame": "table.tabletop",
+      "xy": [
+        0.233,
+        0.149
+      ],
+      "quaternion_wxyz": [
+        1.0,
+        0,
+        0,
+        0.0
+      ],
+      "grounding": "geometry_min",
+      "clearance": 0.001
+    },
+    "bread": {
+      "frame": "table.tabletop",
+      "xy": [
+        -0.097,
+        0.17
+      ],
+      "quaternion_wxyz": [
+        0.6087614290087207,
+        0,
+        0,
+        0.7933533402912352
+      ],
+      "grounding": "geometry_min",
+      "clearance": 0.001
+    },
+    "bear": {
+      "frame": "table.tabletop",
+      "xy": [
+        -0.261,
+        0.164
+      ],
+      "quaternion_wxyz": [
+        0.09229595564125735,
+        -0.09229595564125735,
+        -0.7010573846499779,
+        0.7010573846499779
+      ],
+      "grounding": "geometry_min",
+      "clearance": 0.001
+    },
+    "pig": {
+      "frame": "table.tabletop",
+      "xy": [
+        -0.401,
+        0.18
+      ],
+      "quaternion_wxyz": [
+        0.6427876096865394,
+        0,
+        0,
+        0.766044443118978
+      ],
+      "grounding": "geometry_min",
+      "clearance": 0.001
+    }
+  },
+  "notes": {
+    "03/pig": "Rotated 20 degrees toward the head-camera image vertical at user request: tabletop yaw 130.20353588755182 -> 110.20353588755182 degrees. XY and grounding are preserved. Photo annotations and fit error describe the original fit before this manual rotation.",
+    "03/bread": "Rotated 20 degrees toward the head-camera image vertical at user request: tabletop yaw 133.68142118200336 -> 113.68142118200335 degrees. XY and grounding are preserved. Photo annotations and fit error describe the original fit before this manual rotation.",
+    "10/bread": "Position updated from 10-modify.png using five stationary object centers and mesh-aware camera projection. In table.tabletop, XY is [-0.20138608, 0.18274419] m. Original 10.png hides the bread; do not move it solely to enforce simulator occlusion. Existing orientation is preserved.",
+    "06/bun": "Only a small part is visible below the left wrist; center is inferred.",
+    "02/pig": "Most of the pig is hidden by the right gripper; center and yaw are inferred."
+  },
+  "layouts": [
+    {
+      "config": "01.json",
+      "photo": null,
+      "objects": {}
+    },
+    {
+      "config": "02.json",
+      "photo": "/home/zihengkang/Downloads/02.png",
+      "objects": {
+        "steamer": {
+          "bbox_xyxy_px": [
+            536,
+            161,
+            689,
+            301
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 1.0199999999865952,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.19651996,
+              -0.0961172
+            ],
+            "quaternion_wxyz": [
+              0.492271646879,
+              0.0,
+              0.0,
+              0.870441626808
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "bbox_xyxy_px": [
+            790,
+            179,
+            919,
+            284
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.17381966,
+              -0.10991016
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "bbox_xyxy_px": [
+            383,
+            351,
+            424,
+            411
+          ],
+          "axis_endpoints_px": [
+            [
+              409,
+              363
+            ],
+            [
+              392,
+              401
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.2710574864626038e-13,
+          "yaw_delta_from_baseline_degrees": -14.160372790609813,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.46380634,
+              0.14868413
+            ],
+            "quaternion_wxyz": [
+              0.732307453111,
+              0.0,
+              0.0,
+              0.680974150844
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "bbox_xyxy_px": [
+            548,
+            342,
+            596,
+            386
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.22976138,
+              0.11848077
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "bbox_xyxy_px": [
+            749,
+            327,
+            800,
+            410
+          ],
+          "axis_endpoints_px": [
+            [
+              767,
+              343
+            ],
+            [
+              784,
+              397
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": 3.882817024953056,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.05164447,
+              0.12141766
+            ],
+            "quaternion_wxyz": [
+              0.581535178162,
+              0.0,
+              0.0,
+              0.813521257595
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bear": {
+          "bbox_xyxy_px": [
+            1022,
+            395,
+            1104,
+            483
+          ],
+          "axis_endpoints_px": [
+            [
+              1053,
+              416
+            ],
+            [
+              1089,
+              467
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": 38.99755736498986,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.41336567,
+              0.21339839
+            ],
+            "quaternion_wxyz": [
+              -0.14700102311,
+              0.14700102311,
+              -0.691657935113,
+              0.691657935113
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "bbox_xyxy_px": [
+            880,
+            365,
+            938,
+            445
+          ],
+          "axis_endpoints_px": [
+            [
+              897,
+              382
+            ],
+            [
+              920,
+              432
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-13,
+          "yaw_delta_from_baseline_degrees": 8.29692134932236,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.22066601,
+              0.17514905
+            ],
+            "quaternion_wxyz": [
+              0.585687015212,
+              0.0,
+              0.0,
+              0.810537303405
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      },
+      "photo_sha256": "d687db170c2ad3ce55c0f9ae13a7ad0feac0677d06e3478941989379e332699b",
+      "viewport_xyxy": [
+        297,
+        30,
+        1204,
+        540
+      ]
+    },
+    {
+      "config": "03.json",
+      "photo": "/home/zihengkang/Downloads/03.png",
+      "objects": {
+        "steamer": {
+          "bbox_xyxy_px": [
+            225,
+            157,
+            384,
+            299
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.6077746776921858e-13,
+          "yaw_delta_from_baseline_degrees": 1.267999999983573,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.24454053,
+              -0.07540705
+            ],
+            "quaternion_wxyz": [
+              0.49038667853,
+              0.0,
+              0.0,
+              0.871504965861
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "bbox_xyxy_px": [
+            512,
+            156,
+            640,
+            258
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.16972362,
+              -0.13021729
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "bbox_xyxy_px": [
+            161,
+            326,
+            195,
+            383
+          ],
+          "axis_endpoints_px": [
+            [
+              175,
+              341
+            ],
+            [
+              179,
+              374
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 2.842170943040401e-14,
+          "yaw_delta_from_baseline_degrees": 13.893804280482811,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.39489219,
+              0.1281732
+            ],
+            "quaternion_wxyz": [
+              0.545416024281,
+              0.0,
+              0.0,
+              0.838165473196
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "bbox_xyxy_px": [
+            288,
+            330,
+            333,
+            375
+          ],
+          "axis_endpoints_px": null,
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.2018720632469174e-11,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.20990021,
+              0.12190942
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "bbox_xyxy_px": [
+            649,
+            366,
+            739,
+            444
+          ],
+          "axis_endpoints_px": [
+            [
+              670,
+              381
+            ],
+            [
+              722,
+              429
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-13,
+          "yaw_delta_from_baseline_degrees": 8.681421182003362,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.29799718,
+              0.18698009
+            ],
+            "quaternion_wxyz": [
+              0.54696853595,
+              0.0,
+              0.0,
+              0.83715316441
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bear": {
+          "bbox_xyxy_px": [
+            450,
+            296,
+            514,
+            366
+          ],
+          "axis_endpoints_px": [
+            [
+              488,
+              316
+            ],
+            [
+              462,
+              352
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.7390742119435294e-12,
+          "yaw_delta_from_baseline_degrees": -17.158263245523557,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.02098614,
+              0.09325862
+            ],
+            "quaternion_wxyz": [
+              0.195843616186,
+              -0.195843616186,
+              -0.679444830725,
+              0.679444830725
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "bbox_xyxy_px": [
+            765,
+            340,
+            848,
+            406
+          ],
+          "axis_endpoints_px": [
+            [
+              782,
+              352
+            ],
+            [
+              829,
+              392
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-12,
+          "yaw_delta_from_baseline_degrees": 10.203535887551823,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.44301001,
+              0.14924737
+            ],
+            "quaternion_wxyz": [
+              0.572120566206,
+              0.0,
+              0.0,
+              0.820169529868
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      },
+      "photo_sha256": "343bc4d2754fc2d21c9992bb14f9b5d2b5ab42a8d11b335ca70dae43b7011d1c",
+      "viewport_xyxy": [
+        22,
+        16,
+        929,
+        526
+      ]
+    },
+    {
+      "config": "04.json",
+      "photo": "/home/zihengkang/Downloads/04.png",
+      "objects": {
+        "steamer": {
+          "bbox_xyxy_px": [
+            314,
+            149,
+            464,
+            286
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 2.0495186137532011e-13,
+          "yaw_delta_from_baseline_degrees": 6.247999999986888,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.13145875,
+              -0.10842203
+            ],
+            "quaternion_wxyz": [
+              0.452061114355,
+              0.0,
+              0.0,
+              0.89198696677
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "bbox_xyxy_px": [
+            518,
+            174,
+            648,
+            279
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-13,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.16509934,
+              -0.10611519
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "bbox_xyxy_px": [
+            154,
+            326,
+            190,
+            380
+          ],
+          "axis_endpoints_px": [
+            [
+              168,
+              340
+            ],
+            [
+              178,
+              370
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 6.355287432313019e-14,
+          "yaw_delta_from_baseline_degrees": 23.669590538087846,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.41947964,
+              0.11532524
+            ],
+            "quaternion_wxyz": [
+              0.472015469219,
+              0.0,
+              0.0,
+              0.881590265837
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "bbox_xyxy_px": [
+            297,
+            299,
+            342,
+            342
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.6077746776921858e-13,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.22133459,
+              0.06224676
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "bbox_xyxy_px": [
+            640,
+            293,
+            687,
+            369
+          ],
+          "axis_endpoints_px": [
+            [
+              663,
+              310
+            ],
+            [
+              661,
+              352
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": -23.303021255470014,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.26515993,
+              0.07361179
+            ],
+            "quaternion_wxyz": [
+              0.756441795296,
+              0.0,
+              0.0,
+              0.654061014225
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bear": {
+          "bbox_xyxy_px": [
+            752,
+            374,
+            829,
+            461
+          ],
+          "axis_endpoints_px": [
+            [
+              781,
+              394
+            ],
+            [
+              805,
+              446
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 2.2737367544323206e-13,
+          "yaw_delta_from_baseline_degrees": 26.309174592339673,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.40945819,
+              0.19388372
+            ],
+            "quaternion_wxyz": [
+              -0.069671963986,
+              0.069671963986,
+              -0.703665984281,
+              0.703665984281
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "bbox_xyxy_px": [
+            512,
+            353,
+            563,
+            431
+          ],
+          "axis_endpoints_px": [
+            [
+              548,
+              369
+            ],
+            [
+              532,
+              416
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 3.410605131648481e-13,
+          "yaw_delta_from_baseline_degrees": -29.170072158165397,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.08989414,
+              0.16797117
+            ],
+            "quaternion_wxyz": [
+              0.814976477247,
+              0.0,
+              0.0,
+              0.579494039257
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      },
+      "photo_sha256": "367dd73d235061183d07966459b71da258fe8c8cb092d127660ecbd964418f15",
+      "viewport_xyxy": [
+        31,
+        23,
+        938,
+        533
+      ]
+    },
+    {
+      "config": "05.json",
+      "photo": "/home/zihengkang/Downloads/05.png",
+      "objects": {
+        "steamer": {
+          "bbox_xyxy_px": [
+            235,
+            164,
+            395,
+            308
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 6.355287432313019e-13,
+          "yaw_delta_from_baseline_degrees": 18.008000000004643,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.2313556,
+              -0.06795599
+            ],
+            "quaternion_wxyz": [
+              0.358302772463,
+              0.0,
+              0.0,
+              0.933605443025
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "bbox_xyxy_px": [
+            537,
+            168,
+            666,
+            272
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.20330368,
+              -0.11272071
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "bbox_xyxy_px": [
+            95,
+            300,
+            144,
+            354
+          ],
+          "axis_endpoints_px": [
+            [
+              125,
+              313
+            ],
+            [
+              108,
+              343
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 6.042538309847401e-13,
+          "yaw_delta_from_baseline_degrees": -18.825637824997926,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.50644135,
+              0.08222256
+            ],
+            "quaternion_wxyz": [
+              0.759416887497,
+              0.0,
+              0.0,
+              0.650604327517
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "bbox_xyxy_px": [
+            255,
+            338,
+            301,
+            380
+          ],
+          "axis_endpoints_px": null,
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.2594164,
+              0.12628129
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "bbox_xyxy_px": [
+            809,
+            380,
+            903,
+            472
+          ],
+          "axis_endpoints_px": [
+            [
+              829,
+              396
+            ],
+            [
+              883,
+              452
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": 19.50211241135119,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.4887822,
+              0.20555844
+            ],
+            "quaternion_wxyz": [
+              0.465598206148,
+              0.0,
+              0.0,
+              0.884996220575
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bear": {
+          "bbox_xyxy_px": [
+            502,
+            359,
+            554,
+            443
+          ],
+          "axis_endpoints_px": [
+            [
+              525,
+              378
+            ],
+            [
+              544,
+              427
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-13,
+          "yaw_delta_from_baseline_degrees": 35.044212463173665,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.09019211,
+              0.18268311
+            ],
+            "quaternion_wxyz": [
+              -0.123056470619,
+              0.123056470619,
+              -0.696316813698,
+              0.696316813698
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "bbox_xyxy_px": [
+            653,
+            378,
+            720,
+            453
+          ],
+          "axis_endpoints_px": [
+            [
+              672,
+              393
+            ],
+            [
+              704,
+              439
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-13,
+          "yaw_delta_from_baseline_degrees": 17.795053880200754,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.2799385,
+              0.20115211
+            ],
+            "quaternion_wxyz": [
+              0.516570287474,
+              0.0,
+              0.0,
+              0.856244788655
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      },
+      "photo_sha256": "ac237fc368407e96ec631b9a55b72b101ccff7827e3791b3b7dfd5678c0fefa7",
+      "viewport_xyxy": [
+        25,
+        20,
+        932,
+        530
+      ]
+    },
+    {
+      "config": "06.json",
+      "photo": "/home/zihengkang/Downloads/06.png",
+      "objects": {
+        "steamer": {
+          "bbox_xyxy_px": [
+            237,
+            161,
+            395,
+            302
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.6077746776921858e-13,
+          "yaw_delta_from_baseline_degrees": 31.828999999951293,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.22046572,
+              -0.07631483
+            ],
+            "quaternion_wxyz": [
+              0.243369555818,
+              0.0,
+              0.0,
+              0.969933636545
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "bbox_xyxy_px": [
+            530,
+            173,
+            660,
+            278
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.4119612329039025e-12,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.20317816,
+              -0.10227412
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "bbox_xyxy_px": [
+            77,
+            339,
+            116,
+            398
+          ],
+          "axis_endpoints_px": [
+            [
+              101,
+              352
+            ],
+            [
+              87,
+              388
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 2.842170943040401e-14,
+          "yaw_delta_from_baseline_degrees": -9.212948631759673,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.50667239,
+              0.14578314
+            ],
+            "quaternion_wxyz": [
+              0.702233506123,
+              0.0,
+              0.0,
+              0.711946699464
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "bbox_xyxy_px": [
+            257,
+            398,
+            303,
+            443
+          ],
+          "axis_endpoints_px": null,
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.22823586,
+              0.21099713
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "bbox_xyxy_px": [
+            714,
+            287,
+            778,
+            368
+          ],
+          "axis_endpoints_px": [
+            [
+              733,
+              301
+            ],
+            [
+              758,
+              352
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": -1.031701342593209,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.39356982,
+              0.07212726
+            ],
+            "quaternion_wxyz": [
+              0.615879452104,
+              0.0,
+              0.0,
+              0.787840402922
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bear": {
+          "bbox_xyxy_px": [
+            557,
+            331,
+            621,
+            414
+          ],
+          "axis_endpoints_px": [
+            [
+              587,
+              349
+            ],
+            [
+              595,
+              399
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 19.120005645498082,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.17764358,
+              0.1411744
+            ],
+            "quaternion_wxyz": [
+              -0.025417721335,
+              0.025417721335,
+              -0.706649799718,
+              0.706649799718
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "bbox_xyxy_px": [
+            446,
+            298,
+            504,
+            360
+          ],
+          "axis_endpoints_px": [
+            [
+              489,
+              313
+            ],
+            [
+              462,
+              346
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": -45.60266213908068,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.02101234,
+              0.08327778
+            ],
+            "quaternion_wxyz": [
+              0.889426992143,
+              0.0,
+              0.0,
+              0.457077264418
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      },
+      "photo_sha256": "1946f6deb0ad6b5cea7e54f0575a330dea7d517fa91edc70af215db54ba08726",
+      "viewport_xyxy": [
+        18,
+        20,
+        925,
+        530
+      ]
+    },
+    {
+      "config": "07.json",
+      "photo": "/home/zihengkang/Downloads/07.png",
+      "objects": {
+        "steamer": {
+          "bbox_xyxy_px": [
+            313,
+            150,
+            465,
+            292
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.2710574864626038e-13,
+          "yaw_delta_from_baseline_degrees": 22.387999999983634,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.1026855,
+              -0.07527657
+            ],
+            "quaternion_wxyz": [
+              0.322364826342,
+              0.0,
+              0.0,
+              0.94661550734
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "bbox_xyxy_px": [
+            517,
+            183,
+            652,
+            295
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.18816664,
+              -0.05730659
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "bbox_xyxy_px": [
+            107,
+            290,
+            143,
+            346
+          ],
+          "axis_endpoints_px": [
+            [
+              126,
+              304
+            ],
+            [
+              118,
+              336
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 4.343967969940149e-12,
+          "yaw_delta_from_baseline_degrees": -2.3822932040768308,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.48378668,
+              0.0848737
+            ],
+            "quaternion_wxyz": [
+              0.658573188393,
+              0.0,
+              0.0,
+              0.75251668123
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "bbox_xyxy_px": [
+            477,
+            341,
+            523,
+            386
+          ],
+          "axis_endpoints_px": null,
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.6077746776921858e-13,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.06225894,
+              0.14392274
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "bbox_xyxy_px": [
+            249,
+            305,
+            301,
+            386
+          ],
+          "axis_endpoints_px": [
+            [
+              273,
+              322
+            ],
+            [
+              278,
+              371
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 4.618189439826921,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.24914258,
+              0.1225788
+            ],
+            "quaternion_wxyz": [
+              0.576302601205,
+              0.0,
+              0.0,
+              0.81723638676
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bear": {
+          "bbox_xyxy_px": [
+            603,
+            375,
+            669,
+            449
+          ],
+          "axis_endpoints_px": [
+            [
+              642,
+              389
+            ],
+            [
+              631,
+              432
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": -5.3383501961649245,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.22772508,
+              0.2085856
+            ],
+            "quaternion_wxyz": [
+              0.124843394297,
+              -0.124843394297,
+              -0.695998654381,
+              0.695998654381
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "bbox_xyxy_px": [
+            771,
+            340,
+            850,
+            412
+          ],
+          "axis_endpoints_px": [
+            [
+              790,
+              355
+            ],
+            [
+              831,
+              399
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": 21.44960963517451,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.45331034,
+              0.16276752
+            ],
+            "quaternion_wxyz": [
+              0.489004864667,
+              0.0,
+              0.0,
+              0.872281056961
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      },
+      "photo_sha256": "5820aae7797ebe8a31457e2057142942714650f164b90ea011fb0a2b3e609201",
+      "viewport_xyxy": [
+        15,
+        9,
+        922,
+        519
+      ]
+    },
+    {
+      "config": "08.json",
+      "photo": "/home/zihengkang/Downloads/08.png",
+      "objects": {
+        "steamer": {
+          "bbox_xyxy_px": [
+            304,
+            153,
+            455,
+            294
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1425385788607957e-12,
+          "yaw_delta_from_baseline_degrees": 25.470000000011623,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.11959907,
+              -0.08180032
+            ],
+            "quaternion_wxyz": [
+              0.296791588447,
+              0.0,
+              0.0,
+              0.954942277327
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "bbox_xyxy_px": [
+            518,
+            167,
+            649,
+            273
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 3.595093471822542e-13,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.18871302,
+              -0.1032371
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "bbox_xyxy_px": [
+            94,
+            334,
+            143,
+            385
+          ],
+          "axis_endpoints_px": [
+            [
+              108,
+              347
+            ],
+            [
+              130,
+              376
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 8.038873388460929e-14,
+          "yaw_delta_from_baseline_degrees": 39.014077486724574,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.46966812,
+              0.13845333
+            ],
+            "quaternion_wxyz": [
+              0.350092309144,
+              0.0,
+              0.0,
+              0.936715204893
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "bbox_xyxy_px": [
+            436,
+            332,
+            482,
+            377
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.7316263224219958e-12,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.00510748,
+              0.12343378
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "bbox_xyxy_px": [
+            241,
+            348,
+            300,
+            432
+          ],
+          "axis_endpoints_px": [
+            [
+              260,
+              361
+            ],
+            [
+              284,
+              419
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 19.684310036572185,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.24502155,
+              0.17761139
+            ],
+            "quaternion_wxyz": [
+              0.464190497041,
+              0.0,
+              0.0,
+              0.885735390767
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bear": {
+          "bbox_xyxy_px": [
+            741,
+            284,
+            818,
+            361
+          ],
+          "axis_endpoints_px": [
+            [
+              770,
+              304
+            ],
+            [
+              797,
+              348
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-13,
+          "yaw_delta_from_baseline_degrees": 31.298757967252953,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.44541685,
+              0.07551401
+            ],
+            "quaternion_wxyz": [
+              -0.100235502793,
+              0.100235502793,
+              -0.699966316318,
+              0.699966316318
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "bbox_xyxy_px": [
+            611,
+            346,
+            670,
+            421
+          ],
+          "axis_endpoints_px": [
+            [
+              655,
+              360
+            ],
+            [
+              628,
+              409
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": -43.08875776119879,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.24063568,
+              0.16464968
+            ],
+            "quaternion_wxyz": [
+              0.879186435943,
+              0.0,
+              0.0,
+              0.476477922734
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      },
+      "photo_sha256": "202fbb514fd04891b262d6273d77e901f53370a1a7e19ed81edbe5f208a34221",
+      "viewport_xyxy": [
+        16,
+        15,
+        923,
+        525
+      ]
+    },
+    {
+      "config": "09.json",
+      "photo": "/home/zihengkang/Downloads/09.png",
+      "objects": {
+        "steamer": {
+          "bbox_xyxy_px": [
+            272,
+            150,
+            425,
+            290
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 8.526512829121202e-13,
+          "yaw_delta_from_baseline_degrees": 28.17300000000563,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.16750968,
+              -0.101788
+            ],
+            "quaternion_wxyz": [
+              0.274185816043,
+              0.0,
+              0.0,
+              0.961676732733
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "bbox_xyxy_px": [
+            537,
+            173,
+            669,
+            280
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 2.5172073293884444e-12,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.22168863,
+              -0.10413916
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "bbox_xyxy_px": [
+            134,
+            298,
+            188,
+            347
+          ],
+          "axis_endpoints_px": [
+            [
+              170,
+              313
+            ],
+            [
+              145,
+              337
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 2.842170943040401e-14,
+          "yaw_delta_from_baseline_degrees": -42.76637353534986,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.42845696,
+              0.07080518
+            ],
+            "quaternion_wxyz": [
+              0.877842467292,
+              0.0,
+              0.0,
+              0.478949478149
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "bbox_xyxy_px": [
+            416,
+            312,
+            462,
+            358
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-13,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.02185447,
+              0.0844366
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "bbox_xyxy_px": [
+            645,
+            350,
+            707,
+            438
+          ],
+          "axis_endpoints_px": [
+            [
+              665,
+              367
+            ],
+            [
+              687,
+              423
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-13,
+          "yaw_delta_from_baseline_degrees": -1.0808235210124337,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.28992,
+              0.16396216
+            ],
+            "quaternion_wxyz": [
+              0.616217120529,
+              0.0,
+              0.0,
+              0.787576320344
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bear": {
+          "bbox_xyxy_px": [
+            265,
+            333,
+            324,
+            412
+          ],
+          "axis_endpoints_px": [
+            [
+              297,
+              352
+            ],
+            [
+              285,
+              396
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 8.038873388460929e-14,
+          "yaw_delta_from_baseline_degrees": 11.523227553126986,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.21763518,
+              0.14419631
+            ],
+            "quaternion_wxyz": [
+              0.021450726603,
+              -0.021450726603,
+              -0.706781342657,
+              0.706781342657
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "bbox_xyxy_px": [
+            737,
+            382,
+            815,
+            458
+          ],
+          "axis_endpoints_px": [
+            [
+              754,
+              395
+            ],
+            [
+              796,
+              443
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 2.2737367544323206e-13,
+          "yaw_delta_from_baseline_degrees": 21.573358804025048,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.40161019,
+              0.20293954
+            ],
+            "quaternion_wxyz": [
+              0.488062590116,
+              0.0,
+              0.0,
+              0.87280863202
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      },
+      "photo_sha256": "c3d2f11c898c48307d222b25799ca505ac5aa770bdaf77bb24e701f40661db50",
+      "viewport_xyxy": [
+        14,
+        22,
+        921,
+        532
+      ]
+    },
+    {
+      "config": "10.json",
+      "photo": "/home/zihengkang/Downloads/10.png",
+      "objects": {
+        "steamer": {
+          "bbox_xyxy_px": [
+            294,
+            147,
+            446,
+            287
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 29.999999999944947,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.13217383,
+              -0.10168883
+            ],
+            "quaternion_wxyz": [
+              0.258819045103,
+              0.0,
+              0.0,
+              0.965925826289
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "bbox_xyxy_px": [
+            533,
+            196,
+            667,
+            306
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.21385448,
+              -0.05379712
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "bbox_xyxy_px": [
+            134,
+            289,
+            181,
+            342
+          ],
+          "axis_endpoints_px": [
+            [
+              164,
+              303
+            ],
+            [
+              144,
+              332
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 2.5421149729252077e-13,
+          "yaw_delta_from_baseline_degrees": -27.23874849286898,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.43540177,
+              0.06441705
+            ],
+            "quaternion_wxyz": [
+              0.805094412603,
+              0.0,
+              0.0,
+              0.59314668236
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "bbox_xyxy_px": [
+            409,
+            307,
+            455,
+            351
+          ],
+          "axis_endpoints_px": null,
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 5.684341886080802e-14,
+          "yaw_delta_from_baseline_degrees": 0.0,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.03061196,
+              0.07994295
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "occluded": true,
+          "fully_hidden": true,
+          "yaw_delta_from_baseline_degrees": -1.0808235210124337,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.20138608,
+              0.18274419
+            ],
+            "quaternion_wxyz": [
+              0.616217120529,
+              0.0,
+              0.0,
+              0.787576320344
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_occlusion_inference": {
+            "bbox_xyxy_px": [
+              573,
+              383,
+              625,
+              469
+            ],
+            "axis_endpoints_px": null,
+            "center_fit_error_px": 1.1368683772161603e-13
+          },
+          "position_reference": {
+            "photo": "/home/zihengkang/Downloads/10-modify.png",
+            "photo_sha256": "f992e1d117be0d4edffc145022df96f34f9c1225e3f8865e5e5cddd0dc9b208e",
+            "viewport_xyxy": [
+              19,
+              21,
+              926,
+              531
+            ],
+            "bbox_xyxy_px": [
+              668,
+              386,
+              743,
+              475
+            ],
+            "fit_report": "outputs/evaluation/item_classification_fixed/layout10_alternate_view/fit.json",
+            "method": "Five stationary object mesh silhouette centers estimate the alternate view pose using existing camera intrinsics and lens model; project bread silhouette center back onto its grounded mesh plane. Camera fit is analytical only; simulation camera and other objects remain unchanged.",
+            "assumption": "Other objects and bread remained stationary between the two real images."
+          }
+        },
+        "bear": {
+          "bbox_xyxy_px": [
+            780,
+            327,
+            853,
+            409
+          ],
+          "axis_endpoints_px": [
+            [
+              816,
+              346
+            ],
+            [
+              835,
+              397
+            ]
+          ],
+          "occluded": false,
+          "fully_hidden": false,
+          "center_fit_error_px": 1.1368683772161603e-13,
+          "yaw_delta_from_baseline_degrees": 18.223045261406497,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.47972709,
+              0.13262451
+            ],
+            "quaternion_wxyz": [
+              -0.01988572896,
+              0.01988572896,
+              -0.706827106005,
+              0.706827106005
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "bbox_xyxy_px": [
+            317,
+            348,
+            371,
+            424
+          ],
+          "axis_endpoints_px": [
+            [
+              333,
+              364
+            ],
+            [
+              356,
+              410
+            ]
+          ],
+          "occluded": true,
+          "fully_hidden": false,
+          "center_fit_error_px": 0.0,
+          "yaw_delta_from_baseline_degrees": 22.87704136201984,
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.14096534,
+              0.17147864
+            ],
+            "quaternion_wxyz": [
+              0.478101470683,
+              0.0,
+              0.0,
+              0.8783046076
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      },
+      "photo_sha256": "ad78483b026c4c269ceaee4f2cbbc2ea03fb88554561d2fdc572d20c80caddc9",
+      "viewport_xyxy": [
+        13,
+        19,
+        920,
+        529
+      ]
+    }
+  ]
+}

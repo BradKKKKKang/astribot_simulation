@@ -1,0 +1,187 @@
+{
+  "schema_version": 4,
+  "kind": "evaluation",
+  "name": "item_classification_fixed_04",
+  "robot": {
+    "ref": "../../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../../scenes/tabletop_objects.json",
+    "overrides": {
+      "objects": {
+        "table": {
+          "placement": {
+            "frame": "world",
+            "xy": [
+              0.625,
+              0
+            ],
+            "quaternion_wxyz": [
+              0.7071067811865476,
+              0,
+              0,
+              0.7071067811865476
+            ],
+            "grounding": "geometry_min"
+          },
+          "scale": [
+            0.8571428571428571,
+            0.8571428571428571,
+            1
+          ]
+        },
+        "steamer": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.13145875,
+              -0.10842203
+            ],
+            "quaternion_wxyz": [
+              0.452061114355,
+              0.0,
+              0.0,
+              0.89198696677
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "plate": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.16509934,
+              -0.10611519
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "drumstick": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.41947964,
+              0.11532524
+            ],
+            "quaternion_wxyz": [
+              0.472015469219,
+              0.0,
+              0.0,
+              0.881590265837
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bun": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.22133459,
+              0.06224676
+            ],
+            "quaternion_wxyz": [
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bread": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.26515993,
+              0.07361179
+            ],
+            "quaternion_wxyz": [
+              0.756441795296,
+              0.0,
+              0.0,
+              0.654061014225
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "bear": {
+          "asset": {
+            "ref": "../../../assets/wanjuxiong.json"
+          },
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.40945819,
+              0.19388372
+            ],
+            "quaternion_wxyz": [
+              -0.069671963986,
+              0.069671963986,
+              -0.703665984281,
+              0.703665984281
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "pig": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.08989414,
+              0.16797117
+            ],
+            "quaternion_wxyz": [
+              0.814976477247,
+              0.0,
+              0.0,
+              0.579494039257
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      }
+    }
+  },
+  "task": {
+    "ref": "../../../tasks/tabletop_objects.json",
+    "overrides": {
+      "reset": null
+    }
+  },
+  "output": {
+    "root": "outputs/evaluation/item_classification_fixed/04"
+  },
+  "robot_placement": {
+    "frame": "world",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "yaw": 0.0,
+    "grounding": "geometry_min"
+  },
+  "runtime": {
+    "simulation": {
+      "dt": 0.01,
+      "frame_skip": 1
+    },
+    "evaluation": {
+      "episodes": 1,
+      "max_steps": 6500,
+      "seed": 0
+    }
+  }
+}

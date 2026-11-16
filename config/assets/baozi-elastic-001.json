@@ -1,0 +1,28 @@
+{
+  "name": "baozi-elastic-001",
+  "source": {
+    "path": "~/assets/baozi-elastic-001.glb",
+    "sha256": "08af209b6f4da15bd0aa4eeca4abaf9bbe73895140378d0c47ce0fb015d47c84",
+    "description": "Final metric pass-6 GLB; preserve embedded node scales, colors and textures."
+  },
+  "source_transform": {
+    "quaternion_wxyz": [
+      0.7071067811865476,
+      0.7071067811865476,
+      0,
+      0
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "physics": {
+    "body_type": "dynamic",
+    "collision": "convex_hull",
+    "friction": 0.6,
+    "restitution": 0,
+    "mass": 0.06
+  }
+}

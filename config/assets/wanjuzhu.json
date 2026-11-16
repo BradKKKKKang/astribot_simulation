@@ -1,0 +1,28 @@
+{
+  "name": "wanjuzhu",
+  "source": {
+    "path": "meshes/wanjuzhu_smooth.glb",
+    "sha256": "b929d72f0441afd1ed02d867f3ca6b61b244c10b088eebae87ca1852c6f4bc9a",
+    "description": "Fur-free derivative of the metric pass-6 wanjuzhu.glb: remove 14 separate terry-loop nodes and compact their unused buffers. Retained body shells, facial details, satin stitches, label, node transforms and material/color data are exact. The unused original source was removed during asset cleanup."
+  },
+  "source_transform": {
+    "quaternion_wxyz": [
+      0.7071067811865476,
+      0.7071067811865476,
+      0,
+      0
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "physics": {
+    "body_type": "dynamic",
+    "collision": "convex_hull",
+    "friction": 2.0,
+    "restitution": 0,
+    "mass": 0.015
+  }
+}

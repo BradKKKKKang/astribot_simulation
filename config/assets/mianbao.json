@@ -1,0 +1,28 @@
+{
+  "name": "mianbao",
+  "source": {
+    "path": "~/assets/mianbao.glb",
+    "sha256": "0d4f997d457ca90e1ed169199b93f248f9710138ededdbbeecc2b578c927d655",
+    "description": "Final metric pass-6 GLB; preserve embedded node scales, colors and textures."
+  },
+  "source_transform": {
+    "quaternion_wxyz": [
+      0.7071067811865476,
+      0.7071067811865476,
+      0,
+      0
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "physics": {
+    "body_type": "dynamic",
+    "collision": "convex_hull",
+    "friction": 0.6,
+    "restitution": 0,
+    "mass": 0.08
+  }
+}

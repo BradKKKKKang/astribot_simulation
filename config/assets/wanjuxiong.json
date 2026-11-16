@@ -1,0 +1,51 @@
+{
+  "name": "wanjuxiong",
+  "source": {
+    "path": "~/assets/wanjuxiong_smooth_torso_w3p266.glb",
+    "sha256": "e97405f3919a541eab5ba60a1b9af7fc053e4710bc82a60395be07440fbf6f9c",
+    "description": "Fur-free metric bear with blue-torso width reduced by 1 cm from the preceding head-w4p879-d5p918 variant. Limbs translate inward without resizing; head geometry and binary mesh/color/texture payload preserved."
+  },
+  "source_transform": {
+    "quaternion_wxyz": [
+      0.7071067811865476,
+      0.7071067811865476,
+      0,
+      0
+    ],
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "physics": {
+    "body_type": "deformable",
+    "collision": "tetrahedral",
+    "friction": 2.0,
+    "restitution": 0,
+    "mass": 0.015,
+    "deformable": {
+      "core_nodes": [
+        "Head_Pink",
+        "Torso_Teal",
+        "Ear_Left_White",
+        "Ear_Right_White",
+        "Arm_Left_Pink",
+        "Arm_Right_Pink",
+        "Leg_Left_Pink",
+        "Leg_Right_Pink"
+      ],
+      "youngs_modulus": 30000,
+      "poissons_ratio": 0.35,
+      "elasticity_damping": 0.05,
+      "vertex_velocity_damping": 2.0,
+      "simulation_hexahedral_resolution": 20,
+      "collision_simplification_remeshing_resolution": 64,
+      "collision_simplification_target_triangle_count": 4000,
+      "solver_position_iteration_count": 255,
+      "contact_offset": 0.001,
+      "rest_offset": 0.0,
+      "self_collision": false
+    }
+  }
+}

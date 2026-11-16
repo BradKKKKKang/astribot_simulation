@@ -1,0 +1,37 @@
+{
+  "schema_version": 4,
+  "kind": "evaluation",
+  "name": "press_button",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../scenes/press_button.json"
+  },
+  "task": {
+    "ref": "../../tasks/press_button.json"
+  },
+  "output": {
+    "root": "outputs/evaluation/press_button"
+  },
+  "robot_placement": {
+    "frame": "world",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "yaw": 0.0,
+    "grounding": "geometry_min"
+  },
+  "runtime": {
+    "simulation": {
+      "dt": 0.01,
+      "frame_skip": 1
+    },
+    "evaluation": {
+      "episodes": 100,
+      "max_steps": 6500,
+      "seed": 0
+    }
+  }
+}

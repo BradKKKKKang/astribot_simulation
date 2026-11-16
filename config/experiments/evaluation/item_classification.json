@@ -1,0 +1,37 @@
+{
+  "schema_version": 4,
+  "kind": "evaluation",
+  "name": "tabletop_objects",
+  "robot": {
+    "ref": "../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../scenes/tabletop_objects.json"
+  },
+  "task": {
+    "ref": "../../tasks/tabletop_objects.json"
+  },
+  "output": {
+    "root": "outputs/evaluation/tabletop_objects"
+  },
+  "robot_placement": {
+    "frame": "world",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "yaw": 0.0,
+    "grounding": "geometry_min"
+  },
+  "runtime": {
+    "simulation": {
+      "dt": 0.01,
+      "frame_skip": 1
+    },
+    "evaluation": {
+      "episodes": 100,
+      "max_steps": 6500,
+      "seed": 0
+    }
+  }
+}

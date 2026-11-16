@@ -1,0 +1,95 @@
+{
+  "schema_version": 4,
+  "kind": "evaluation",
+  "name": "press_button_fixed_10",
+  "robot": {
+    "ref": "../../../robots/astribot_s1.json"
+  },
+  "scene": {
+    "ref": "../../../scenes/press_button.json",
+    "overrides": {
+      "objects": {
+        "blue_button": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.34698637110012337,
+              -0.03853035485634628
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "red_button": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.11476517859246947,
+              -0.09285274931064921
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        },
+        "yellow_button": {
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.16172133860719112,
+              -0.14627336585485903
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          }
+        }
+      }
+    }
+  },
+  "task": {
+    "ref": "../../../tasks/press_button.json",
+    "overrides": {
+      "reset": null
+    }
+  },
+  "output": {
+    "root": "outputs/evaluation/press_button_fixed/10"
+  },
+  "robot_placement": {
+    "frame": "world",
+    "xy": [
+      0.0,
+      0.0
+    ],
+    "yaw": 0.0,
+    "grounding": "geometry_min"
+  },
+  "runtime": {
+    "simulation": {
+      "dt": 0.01,
+      "frame_skip": 1
+    },
+    "evaluation": {
+      "episodes": 1,
+      "max_steps": 6500,
+      "seed": 0
+    }
+  }
+}

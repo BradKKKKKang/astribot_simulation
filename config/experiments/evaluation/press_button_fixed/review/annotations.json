@@ -1,0 +1,2573 @@
+{
+  "method": "Fixed IDs follow source photo numbers 01–10. Fit horizontal tabletop size, XY and yaw to median annotated photo corners using the existing Isaac camera; preserve aligned button world poses when changing the support frame.",
+  "limits": "Initial reset alignment only. Table dimensions/pose are single-view estimates, with the near-left corner extrapolated. Remaining perspective, rounded-corner and material differences are not camera calibration or press-dynamics validation.",
+  "table_size_m": [
+    1.2577931050169833,
+    0.613392936005155
+  ],
+  "K": [
+    [
+      747.7324829101562,
+      0.0,
+      640.0
+    ],
+    [
+      0.0,
+      747.7324829101562,
+      360.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "distortion_coefficients": [
+    0.00268249,
+    -0.0404815,
+    8.09985e-06,
+    -0.000577883,
+    0.027629
+  ],
+  "layouts": [
+    {
+      "config": "01.json",
+      "photo": "/home/zihengkang/Downloads/01.png",
+      "photo_sha256": "e16dceaa8bd6dfb428e5f29bca98ddac0e8ae1c13c66ffdfcf8b110c3590d3d9",
+      "viewport_xyxy": [
+        18,
+        11,
+        925,
+        521
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          104,
+          76
+        ],
+        [
+          784,
+          74
+        ],
+        [
+          909,
+          414
+        ],
+        [
+          -47,
+          420
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        0.006796296931950692,
+        3.0489242528733502,
+        -0.7445200488277535
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.048064300146020845,
+        -0.07546439682381796,
+        0.7968296966801054
+      ],
+      "table_corner_rms_px": 2.230656139808113,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            247,
+            248,
+            300,
+            293
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.2034377561215014,
+              0.0964246654501882
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.22331754,
+              0.10372541
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 6.66070602654541e-07,
+          "rendered_center_error_px": 1.0277173275266005,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.25968158,
+              0.09244739
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 1.0277173275266005,
+          "manual_adjustments": [
+            {
+              "direction": "image right along tabletop long axis",
+              "distance_m": 0.01,
+              "table_xy_delta_m": [
+                -0.01,
+                0
+              ],
+              "placement_before": {
+                "frame": "table.tabletop",
+                "xy": [
+                  0.2134377561215014,
+                  0.0964246654501882
+                ],
+                "quaternion_wxyz": [
+                  0.9999998743083791,
+                  0,
+                  0,
+                  0.0005013813178669743
+                ],
+                "grounding": "geometry_min",
+                "clearance": 0.001
+              },
+              "render_validation": "Not recaptured after this manual adjustment; earlier rendered error fields are historical."
+            }
+          ]
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            83,
+            286,
+            141,
+            336
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.4084039430268696,
+              0.1578910640116091
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.42732032,
+              0.1629498
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 5.262020589704959e-06,
+          "rendered_center_error_px": 1.0413321081847573,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.48470929,
+              0.15368817
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 1.0413321081847573,
+          "manual_adjustments": [
+            {
+              "direction": "image right along tabletop long axis",
+              "distance_m": 0.01,
+              "table_xy_delta_m": [
+                -0.01,
+                0
+              ],
+              "placement_before": {
+                "frame": "table.tabletop",
+                "xy": [
+                  0.43840394302686964,
+                  0.1578910640116091
+                ],
+                "quaternion_wxyz": [
+                  0.9999998743083791,
+                  0,
+                  0,
+                  0.0005013813178669743
+                ],
+                "grounding": "geometry_min",
+                "clearance": 0.001
+              },
+              "render_validation": "Not recaptured after this manual adjustment; earlier rendered error fields are historical."
+            },
+            {
+              "direction": "image right along tabletop long axis",
+              "distance_m": 0.01,
+              "table_xy_delta_m": [
+                -0.01,
+                0
+              ],
+              "placement_before": {
+                "frame": "table.tabletop",
+                "xy": [
+                  0.4284039430268696,
+                  0.1578910640116091
+                ],
+                "quaternion_wxyz": [
+                  0.9999998743083791,
+                  0,
+                  0,
+                  0.0005013813178669743
+                ],
+                "grounding": "geometry_min",
+                "clearance": 0.001
+              },
+              "render_validation": "Not recaptured after this manual adjustment; earlier rendered error fields are historical."
+            },
+            {
+              "direction": "image right along tabletop long axis",
+              "distance_m": 0.01,
+              "table_xy_delta_m": [
+                -0.01,
+                0
+              ],
+              "placement_before": {
+                "frame": "table.tabletop",
+                "xy": [
+                  0.4184039430268696,
+                  0.1578910640116091
+                ],
+                "quaternion_wxyz": [
+                  0.9999998743083791,
+                  0,
+                  0,
+                  0.0005013813178669743
+                ],
+                "grounding": "geometry_min",
+                "clearance": 0.001
+              },
+              "render_validation": "Not recaptured after this manual adjustment; earlier rendered error fields are historical."
+            }
+          ]
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            489,
+            295,
+            542,
+            346
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.14473751833299756,
+              0.17534604801718587
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.10454468,
+              0.17825886
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 5.729752719769905e-06,
+          "rendered_center_error_px": 0.7405708800542417,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.08841438,
+              0.17171787
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.7405708800542417,
+          "manual_adjustments": [
+            {
+              "direction": "image right along tabletop long axis",
+              "distance_m": 0.01,
+              "table_xy_delta_m": [
+                -0.01,
+                0
+              ],
+              "placement_before": {
+                "frame": "table.tabletop",
+                "xy": [
+                  -0.13473751833299755,
+                  0.17534604801718587
+                ],
+                "quaternion_wxyz": [
+                  0.9999998743083791,
+                  0,
+                  0,
+                  0.0005013813178669743
+                ],
+                "grounding": "geometry_min",
+                "clearance": 0.001
+              },
+              "render_validation": "Not recaptured after this manual adjustment; earlier rendered error fields are historical."
+            }
+          ]
+        }
+      },
+      "previous_config": "10.json"
+    },
+    {
+      "config": "02.json",
+      "photo": "/home/zihengkang/Downloads/02.png",
+      "photo_sha256": "66082038533ad9a85d87d63a3795ee8bab14927fad306869a90277c3ca471dda",
+      "viewport_xyxy": [
+        22,
+        10,
+        929,
+        520
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          111,
+          73
+        ],
+        [
+          791,
+          69
+        ],
+        [
+          917,
+          415
+        ],
+        [
+          -40,
+          421
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        -0.006252181935035353,
+        -3.0524150887122863,
+        0.731766109062742
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.045855000955430165,
+        -0.0754454941691766,
+        0.7938170768183102
+      ],
+      "table_corner_rms_px": 1.6472247080189084,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            429,
+            220,
+            478,
+            264
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.0415639630281589,
+              0.05477067834408978
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.01496784,
+              0.06091506
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 1.8521992751697192e-06,
+          "rendered_center_error_px": 0.6965022562520585,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.00463822,
+              0.05104913
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.6965022562520585
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            301,
+            241,
+            353,
+            287
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.141602240491291,
+              0.08839635745188569
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.15825626,
+              0.09467262
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.349777824584929e-06,
+          "rendered_center_error_px": 0.7286365895006317,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.18783805,
+              0.08449112
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.7286365895006317
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            148,
+            274,
+            205,
+            323
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.35324014700984496,
+              0.14077155634266572
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.35310438,
+              0.14534711
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 6.644379763592891e-06,
+          "rendered_center_error_px": 0.9589130681323743,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.39952837,
+              0.13665407
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.7950019207102277
+        }
+      },
+      "previous_config": "09.json"
+    },
+    {
+      "config": "03.json",
+      "photo": "/home/zihengkang/Downloads/03.png",
+      "photo_sha256": "1710935657c195327bc9f15b8298b3a311bbb762297e06d4848e1ac237920bfb",
+      "viewport_xyxy": [
+        9,
+        10,
+        916,
+        520
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          98,
+          73
+        ],
+        [
+          779,
+          70
+        ],
+        [
+          904,
+          414
+        ],
+        [
+          -55,
+          420
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        -0.005145662688148565,
+        -3.0528480188008174,
+        0.7381847742175166
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.04546547166807001,
+        -0.07616591667349175,
+        0.7934143622068169
+      ],
+      "table_corner_rms_px": 2.341698258036534,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            65,
+            293,
+            123,
+            343
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.44720126629239904,
+              0.17084643215108988
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.43718155,
+              0.1744551
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.7113574437349744e-06,
+          "rendered_center_error_px": 0.32652138780738454,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.4935196,
+              0.16663471
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.32652138780738454
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            265,
+            249,
+            318,
+            296
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.17186117277278687,
+              0.10290919727132998
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.18722186,
+              0.10886287
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.557817532247343e-06,
+          "rendered_center_error_px": 0.3348764641844676,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.21811152,
+              0.09897361
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.1977352962099628
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            430,
+            275,
+            482,
+            325
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.06662778761789595,
+              0.14729706179960314
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.03646985,
+              0.150331
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.3002610471103657e-06,
+          "rendered_center_error_px": 0.1942895474417897,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.02033281,
+              0.1436006
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.1942895474417897
+        }
+      },
+      "previous_config": "08.json"
+    },
+    {
+      "config": "04.json",
+      "photo": "/home/zihengkang/Downloads/04.png",
+      "photo_sha256": "8be2933f98c4dea8e699f31af856360fb6b09f00f1574a3fa4cb2d3fa181ac7b",
+      "viewport_xyxy": [
+        13,
+        11,
+        920,
+        521
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          102,
+          75
+        ],
+        [
+          782,
+          73
+        ],
+        [
+          908,
+          417
+        ],
+        [
+          -50,
+          422
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        0.004585209732021238,
+        3.0525228645593057,
+        -0.7392836891456033
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.04468303009972523,
+        -0.07398195999158247,
+        0.7944293460145646
+      ],
+      "table_corner_rms_px": 1.7390896709910564,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            285,
+            274,
+            338,
+            323
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.14379085479173628,
+              0.14084825848331048
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.16191889,
+              0.14385116
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 4.404536259285836e-06,
+          "rendered_center_error_px": 1.1625104171709322,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.19007926,
+              0.1369408
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.9189883683041591
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            411,
+            231,
+            461,
+            275
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.02967153779963929,
+              0.07106641181520647
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.00211696,
+              0.07539581
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 2.8728067676424257e-06,
+          "rendered_center_error_px": 0.48007947810414575,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.01654698,
+              0.06733293
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.48007947810414575
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            110,
+            280,
+            167,
+            329
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.3943002246515156,
+              0.14819405358095264
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.39084135,
+              0.15199978
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 4.602621926786003e-06,
+          "rendered_center_error_px": 1.0494117184633103,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.44059587,
+              0.14403539
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 1.0494117184633103
+        }
+      },
+      "previous_config": "07.json"
+    },
+    {
+      "config": "05.json",
+      "photo": "/home/zihengkang/Downloads/05.png",
+      "photo_sha256": "23552644030e2fe0b5ad359c97f2b94dfb1539e369457bad6295e6cb6c1e7e58",
+      "viewport_xyxy": [
+        8,
+        10,
+        915,
+        520
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          96,
+          80
+        ],
+        [
+          777,
+          77
+        ],
+        [
+          903,
+          417
+        ],
+        [
+          -56,
+          423
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        0.006378224722515941,
+        3.048969628142599,
+        -0.754832542911642
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.04548148534451947,
+        -0.06972756855254834,
+        0.7961112434009652
+      ],
+      "table_corner_rms_px": 3.0893737423525285,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            105,
+            273,
+            161,
+            321
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.39731605339140513,
+              0.13888255305943853
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.39497946,
+              0.13842908
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 2.95723647910942e-06,
+          "rendered_center_error_px": 0.44244919143380707,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.44360236,
+              0.13472087
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.44244919143380707
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            416,
+            243,
+            466,
+            288
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.04545681069934619,
+              0.09435703464508106
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.0169367,
+              0.09251559
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.2699303811154436e-06,
+          "rendered_center_error_px": 0.30220828614599426,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.00078507,
+              0.09063937
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.30220828614599426
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            248,
+            249,
+            301,
+            294
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.19584297026950012,
+              0.10059016415284268
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.2109194,
+              0.10081765
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 4.202412652757373e-06,
+          "rendered_center_error_px": 0.20138361596510995,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.24209098,
+              0.09663053
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.20138361596510995
+        }
+      },
+      "previous_config": "06.json"
+    },
+    {
+      "config": "06.json",
+      "photo": "/home/zihengkang/Downloads/06.png",
+      "photo_sha256": "f41162d8751d1d51190766cb7bf702eadbe3324da85d7fd086ddf65829ef4471",
+      "viewport_xyxy": [
+        12,
+        14,
+        919,
+        524
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          100,
+          84
+        ],
+        [
+          780,
+          80
+        ],
+        [
+          906,
+          423
+        ],
+        [
+          -52,
+          429
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        -0.0065186201761526395,
+        -3.0492287937197933,
+        0.7479426126747933
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.04736531069953413,
+        -0.06821857343012692,
+        0.7957323217477398
+      ],
+      "table_corner_rms_px": 2.3214573303818438,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            435,
+            148,
+            481,
+            186
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.060382977322419255,
+              -0.08641446364106684
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.03628774,
+              -0.08656602
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 4.5557039570132714e-06,
+          "rendered_center_error_px": 0.6502075958248414,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.01432236,
+              -0.09011707
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.6502075958248414
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            167,
+            144,
+            216,
+            182
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.37639297473049177,
+              -0.10532468059863444
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.37573419,
+              -0.0970737
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.815297978839857e-06,
+          "rendered_center_error_px": 1.1822302663754345,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.42243441,
+              -0.10946526
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.9105138918030553
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            277,
+            162,
+            325,
+            200
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.18811912447681198,
+              -0.06525976441392903
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.20100362,
+              -0.06141577
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 4.680849273310358e-06,
+          "rendered_center_error_px": 0.8903161925613886,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.23420083,
+              -0.06921157
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.8903161925613886
+        }
+      },
+      "previous_config": "05.json"
+    },
+    {
+      "config": "07.json",
+      "photo": "/home/zihengkang/Downloads/07.png",
+      "photo_sha256": "4c2af11d65d8d082958088fecb8ed6d6902e1102699a52d5697cb95b32a1da06",
+      "viewport_xyxy": [
+        11,
+        15,
+        918,
+        525
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          99,
+          83
+        ],
+        [
+          778,
+          78
+        ],
+        [
+          904,
+          421
+        ],
+        [
+          -53,
+          427
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        -0.006718652631742651,
+        -3.047149986785211,
+        0.7460963400788151
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.0492515940207317,
+        -0.07214243891967893,
+        0.7961503011792854
+      ],
+      "table_corner_rms_px": 2.0530353151531306,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            285,
+            142,
+            331,
+            180
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.18021443046036106,
+              -0.10520936103005633
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.19196846,
+              -0.09687825
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 5.683844038590447e-06,
+          "rendered_center_error_px": 0.18288522394312043,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.22625608,
+              -0.10915322
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.4071853955057686
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            114,
+            197,
+            166,
+            239
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.42170970866459895,
+              0.008003750898382404
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.42437487,
+              0.00591816
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.4302150782102713e-06,
+          "rendered_center_error_px": 0.10177251859864936,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.47785473,
+              -0.00619235
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.5577403462481176,
+          "manual_adjustments": [
+            {
+              "direction": "image right and down along tabletop axes",
+              "table_xy_delta_m": [
+                -0.01,
+                0.01
+              ],
+              "placement_before": {
+                "frame": "table.tabletop",
+                "xy": [
+                  0.43170970866459896,
+                  -0.0019962491016175974
+                ],
+                "quaternion_wxyz": [
+                  0.9999998743083791,
+                  0,
+                  0,
+                  0.0005013813178669743
+                ],
+                "grounding": "geometry_min",
+                "clearance": 0.001
+              },
+              "render_validation": "Not recaptured after this manual adjustment; earlier rendered error fields are historical."
+            }
+          ]
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            438,
+            172,
+            485,
+            212
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.06840534306238588,
+              -0.04044973505914644
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.04505298,
+              -0.03678358
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 4.9482149206671446e-06,
+          "rendered_center_error_px": 0.46592857731508835,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.02229863,
+              -0.04414432
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.46592857731508835
+        }
+      },
+      "previous_config": "04.json"
+    },
+    {
+      "config": "08.json",
+      "photo": "/home/zihengkang/Downloads/08.png",
+      "photo_sha256": "6671f2921c022625afe631051729e07be78ce433581b0e2fbc19d8cc03afcf7f",
+      "viewport_xyxy": [
+        13,
+        6,
+        920,
+        516
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          100,
+          74
+        ],
+        [
+          779,
+          70
+        ],
+        [
+          905,
+          412
+        ],
+        [
+          -52,
+          418
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        -0.006906418281590823,
+        -3.0493571280988183,
+        0.7481466873409163
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.04949824713203535,
+        -0.07186116545715279,
+        0.7965377705519358
+      ],
+      "table_corner_rms_px": 2.038167026810918,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            401,
+            116,
+            446,
+            153
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.011025723737262464,
+              -0.13015111454211037
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.01752553,
+              -0.13084615
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.5799961120558494e-06,
+          "rendered_center_error_px": 0.5,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.04425823,
+              -0.14034106
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.5193040683801441,
+          "placement_before_gripper_alignment": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.0017520540405153145,
+              -0.1365796859706818
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "rendered_center_error_before_gripper_alignment_px": 0.9143874995532137
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            246,
+            157,
+            295,
+            196
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.23401715495386044,
+              -0.049000171871109555
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.24507521,
+              -0.05091918
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 6.718883736349132e-07,
+          "rendered_center_error_px": 0.7071067811865476,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.28407265,
+              -0.06371627
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.9191647029831067,
+          "placement_before_gripper_alignment": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.23798540892211442,
+              -0.059714457585395266
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "rendered_center_error_before_gripper_alignment_px": 1.1405025664816415,
+          "manual_adjustments": [
+            {
+              "direction": "image right along tabletop long axis",
+              "table_xy_delta_m": [
+                -0.015,
+                0.0
+              ],
+              "placement_before": {
+                "frame": "table.tabletop",
+                "xy": [
+                  0.24901715495386045,
+                  -0.049000171871109555
+                ],
+                "quaternion_wxyz": [
+                  0.9999998743083791,
+                  0,
+                  0,
+                  0.0005013813178669743
+                ],
+                "grounding": "geometry_min",
+                "clearance": 0.001
+              },
+              "render_validation": "Not recaptured after this manual adjustment; earlier rendered error fields are historical."
+            }
+          ]
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            127,
+            140,
+            176,
+            179
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.455479053751763,
+              -0.08390225831270935
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.43459917,
+              -0.08465466
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 1.7878521541519193e-06,
+          "rendered_center_error_px": 1.0,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.49009904,
+              -0.1023964
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.841203939541463,
+          "placement_before_gripper_alignment": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.44405048232319155,
+              -0.09818797259842364
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "rendered_center_error_before_gripper_alignment_px": 0.841203939541463
+        }
+      },
+      "previous_config": "03.json",
+      "visual_alignment_20261110": {
+        "method": "Fit two head joint offsets to four fingertip image landmarks, then refit button XY in rendered frames. Scoped to fixed 08; this is a single-view pose correction, not an identified camera extrinsic calibration. Arm/gripper/torso targets remain exact HDF5 values.",
+        "source_pose": {
+          "hdf5": "/home/zihengkang/ckpts/real_eval_init_pose_2.hdf5",
+          "frame_index": 0,
+          "dataset": "joints_dict/joints_position_command",
+          "sha256": "7d5317ccce576ff9bafa42c352acc791f742e5a6590a981c62b50f8929014e02"
+        },
+        "head_delta_rad": [
+          0.018401167233786302,
+          0.0037146077634369057
+        ],
+        "head_target_rad": [
+          -0.012526534121194168,
+          0.851917274206308
+        ],
+        "fingertip_mean_error_before_px": 12.7042244747226,
+        "fingertip_mean_error_after_px": 2.5135671267533386,
+        "fingertip_max_error_after_px": 4.0,
+        "camera": {
+          "position": [
+            0.20509451627731323,
+            -0.06352417916059494,
+            1.4560043811798096
+          ],
+          "quaternion_wxyz_opencv": [
+            0.17543931305408478,
+            -0.6886923313140869,
+            0.6891815066337585,
+            -0.1412542313337326
+          ],
+          "K": [
+            [
+              747.7324829101562,
+              0.0,
+              640.0
+            ],
+            [
+              0.0,
+              747.7324829101562,
+              360.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0
+            ]
+          ]
+        },
+        "evidence": "outputs/evaluation/press_button_fixed/gripper_alignment_20261110/08"
+      }
+    },
+    {
+      "config": "09.json",
+      "photo": "/home/zihengkang/Downloads/09.png",
+      "photo_sha256": "eaa8988403e435883766eba03922c33b288686f31530af3cd54e6cc9392e69ea",
+      "viewport_xyxy": [
+        13,
+        19,
+        920,
+        529
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          102,
+          86
+        ],
+        [
+          781,
+          82
+        ],
+        [
+          907,
+          425
+        ],
+        [
+          -50,
+          431
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        -0.006280946629955809,
+        -3.0495707975601265,
+        0.7448230380505311
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.04689587413939132,
+        -0.07240970687778923,
+        0.7959398468505131
+      ],
+      "table_corner_rms_px": 2.034023894566748,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            323,
+            125,
+            368,
+            161
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.12694170263024956,
+              -0.1484388926586718
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.1437086,
+              -0.13969876
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 2.6116564404035247e-06,
+          "rendered_center_error_px": 0.2463755304476709,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.17294003,
+              -0.15232931
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.2463755304476709
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            452,
+            185,
+            500,
+            225
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.08764315093725274,
+              -0.02315929731860006
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.06105465,
+              -0.02018808
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 1.8783971239487848e-06,
+          "rendered_center_error_px": 0.416294093105182,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.04151909,
+              -0.0268346
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.5788484066114249
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            89,
+            173,
+            139,
+            213
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.49276049873490685,
+              -0.057332757479487795
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.48335678,
+              -0.04557209
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 4.16354183801319e-06,
+          "rendered_center_error_px": 1.694489707490543,
+          "support_boundary_limited": true,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.53885,
+              -0.06159005
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 2.141369410969983
+        }
+      },
+      "previous_config": "02.json"
+    },
+    {
+      "config": "10.json",
+      "photo": "/home/zihengkang/Downloads/10.png",
+      "photo_sha256": "3364922ed7e63fe8efb57aab3a9563f39eb8eef9ed9297dbcf76981be0f8d0f7",
+      "viewport_xyxy": [
+        13,
+        6,
+        920,
+        516
+      ],
+      "table_corners_tl_tr_br_bl_px": [
+        [
+          100,
+          77
+        ],
+        [
+          780,
+          72
+        ],
+        [
+          906,
+          413
+        ],
+        [
+          -52,
+          419
+        ]
+      ],
+      "near_left_corner_extrapolated": true,
+      "photo_rvec_table_to_camera": [
+        -0.00704858551284311,
+        -3.0457921881187855,
+        0.7541594235144428
+      ],
+      "photo_tvec_table_to_camera": [
+        -0.04964982431087612,
+        -0.06968297219487983,
+        0.7967037316968792
+      ],
+      "table_corner_rms_px": 2.83256651084202,
+      "objects": {
+        "blue_button": {
+          "cap_bbox_xyxy_px": [
+            176,
+            169,
+            225,
+            209
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.34698637110012337,
+              -0.03853035485634628
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.34676418,
+              -0.03183133
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 4.411921174066644e-06,
+          "rendered_center_error_px": 0.7035347650593746,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.3930948,
+              -0.04264148
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 1.0478083518075991
+        },
+        "red_button": {
+          "cap_bbox_xyxy_px": [
+            470,
+            136,
+            517,
+            174
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.11476517859246947,
+              -0.09285274931064921
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.09165948,
+              -0.09246506
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.3667090153017056e-06,
+          "rendered_center_error_px": 0.6992472764825722,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              -0.06871099,
+              -0.09650082
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.6992472764825722
+        },
+        "yellow_button": {
+          "cap_bbox_xyxy_px": [
+            303,
+            114,
+            347,
+            150
+          ],
+          "placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.16172133860719112,
+              -0.14627336585485903
+            ],
+            "quaternion_wxyz": [
+              0.9999998743083791,
+              0,
+              0,
+              0.0005013813178669743
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_placement": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.17390523,
+              -0.14045578
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "previous_photo_fit_center_error_px": 3.899950930454401e-06,
+          "rendered_center_error_px": 0.8945421673818328,
+          "support_boundary_limited": false,
+          "placement_before_table_fit": {
+            "frame": "table.tabletop",
+            "xy": [
+              0.20772182,
+              -0.15019866
+            ],
+            "quaternion_wxyz": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "grounding": "geometry_min",
+            "clearance": 0.001
+          },
+          "table_fit_rendered_center_error_px": 0.8945421673818328
+        }
+      },
+      "previous_config": "01.json"
+    }
+  ],
+  "previous_method": "Fit projected metric cap centers with the actual Isaac head camera at the new HDF5 pose, then correct XY using rendered color-cap centers. Existing table, assets, camera calibration and robot placement are preserved.",
+  "simulation_camera": {
+    "position": [
+      0.20509451627731323,
+      -0.06352417916059494,
+      1.4560043811798096
+    ],
+    "quaternion_wxyz_opencv": [
+      0.17543931305408478,
+      -0.6886923313140869,
+      0.6891815066337585,
+      -0.1412542313337326
+    ],
+    "K": [
+      [
+        747.7324829101562,
+        0.0,
+        640.0
+      ],
+      [
+        0.0,
+        747.7324829101562,
+        360.0
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "distortion": [
+      0.00268249,
+      -0.0404815,
+      8.09985e-06,
+      -0.000577883,
+      0.027629
+    ]
+  },
+  "initial_pose_source": {
+    "hdf5": "/home/zihengkang/ckpts/real_eval_init_pose_2.hdf5",
+    "frame_index": 0,
+    "dataset": "joints_dict/joints_position_command",
+    "sha256": "7d5317ccce576ff9bafa42c352acc791f742e5a6590a981c62b50f8929014e02"
+  },
+  "table_alignment": {
+    "target": [
+      [
+        124.1896361631753,
+        95.29411764705883
+      ],
+      [
+        1083.8368246968025,
+        88.94117647058825
+      ],
+      [
+        1261.6538037486218,
+        573.1764705882354
+      ],
+      [
+        -90.31973539140022,
+        581.6470588235295
+      ]
+    ],
+    "before": [
+      [
+        167.30814013579044,
+        107.84161767968737
+      ],
+      [
+        1103.5812747024693,
+        81.8004119315641
+      ],
+      [
+        1277.4264315790958,
+        576.9273793343875
+      ],
+      [
+        -8.810340862079784,
+        574.5270166826747
+      ]
+    ],
+    "parameters": [
+      0.6287631995911092,
+      0.04614724014831866,
+      1.2577931050169833,
+      0.613392936005155,
+      1.5697935641171497
+    ],
+    "after": [
+      [
+        115.93827886526788,
+        103.50376335839633
+      ],
+      [
+        1087.7612639542208,
+        76.29577272539075
+      ],
+      [
+        1258.7120449383997,
+        581.0654568271652
+      ],
+      [
+        -84.19547208250106,
+        576.8381180378627
+      ]
+    ],
+    "height_m": 0.75,
+    "method": "Least squares on median corners of ten reference viewports; fixed camera and table height.",
+    "scale": [
+      0.8984236464407024,
+      0.8762756228645072,
+      1
+    ]
+  }
+}

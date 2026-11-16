@@ -1,0 +1,88 @@
+{
+  "ref": "astribot_lab.json",
+  "overrides": {
+    "name": "fold_tshirt",
+    "simulation": {
+      "ambient_light_intensity": 0.45,
+      "ground": {
+        "enabled": true,
+        "color": [
+          0,
+          0,
+          0
+        ]
+      },
+      "light": {
+        "enabled": false
+      },
+      "background": {
+        "usd_path": "config/scenes/backgrounds/black_enclosure.usda",
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "quaternion_wxyz": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "objects": {
+      "table": {
+        "label": "White table",
+        "roles": [
+          "support"
+        ],
+        "asset": {
+          "ref": "../assets/white_table.json"
+        },
+        "scale": [
+          0.9061985107009809,
+          0.8721594101791134,
+          1
+        ],
+        "placement": {
+          "frame": "world",
+          "xy": [
+            0.6272080938261534,
+            0.028700897421142423
+          ],
+          "quaternion_wxyz": [
+            0.7063905295057057,
+            0,
+            0,
+            0.7078223080863224
+          ],
+          "grounding": "geometry_min"
+        }
+      },
+      "tshirt": {
+        "label": "Lavender T-shirt",
+        "roles": [
+          "handled_object"
+        ],
+        "asset": {
+          "ref": "../assets/fold_tshirt.json"
+        },
+        "placement": {
+          "frame": "table.tabletop",
+          "xy": [
+            0,
+            0
+          ],
+          "quaternion_wxyz": [
+            0.7933533402912352,
+            0.6087614290087207,
+            0,
+            0
+          ],
+          "grounding": "geometry_min",
+          "clearance": 0.35
+        }
+      }
+    }
+  }
+}
