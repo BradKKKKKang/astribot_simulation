@@ -29,9 +29,9 @@
       "bend_stiffness": 0.08,
       "spring_damping": 0.02,
       "velocity_damping": 0.005,
-      "rest_offset": 0.0012,
+      "rest_offset": 0.003,
       "solver_iterations": 32,
-      "contact_offset": 0.003
+      "contact_offset": 0.006
     }
   }
 }

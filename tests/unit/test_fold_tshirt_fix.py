@@ -28,7 +28,9 @@ def test_fixed_garment_is_centered_flat_supported_and_collar_points_robot_right(
     np.testing.assert_allclose(rotate(shirt['pose_world'][3:], [0, 0, 1]), [0, 0, 1], atol=1e-10)
     center = (np.array(shirt['bounds_world']['min']) + shirt['bounds_world']['max']) / 2
     np.testing.assert_allclose(center[:2], tabletop_pose[:2], atol=1e-4)
-    assert shirt['bounds_world']['min'][2] - tabletop_pose[2] == pytest.approx(.002)
+    clearance = shirt['bounds_world']['min'][2] - tabletop_pose[2]
+    assert clearance == pytest.approx(.004)
+    assert clearance > shirt['asset']['physics']['cloth']['rest_offset']
     # Check the complete unfolded geometry against the actual support rectangle.
     vertices = np.concatenate([part['vertices'] for part in
                                transformed_primitives(shirt['asset'], shirt['scale'])])

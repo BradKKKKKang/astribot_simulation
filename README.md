@@ -315,9 +315,20 @@ python astribot_simulation_integrate.py \
 ```
 
 This preset keeps the garment at its original size, widens the table's short
-side to 0.77 m, and places the garment's lowest point 2 mm above the tabletop.
+side to 0.77 m, and places the garment's lowest point 4 mm above the tabletop.
 Each reset restores the same flat pose. The original randomized `fold_tshirt`
 experiment remains available. Add `--check-config` for CPU-only validation.
+
+Both T-shirt experiments share `config/assets/fold_tshirt.json`. For grasp tuning,
+`physics.cloth.rest_offset` is now 0.003 m (previously 0.0012 m), and
+`contact_offset` is 0.006 m (previously 0.003 m). This increases the effective
+collision thickness from approximately 2.4 mm to 6 mm; the rendered midsurface
+keeps its original geometry. PhysX distinguishes the rest separation from the
+distance at which contacts are generated; see the
+[particle contact documentation](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/107.3/dev_guide/particles/particles.html).
+Restart the simulation to apply changes. These trial settings still require a
+dynamic grasp check; increasing collision thickness alone does not establish
+successful pickup.
 
 For Atlas synchronous batches, launch with `--managed-evaluation` (ROS2/Isaac Lab).
 Physics initially pauses; Atlas requests each complete 0.01 s step, resets each

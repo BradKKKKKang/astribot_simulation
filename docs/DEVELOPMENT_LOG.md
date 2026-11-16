@@ -2,6 +2,12 @@
 
 本日志供agent记录工作内容。最新改动放在文档最前面。
 
+## 2026-11-16：增加 T-shirt 抓取试验的碰撞厚度
+
+- **参数**：共享 `config/assets/fold_tshirt.json` 的 `cloth.rest_offset` 从 0.0012 m 提高到 0.003 m，`contact_offset` 从 0.003 m 提高到 0.006 m。现有 authoring 同时将它们传给 solid rest／particle contact offset，作用于衣服与刚体以及粒子间接触；名义碰撞厚度由约 2.4 mm 增至 6 mm。固定平铺与随机释放实验均继承这一调整，渲染中面、质量、摩擦和弹簧参数保持原值。
+- **摆放与说明**：固定平铺配置的最低中面顶点间隙从 2 mm 改为 4 mm，高于新的 3 mm rest offset；更新现有几何检查与 README 参数说明。重新启动仿真加载新参数。
+- **验证**：`astribot_simu_il` Python 3.10.22，禁用 user site、pytest 插件自动加载和字节码写入，追加已有 `/tmp/astribot-identification-deps` 提供 CPU USD；执行 `pytest -o addopts= -p no:cacheprovider -q -rs tests/unit/test_fold_tshirt_fix.py tests/unit/test_cloth_scene.py`，27 passed。两套 tshirt 实验均通过解析和场景组合，确认输出包含 0.003／0.006 m 偏移及原有 4 个物理子步。未启动 Isaac／ROS 或执行动态夹取，抓取成功率和加厚后的折叠稳定性尚未验证。
+
 ## 2026-11-16：新增固定平铺的 fold_tshirt_fix YAML
 
 - **摆放**：新增 `config/experiments/evaluation/fold_tshirt_fix.yaml`，复用现有机器人、衣服资产和任务初态。衣服保持原尺寸，在桌面中央水平展开，领口朝机器人右手侧（世界 −Y）；最低顶点距桌面 2 mm。新配置将桌面短边加宽到 0.77 m，保持桌面长度和高度，保证衣服完整落在可用桌面内。

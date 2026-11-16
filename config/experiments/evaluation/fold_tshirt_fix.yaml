@@ -23,7 +23,8 @@ scene:
           # the final world rotation is 180 degrees about Z: collar -> -Y.
           quaternion_wxyz: [0.7078223080863224, 0.0, 0.0, 0.7063905295057057]
           grounding: geometry_min
-          clearance: 0.002
+          # Keep the midsurface above the cloth's 3 mm rest offset.
+          clearance: 0.004
 
 task:
   ref: ../../tasks/fold_tshirt.json
