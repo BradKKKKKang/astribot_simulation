@@ -1,4 +1,4 @@
-"""Resolve explicit modular JSON experiments without runtime or network effects."""
+"""Resolve modular JSON/YAML experiments without runtime or network effects."""
 import copy
 import hashlib
 import json
@@ -27,6 +27,32 @@ def _pairs(pairs):
 def read_json(path):
     return json.loads(Path(path).expanduser().read_text(), object_pairs_hook=_pairs,
                       parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f'nonfinite JSON value: {value}')))
+
+
+def read_config(path):
+    """Read YAML experiments/profiles with the same data constraints as JSON."""
+    path = Path(path).expanduser()
+    if path.suffix.lower() not in ('.yaml', '.yml'):
+        return read_json(path)
+    import yaml
+
+    class StrictLoader(yaml.SafeLoader):
+        pass
+
+    def mapping(loader, node, deep=False):
+        loader.flatten_mapping(node)
+        pairs = loader.construct_pairs(node, deep=deep)
+        if any(not isinstance(key, str) for key, _ in pairs):
+            raise ValueError('configuration field names must be strings')
+        return _pairs(pairs)
+
+    StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, mapping)
+    value = yaml.load(path.read_text(), Loader=StrictLoader)
+    try:
+        json.dumps(value, allow_nan=False)
+    except (TypeError, ValueError) as error:
+        raise ValueError('YAML configuration must contain only finite JSON-compatible values') from error
+    return value
 
 
 def check_fields(value, allowed, label):
@@ -77,7 +103,7 @@ def _section(spec, directory, seen=(), *, scene_assets=False):
     override = spec.get('overrides', {})
     if not isinstance(override, dict):
         raise ValueError('profile overrides must be an object')
-    result = _merge(_section(read_json(path), path.parent, (*seen, path), scene_assets=scene_assets), override)
+    result = _merge(_section(read_config(path), path.parent, (*seen, path), scene_assets=scene_assets), override)
     if scene_assets:
         from .scene_assets import expand_scene_assets
         result = expand_scene_assets(result, directory)
@@ -264,10 +290,10 @@ def _validate_evaluation_runtime(runtime):
 
 def resolve_experiment(path, *, require_ready=True):
     path = Path(path).expanduser().resolve(strict=True)
-    value = read_json(path)
+    value = read_config(path)
     check_credentials(value)
     if not isinstance(value, dict):
-        raise ValueError('experiment must be a JSON object')
+        raise ValueError('experiment must be an object')
     version = value.get('schema_version')
     if version is not None and (type(version) is not int or version not in (1, 2, 3, 4)):
         raise ValueError('unsupported experiment schema_version')

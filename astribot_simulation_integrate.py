@@ -27,7 +27,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Astribot integrated evaluation simulation")
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument('--config', default=None,
-                           help='evaluation JSON path (default: config/experiments/evaluation/penholder.json)')
+                           help='evaluation JSON/YAML path (default: config/experiments/evaluation/penholder.json)')
     selection.add_argument('--experiment', help='alias for --config')
     parser.add_argument('--check-config', action='store_true',
                         help='validate configuration on CPU without importing ROS or Isaac')

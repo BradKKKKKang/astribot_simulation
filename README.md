@@ -306,6 +306,19 @@ The experiment's `runtime` section is optional and may be `{}`. Without runtime
 overrides, simulation settings come from the robot's referenced configuration;
 no separate runtime file is required.
 
+For a fixed, unfolded T-shirt centered on the table, with its collar pointing
+to the robot's right (world −Y), use the YAML experiment:
+
+```bash
+python astribot_simulation_integrate.py \
+  --config config/experiments/evaluation/fold_tshirt_fix.yaml
+```
+
+This preset keeps the garment at its original size, widens the table's short
+side to 0.77 m, and places the garment's lowest point 2 mm above the tabletop.
+Each reset restores the same flat pose. The original randomized `fold_tshirt`
+experiment remains available. Add `--check-config` for CPU-only validation.
+
 For Atlas synchronous batches, launch with `--managed-evaluation` (ROS2/Isaac Lab).
 Physics initially pauses; Atlas requests each complete 0.01 s step, resets each
 episode, and owns batch scheduling. This mode requires explicit

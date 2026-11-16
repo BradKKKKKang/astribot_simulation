@@ -1,0 +1,53 @@
+# Fixed, unfolded T-shirt placement. Right means the robot's right (-world Y).
+# Launch with astribot_simulation_integrate.py --config <this file>.
+schema_version: 4
+kind: evaluation
+name: fold_tshirt_fix
+
+robot:
+  ref: ../../robots/astribot_s1.json
+
+scene:
+  ref: ../../scenes/fold_tshirt.json
+  overrides:
+    name: fold_tshirt_fix
+    objects:
+      table:
+        # Preserve table length and height; widen the short side to 0.77 m.
+        scale: [0.9061985107009809, 1.1, 1.0]
+      tshirt:
+        placement:
+          frame: table.tabletop
+          xy: [0.0, 0.0]
+          # Source +Y points toward the collar. Cancel the table's yaw so
+          # the final world rotation is 180 degrees about Z: collar -> -Y.
+          quaternion_wxyz: [0.7078223080863224, 0.0, 0.0, 0.7063905295057057]
+          grounding: geometry_min
+          clearance: 0.002
+
+task:
+  ref: ../../tasks/fold_tshirt.json
+  overrides:
+    name: fold_tshirt_fix
+    # Restore the authored flat pose on every reset; no sampling, pinning,
+    # suspended release, or initialization settling sequence.
+    reset: null
+
+robot_placement:
+  frame: world
+  xy: [0.0, 0.0]
+  yaw: 0.0
+  grounding: geometry_min
+
+runtime:
+  simulation:
+    dt: 0.01
+    frame_skip: 1
+    physics_substeps: 4
+  evaluation:
+    episodes: 100
+    max_steps: 6500
+    seed: 0
+
+output:
+  root: outputs/evaluation/fold_tshirt_fix

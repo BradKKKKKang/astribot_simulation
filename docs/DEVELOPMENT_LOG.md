@@ -2,6 +2,13 @@
 
 本日志供agent记录工作内容。最新改动放在文档最前面。
 
+## 2026-11-16：新增固定平铺的 fold_tshirt_fix YAML
+
+- **摆放**：新增 `config/experiments/evaluation/fold_tshirt_fix.yaml`，复用现有机器人、衣服资产和任务初态。衣服保持原尺寸，在桌面中央水平展开，领口朝机器人右手侧（世界 −Y）；最低顶点距桌面 2 mm。新配置将桌面短边加宽到 0.77 m，保持桌面长度和高度，保证衣服完整落在可用桌面内。
+- **重置**：将继承的 `task.reset` 覆盖为 `null`，每次恢复资产声明的相同初始姿态与零速度，不再执行随机区域采样、中心悬挂释放或初始化沉降序列。衣服继续使用原有动态粒子布料与 100 Hz 控制／400 Hz 物理设置；原 `fold_tshirt.json` 保留。
+- **入口**：评测配置及其模块引用支持 `.yaml`／`.yml`，与 JSON 共用后续校验和配置指纹；YAML 使用安全加载，拒绝重复字段、非字符串键、非有限数值以及不能表示为 JSON 的数据。集成入口帮助和 README 增加 YAML 用法。
+- **验证**：CPU 几何检查确认模型领口方向、完整支持边界、桌面居中和 2 mm 间隙；普通与 managed evaluation 的 `--check-config` 均通过。新增配置／YAML 专项 12 passed；扩展配置、布料、场景及启动入口回归为 170 passed、3 skipped、1 failed。失败来自既有 `table_penholder` 实验引用缺失的 `config/scenes/table_penholder.json`，修改前解析器可复现相同错误；未修改这一无关配置。未启动 Isaac、ROS 或真实硬件，未验证动态夹持和 GPU 渲染。
+
 ## 2026-11-16：默认机器人配置同步 eef_align 的 v4 参数
 
 - **配置来源**：将 `eef_align` 的 `a0b9481` 中 S1 Isaac Lab 默认 YAML 与共享机器人 JSON 同步到 `main`，启用 v4 的 22 组独立 PD 参数和 22 组指令滤波参数；GPU 仿真时间为 100 Hz（`dt=0.01`、`frame_skip=1`、`physics_substeps=1`、`decimation=1`）。滤波时间常数保持秒单位，速度前瞻为零。
