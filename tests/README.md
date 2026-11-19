@@ -146,3 +146,20 @@ The geometry and runtime-state coverage is split by dependency:
 
 Headless scene physics and isolated ROS backend smoke runs are separate runtime
 checks, with their environment and evidence recorded in the development log.
+
+Eval asset and reset checks run without starting Isaac or ROS:
+
+```bash
+python -m pytest -o addopts='' -q tests/unit/test_cloth_scene.py \
+  tests/unit/test_deformable_scene_objects.py tests/unit/test_camera_distortion.py \
+  tests/unit/test_scene_assets.py tests/unit/test_initial_pose.py \
+  tests/unit/test_placement_scene_profile.py tests/unit/test_managed_evaluation.py
+```
+
+These tests cover material rejection, region selection, grasp release on errors,
+nodal reset, physical substep timing, HDF5 pose provenance, camera warping, ambient
+light and empty-success budgets. CPU tensor cases need PyTorch; pose data needs
+PyArrow, and deformable geometry needs SciPy. USD camera checks need `pxr.Usd`;
+PhysX authoring additionally needs Isaac Kit's `pxr.PhysxSchema`. Missing optional
+dependencies are reported as skips. None of these tests establishes GPU settling,
+robot grasping or policy success.

@@ -348,7 +348,18 @@ episode, and owns batch scheduling. This mode requires explicit
 `runtime.evaluation: {"episodes": 10, "max_steps": 3000, "seed": 0}` (the penholder
 defaults, all batch values configurable). It retains the per-episode budget,
 disables velocity prediction based on wall-clock FPS during Eval, and requires
-the configured initial pose, success predicates and all three RGB cameras.
+the configured initial pose, an explicit success predicates list and all three RGB
+cameras. An empty list leaves task evidence `unknown`; reaching the budget ends
+the episode without declaring success.
+
+The `item_classification`, `press_button` and `fold_tshirt` evaluation configs use
+the same entrypoint. Initial poses may embed HDF5 command-frame provenance; launch
+uses the saved joint values without reopening the original HDF5 file. Scene assets
+support rigid bodies, volumetric deformables and particle cloth. Cloth resets can
+sample named tabletop regions, hold a central patch, then release and settle before
+returning managed step zero. `runtime.simulation.physics_substeps` subdivides each
+control period without changing Atlas's 0.01 s step or charging reset settling to
+the policy budget. See [Eval scene support](docs/EVAL_SCENE_SUPPORT.md).
 
 Managed Eval renders the RGB cameras only for reset/model-observation snapshots.
 Intermediate physics steps use `render=False`; camera render products remain disabled

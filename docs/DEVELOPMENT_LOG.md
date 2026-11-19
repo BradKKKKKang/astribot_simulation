@@ -22,6 +22,15 @@
 - **入口**：评测配置及其模块引用支持 `.yaml`／`.yml`，与 JSON 共用后续校验和配置指纹；YAML 使用安全加载，拒绝重复字段、非字符串键、非有限数值以及不能表示为 JSON 的数据。集成入口帮助和 README 增加 YAML 用法。
 - **验证**：CPU 几何检查确认模型领口方向、完整支持边界、桌面居中和 2 mm 间隙；普通与 managed evaluation 的 `--check-config` 均通过。新增配置／YAML 专项 12 passed；扩展配置、布料、场景及启动入口回归为 170 passed、3 skipped、1 failed。失败来自既有 `table_penholder` 实验引用缺失的 `config/scenes/table_penholder.json`，修改前解析器可复现相同错误；未修改这一无关配置。未启动 Isaac、ROS 或真实硬件，未验证动态夹持和 GPU 渲染。
 
+## 2026-11-16：同步独立 Eval 的场景与任务实现
+
+- 从 `eef_align` 的 `a0b9481` 选择迁移 Eval 源码：布料与体积软体资产校验/创建/状态/重置，四区域采样、中心临时固定与释放落稳，物理子步，HDF5 初始位姿来源，空成功判据，以及相机畸变、环境光、顶点颜色和纹理 wrap。保持 managed 0.01 s 控制周期及初始化不计入策略预算。
+- 未迁入 EEF Web、对齐工具/脚本或 `JointAlignmentStepper` 服务；共享 Isaac 后端逐块审阅后移除标定服务初始化。原有 v4 YAML、机器人 JSON、滤波器、配置解析器、工厂、基类保持逐字节不变；执行器创建和控制方法 AST 一致，初始状态清除滤波历史及其回归保留。场景/任务参数与子模块资源未改动。
+- 同步对应测试，补齐子步 mock 并验证物理时间细分，覆盖四类任务的无运行时 preflight。`astribot_simu_il` Python 3.10，`PYTHONDONTWRITEBYTECODE=1 PYTHONNOUSERSITE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`，将已有 `/tmp/astribot-identification-deps` 追加到 `sys.path` 提供 CPU USD 25.5；在临时候选树执行 `pytest -o addopts= -p no:cacheprovider -q -rs`，覆盖 cloth、deformable、camera_distortion、initial_pose、managed_evaluation、scene_assets、placement_scene_profile、joint_filter、isaaclab_torso_control、isaaclab_gripper、simulation_integrate、factory_continuous、placement_experiment_config、online_evaluation、robot_placement 共 15 个测试文件：318 passed、1 skipped、2 failed。跳过项需要 Isaac Kit 的 `pxr.PhysxSchema`。
+- 两项失败均已在修改前的实际 main 独立复现：`test_evaluation_configs_compose_before_runtime_import[table_penholder]` 引用缺失的 `config/scenes/table_penholder.json`；`test_penholder_stages_use_moving_holder_and_clear_history_on_reset[placement1]` 的旧横放期望与当前收紧后的笔筒判据不一致。未修改这些无关用例或任务标准以获得绿灯，按仓库规则暂不创建 commit。
+- Atlas 的真实 `resolve_simulation_launch` 通过候选树验证 34 份 Console 域配置，覆盖四类基础任务及 30 个 fixed 布局。两个 GT 专用配置因不同 deployment/DDS 被标准 Console target 拒绝，未更改隔离设置。静态编译与范围/控制逻辑保留检查通过。
+- 用户说明见 `docs/EVAL_SCENE_SUPPORT.md`，测试依赖和边界见 `tests/README.md`。本次是源码同步及 CPU/mock 验证，未启动 Isaac/GPU、ROS、模型推理或真实机器人，不将历史布料物理证据当作本次运行结果。
+
 ## 2026-11-16：默认机器人配置同步 eef_align 的 v4 参数
 
 - **配置来源**：将 `eef_align` 的 `a0b9481` 中 S1 Isaac Lab 默认 YAML 与共享机器人 JSON 同步到 `main`，启用 v4 的 22 组独立 PD 参数和 22 组指令滤波参数；GPU 仿真时间为 100 Hz（`dt=0.01`、`frame_skip=1`、`physics_substeps=1`、`decimation=1`）。滤波时间常数保持秒单位，速度前瞻为零。
@@ -1184,3 +1193,20 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
   out-of-region rejection coverage.
 - Validation: 28 focused CPU task-evaluation tests passed. No ROS, simulator,
   GPU or hardware was started; historical session artifacts were not changed.
+
+## 2026-11-17：fold_tshirt 夹持位置与闭合间隙串行对照及视频
+
+- **入口与范围**：新增 `scripts/diagnostics/tshirt_grasp_sweep.py`、分析／视频导出脚本及同目录 README。通过既有 managed ROS 接口使用已记录的 850 步接近命令，随后设置闭合程度、保持、反馈 FK/IK 上提 20 mm、再保持；每组新建并退出独立 Isaac 进程，使用 loopback-only DDS domain 203。按用户授权关闭原有 fold_tshirt_fix 仿真，保留 Atlas 控制台，全程串行。未修改生产机器人、布料或接触参数。
+- **矩阵**：11 组，包括 90／93／95.5／98／100% 闭合、95.5% 下衣服世界 X/Y 各 ±10 mm 平移，以及另两次基线重复。位置变化通过平移衣服实现，包含接近过程中的接触历史变化；初始高度和朝向不变。
+- **视频与观测**：两个独立固定相机同步记录全景／右夹爪近景，20 fps、每组 247 帧。保存控制边界、cooked 凸包间隙、粒子快照、关节反力及视频时间映射；导出 11 个 H.264 单组视频、两个同步对比视频和本地视频索引。初期两次启动／重置超时及两次相机问题的尝试保留并排除；双视角须通过差异检测，避免将重复全景误标为近景。
+- **结果**：固定位置的实测闭合间隙分别为 10.57／8.17／5.92／3.35／1.34 mm，对应固定局部布料区域上移 4.43／13.19／12.30／0.82／−0.57 mm；各组手腕实际上提约 19.36 mm。衣服 X−10／X+10／Y−10／Y+10 mm 对应局部布料上移 17.77／12.20／16.46／11.24 mm。三次基线五项指标完全一致。位置组机器人指令、关节／指尖反馈及已记录关节反力与基线逐帧一致，布料运动不同，与此前反作用力诊断相符。
+- **验证与限制**：11 组均完成 1230 控制步、轨迹检查通过、服务器 exit code 0；2717 个单组视频帧逐帧解码，两个对比视频各 97 帧。间隙组在干预前粒子状态完全一致；所有组 22452 粒子，位置组去除预定平移后的初态残差不超过 5.1e-8 m。静态配置核对、脚本语法、已有试验拒绝覆盖、报告链接和空白检查通过；结束时 GPU 无计算进程。候选数是 6 mm 几何接近带，不是夹持力；局部带起不代表整件抓取或折叠成功，布料→articulation 反作用力问题未修复。完整产物位于 `outputs/diagnostics/tshirt_grasp_sweep_20261117/`（`index.html`、`report.md`、`summary.csv`、`validation.json`）。
+
+## 2026-11-18：fold_tshirt 反作用力通路与实际间隙反馈实验
+
+- **范围**：在诊断进程内增加独立碰撞壳与固定关节，原指节和碰撞壳各保留原质量及惯量的一半。成对条件只切换固定关节的 `physics:excludeFromArticulation`，比较关节链内碰撞壳与普通动态碰撞壳。没有向布料施加人为力、固定粒子或夹持附件；未修改生产机器人资源或生产配置。新增 `tshirt_reaction_probe.py`、`tshirt_reaction.py`、`analyze_tshirt_reaction.py`，为既有 sweep 增加可选反力实验矩阵。
+- **通路验证**：无 ROS、零重力的六通道冲击对照中，两种壳的空载滑台均无位移，刚体载荷均使滑台位移约 −377.6 mm；布料载荷只使普通动态壳连接的滑台移动（−163.51 mm），关节链内壳为 0。证据来自实际机械运动，不依赖粒子接触力报告。
+- **抓取矩阵**：11 月 17–18 日完成八组，每组新建 Isaac 进程并使用 loopback DDS domain 204。固定衣服世界 X−10 mm、初态、850 步接近命令及抬升协议。包括原模型、反力关／开及各自重复、实际间隙反馈关／开和开启反馈复测。最后一组在 agent 服务重启后续跑，未重跑或覆盖此前七组。初态 22452 粒子逐项相同，跨组跟踪相同 35 个材料粒子。
+- **结果**：固定 95.5% 闭合指令时，反力关闭实际间隙为 5.912 mm，开启为 8.206–8.235 mm。共享材料区域抬升从关闭组 16.18 mm 变为开启组 9.54–16.12 mm；后者出现重复运行波动。闭合后的实际间隙反馈对齐到 5.906／5.916 mm 后，开启组抬升为 12.99／13.18 mm，相对滑移 8.18／12.74 mm；关闭组滑移为 11.69 mm，未观察到一致改善。原模型复测与上一轮所有保存粒子及位姿边界完全相同；关闭组重复和反馈空白对照也完全一致。
+- **解释边界**：间隙反馈在抬升阶段 RMS 误差为 0.072／0.116 mm，最大瞬时误差 0.441／0.566 mm，未触及 100% 闭合上限。反力开启已在接近阶段造成约 2 mm 腕部位置差异；普通固定关节有约 0.54 mm 位移误差，普通刚体与 articulation 的迭代设置也不同。因此这是恢复反力通路的诊断方案测试，并非其它条件绝对相同的理想反力开关，不足以断言缺失反力无关或已修复抓取。
+- **验证与产物**：八组均完成 1230 控制步、1231 状态和 78 个有限粒子快照，服务器退出码均为 0，腕部相对抬升检查通过。1976 个单组 H.264 视频帧解码通过，两个同步比较视频各 97 帧；10 项聚焦单元测试通过，配置、几何、脚本语法和空白检查通过。报告、CSV、轨迹、粒子、视频、配置及诊断源码快照位于 `outputs/diagnostics/tshirt_reaction_20261117/`，主报告为 `report.md`。

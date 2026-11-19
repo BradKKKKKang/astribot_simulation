@@ -90,7 +90,9 @@ def main(argv=None):
         print('Initial robot pose: task.initial_pose (restored on reset)', flush=True)
         if 'source' in initial_pose:
             source = initial_pose['source']
-            print(f"  Source: {source['parquet']}, frame_index={source['frame_index']}, {source['column']}", flush=True)
+            path, field = ((source['hdf5'], source['dataset']) if 'hdf5' in source
+                           else (source['parquet'], source['column']))
+            print(f"  Source: {path}, frame_index={source['frame_index']}, {field}", flush=True)
         for part, values in initial_pose['joint_targets_rad'].items():
             print(f"  {part} [rad]: " + ', '.join(f'{value:.6f}' for value in values), flush=True)
         print(f"  Grippers [%]: {initial_pose['gripper_percent']}; base: experiment robot_placement", flush=True)

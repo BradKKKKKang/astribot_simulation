@@ -30,11 +30,14 @@ def experiment(tmp_path, change=None):
 def test_scene_changes_launch_config_without_placement_dependency(tmp_path):
     before, _ = experiment(tmp_path)
     changed, _ = experiment(tmp_path, lambda sections: sections['scene'].update(simulation={
+        'ambient_light_intensity': .08,
         'ground': {'enabled': False}, 'light': {'intensity': 1500., 'color': [.8,.7,.6]},
         'cameras': {'head_rgbd': {'width': 320, 'height': 240}, 'left_wrist_rgbd': {'enabled': False}}}))
     config = build_experiment_simulation_config(changed)
     assert config['scene_simulation']['ground']['enabled'] is False
     assert config['scene_simulation']['light']['intensity'] == 1500
+    assert config['scene_simulation']['ambient_light_intensity'] == .08
+    assert config['experiment_provenance']['scene_simulation']['ambient_light_intensity'] == .08
     assert config['camera_names'] == ['head_rgbd', 'right_wrist_rgbd']
     assert config['camera_resolutions']['head_rgbd'] == {'width':320, 'height':240}
     assert changed['fingerprints']['scene_simulation'] != before['fingerprints']['scene_simulation']
@@ -111,7 +114,31 @@ def test_runtime_spawn_adapter_keeps_defaults_and_consumes_overrides():
                       {'translation':(1,2,3),'orientation':(1.,0.,0.,0.)})]
 
 
-def test_backend_scene_method_consumes_config_without_importing_isaac(monkeypatch):
+@pytest.mark.parametrize('value', [-1, True, float('nan'), float('inf'), '0.08', None])
+def test_invalid_ambient_light_rejected(value):
+    with pytest.raises(ValueError, match='ambient_light_intensity'):
+        normalize_scene_simulation({'ambient_light_intensity': value})
+
+
+@pytest.mark.parametrize('intensity', [0, .08])
+def test_ambient_fill_is_applied_with_dome_disabled_and_omission_preserves_default(monkeypatch, intensity):
+    import sys
+    calls = []
+    carb = ModuleType('carb')
+    carb.settings = SimpleNamespace(get_settings=lambda: SimpleNamespace(
+        set_float=lambda key, value: calls.append((key, value))))
+    monkeypatch.setitem(sys.modules, 'carb', carb)
+    scene = {'ground': {'enabled': False}, 'light': {'enabled': False}}
+    spawn_scene_environment(fake_sim_utils(calls), {**scene, 'ambient_light_intensity': intensity})
+    assert calls == [('/rtx/sceneDb/ambientLightIntensity', float(intensity))]
+    calls.clear()
+    spawn_scene_environment(fake_sim_utils(calls), scene)
+    assert calls == []
+    assert 'ambient_light_intensity' not in normalize_scene_simulation(scene)
+
+
+@pytest.mark.parametrize('substeps', [1, 4])
+def test_backend_scene_method_consumes_config_without_importing_isaac(monkeypatch, substeps):
     """Execute the actual method AST with configuration-class fakes only."""
     import sys
     from src.simulation_config.isaac_scene_config import camera_prim_path
@@ -127,12 +154,15 @@ def test_backend_scene_method_consumes_config_without_importing_isaac(monkeypatc
     torch=ModuleType('torch');torch.cuda=SimpleNamespace(is_available=lambda:False)
     monkeypatch.setitem(sys.modules,'isaaclab.sensors',sensors)
     monkeypatch.setitem(sys.modules,'torch',torch)
-    namespace={'SimulationCfg':cfg,'SimulationContext':lambda config:SimpleNamespace(reset=lambda:None),
+    def simulation(config):
+        calls.append(('physics', config))
+        return SimpleNamespace(reset=lambda:None)
+    namespace={'SimulationCfg':cfg,'SimulationContext':simulation,
                'sim_utils':fake_sim_utils(calls),'InteractiveSceneCfg':cfg,'InteractiveScene':interactive,
                'astribot_simu_log':lambda *args:None,'spawn_scene_environment':spawn_scene_environment,
                'camera_prim_path':camera_prim_path}
     exec(compile(ast.Module(body=[method],type_ignores=[]),'<scene-method>','exec'),namespace)
-    env=SimpleNamespace(physics_device='cpu',dt=.01,decimation=1,use_fabric=True,
+    env=SimpleNamespace(physics_device='cpu',dt=.01,physics_substeps=substeps,decimation=1,use_fabric=True,
         robot_placement_declaration=None, resolved_robot_placement=None, scene_object_specs=[],
         _restore_initial_state=lambda:calls.append(('restore',)),
         scene_simulation=normalize_scene_simulation({'ground':{'enabled':False},'light':{'intensity':123}}),
@@ -140,6 +170,7 @@ def test_backend_scene_method_consumes_config_without_importing_isaac(monkeypatc
         camera_bodies={'head_rgbd':'custom_head'},camera_resolutions={'head_rgbd':(320,240)},
         robot_root_path='/World/astribot_whole_body',third_person_camera_cfg=None)
     namespace['setup_simulation_and_scene'](env)
+    assert next(item[1] for item in calls if item[0]=='physics').dt == pytest.approx(.01 / substeps)
     scene=next(item[1] for item in calls if item[0]=='scene')
     assert scene.head_rgbd.prim_path.endswith('/custom_head/head_rgbd')
     assert scene.head_rgbd.width == 320 and scene.head_rgbd.height == 240

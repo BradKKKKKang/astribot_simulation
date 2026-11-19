@@ -36,6 +36,13 @@ def transformed_primitives(asset, scale=(1., 1., 1.)):
         if 'NORMAL' in item['attributes']:
             normals = item['attributes']['NORMAL'] @ np.linalg.inv(matrix)
             item['attributes']['NORMAL'] = normals / np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+        color_matrix = asset.get('material', {}).get('vertex_color_matrix')
+        if color_matrix is not None and 'COLOR_0' in item['attributes']:
+            # GLB vertex colors are linear RGB. Keep alpha and the cached source
+            # intact; rows map input RGB to output RGB before the material factor.
+            colors = item['attributes']['COLOR_0'].copy()
+            colors[:, :3] = np.clip(colors[:, :3] @ np.asarray(color_matrix).T, 0., 1.)
+            item['attributes']['COLOR_0'] = colors
         result.append(item)
     return result
 
@@ -58,15 +65,24 @@ def validate_asset(asset):
     if any(v <= 0 for v in vector(transform['scale'], 3, 'asset.source_transform.scale')):
         raise ValueError('asset scale must be positive')
     material = asset.get('material', {})
-    _fields(material, {'metallic', 'roughness'}, 'asset.material')
-    for key, value in material.items():
+    _fields(material, {'metallic', 'roughness', 'vertex_color_matrix'}, 'asset.material')
+    for key in ('metallic', 'roughness'):
+        if key not in material:
+            continue
+        value = material[key]
         if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1:
             raise ValueError(f'asset.material.{key} must be a finite number in [0, 1]')
+    if 'vertex_color_matrix' in material:
+        color_matrix = material['vertex_color_matrix']
+        if not isinstance(color_matrix, (list, tuple)) or len(color_matrix) != 3:
+            raise ValueError('asset.material.vertex_color_matrix requires three RGB rows')
+        for row in color_matrix:
+            vector(row, 3, 'asset.material.vertex_color_matrix row')
     physics = asset.get('physics', {})
-    _fields(physics, {'body_type', 'collision', 'mass', 'friction', 'restitution'}, 'asset.physics')
-    if physics.get('body_type') not in ('static', 'dynamic'):
-        raise ValueError('asset body_type must be static or dynamic')
-    if physics.get('collision') not in ('triangle_mesh', 'convex_hull', 'sdf'):
+    _fields(physics, {'body_type', 'collision', 'mass', 'friction', 'restitution', 'deformable', 'cloth'}, 'asset.physics')
+    if physics.get('body_type') not in ('static', 'dynamic', 'deformable', 'cloth'):
+        raise ValueError('asset body_type must be static, dynamic, deformable or cloth')
+    if physics.get('collision') not in ('triangle_mesh', 'convex_hull', 'sdf', 'tetrahedral', 'particle_cloth'):
         raise ValueError('unsupported asset collision representation')
     if physics['body_type'] == 'dynamic' and physics['collision'] == 'triangle_mesh':
         raise ValueError('dynamic concave assets require sdf collision')
@@ -74,8 +90,25 @@ def validate_asset(asset):
         if field in physics and (type(physics[field]) not in (int, float) or not math.isfinite(physics[field])
                                  or physics[field] < 0 or field == 'mass' and physics[field] == 0):
             raise ValueError(f'asset.physics.{field} must be finite and nonnegative (mass positive)')
-    if physics['body_type'] == 'dynamic' and 'mass' not in physics:
-        raise ValueError('dynamic asset requires explicit mass')
+    if physics['body_type'] in ('dynamic', 'deformable', 'cloth') and 'mass' not in physics:
+        raise ValueError('dynamic or deformable asset requires explicit mass')
+    if physics['body_type'] == 'deformable':
+        from .deformable_geometry import validate_deformable
+        validate_deformable(physics, asset_geometry(asset)['primitives'])
+    elif 'deformable' in physics or physics['collision'] == 'tetrahedral':
+        raise ValueError('deformable parameters and tetrahedral collision require a deformable body')
+    if physics['body_type'] == 'cloth':
+        required={'stretch_stiffness','shear_stiffness','bend_stiffness','spring_damping',
+                  'velocity_damping','contact_offset','rest_offset','solver_iterations'}
+        c=physics.get('cloth',{})
+        if set(c)!=required or 'friction' not in physics or physics['collision']!='particle_cloth' or len(asset_geometry(asset)['primitives'])!=1:
+            raise ValueError('cloth requires one sewn midsurface and explicit particle_cloth parameters')
+        if any(type(c[k]) not in (int,float) or not math.isfinite(c[k]) or c[k]<0 for k in required):
+            raise ValueError('cloth parameters must be finite and nonnegative')
+        if type(c['solver_iterations']) is not int or c['solver_iterations']<1 or not 0<c['rest_offset']<c['contact_offset']:
+            raise ValueError('invalid cloth iterations or contact offsets')
+    elif 'cloth' in physics or physics['collision']=='particle_cloth':
+        raise ValueError('cloth parameters require a cloth body')
     surfaces = asset.get('surfaces', {})
     if not isinstance(surfaces, dict):
         raise ValueError('asset.surfaces must be an object')
