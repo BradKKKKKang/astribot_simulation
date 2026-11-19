@@ -101,25 +101,25 @@ class IsaacLabAppManager:
                 # adds its bundled Pillow version to the import paths.
                 from PIL import Image  # noqa: F401
 
+            import argparse
+            parser = argparse.ArgumentParser()
+            AppLauncher.add_app_launcher_args(parser)
+
+            args_list = []
+            if headless:
+                args_list.append("--headless")
+            if enable_cameras:
+                args_list.append("--enable_cameras")
+
+            args = parser.parse_args(args_list)
+            # Isaac Sim 4.5: use synchronized rendering and let the Hydra
+            # scene delegate consume PhysX's Fabric transforms.
+            args.kit_args = (
+                "--/app/asyncRendering=false "
+                "--/rtx/hydra/readTransformsFromFabricInRenderDelegate=false "
+                "--/persistent/rtx/hydra/readTransformsFromFabricInRenderDelegate=false"
+            )
             with cls._suppress_output():
-                import argparse
-                parser = argparse.ArgumentParser()
-                AppLauncher.add_app_launcher_args(parser)
-
-                args_list = []
-                if headless:
-                    args_list.append("--headless")
-                if enable_cameras:
-                    args_list.append("--enable_cameras")
-
-                args = parser.parse_args(args_list)
-                # Isaac Sim 4.5: use synchronized rendering and let the Hydra
-                # scene delegate consume PhysX's Fabric transforms.
-                args.kit_args = (
-                    "--/app/asyncRendering=false "
-                    "--/rtx/hydra/readTransformsFromFabricInRenderDelegate=false "
-                    "--/persistent/rtx/hydra/readTransformsFromFabricInRenderDelegate=false"
-                )
                 cls._app_launcher = AppLauncher(args)
                 cls._simulation_app = cls._app_launcher.app
 

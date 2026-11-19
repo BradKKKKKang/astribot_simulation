@@ -104,4 +104,6 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
+    from src.simu_utils.project_ros import activate_cli_ros
+    activate_cli_ros()
     main()

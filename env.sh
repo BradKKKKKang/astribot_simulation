@@ -61,4 +61,4 @@ case ":${PYTHONPATH:-}:" in
 esac
 export PYTHONPATH
 export PYTHONWARNINGS="ignore"
-export ROS_DOMAIN_ID=25
+export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-25}"

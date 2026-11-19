@@ -131,6 +131,10 @@ Python and ROS packages before the asset submodules are available, run
 The activation script works in Bash and Zsh. It sets `python`, `uv pip` and
 `uv run` to the same environment. It sets `UV_NO_SYNC=1` for this wheel-based
 installation so that `uv run` preserves the NVIDIA solver overrides.
+When using the installed project Python directly, both simulation launcher scripts
+load the project ROS environment before starting the backend if ROS is unset, or
+if ROS 2 is selected and `cv_bridge` is missing. To use ROS from a Python REPL
+or a different script, run `source .venv/activate-astribot.bash` in the shell.
 Install additional packages with `uv pip install PACKAGE`. With Isaac Lab
 3.0.0 and Isaac Sim 6.2.0.0, `uv pip check` reports two metadata conflicts.
 The Isaac Lab release overrides require newer `fsspec` and `urllib3` than
@@ -152,7 +156,7 @@ copies this overlay into the virtualenv for use at runtime. On another
 machine, provide an equivalent Kit overlay built from the same message
 definitions via `IL_KIT_ROS_PREFIX`, or use the Conda installer below to build
 the messages locally. The activation script loads the wheel’s Humble libraries
-and sets the project ROS domain to 25. Run the Python 3.10 SDK in a separate
+and defaults the project ROS domain to 25. Run the Python 3.10 SDK in a separate
 shell with its system Humble environment and the same domain.
 
 #### Conda with RoboStack Humble

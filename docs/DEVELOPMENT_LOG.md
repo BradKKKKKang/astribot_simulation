@@ -1233,3 +1233,10 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
 - The uv installer supports installing the Isaac runtime before fetching the robot asset submodules. It copies the compiled Humble overlay into the virtualenv and configures the shell, uv and Kit to load the same project installation. README documents optional directory-scoped activation.
 - Installed 278 packages and verified module origins and loaded library paths. Ran the project backend import, ROS message serialization and camera conversion, the press_button configuration check, and one headless Kit update on an RTX 4090. Verified that Zsh selects the project environment on entry and restores the container environment on exit.
 - Constrained NumPy, packaging and Newton USD schemas within the upstream override ranges. The two remaining `uv pip check` conflicts are Isaac Sim's exact fsspec and urllib3 pins versus the Isaac Lab release overrides. The asset submodules were uninitialized, so the full robot scene was not exercised.
+
+## 2026-11-19 — ROS loading for the Python launchers
+
+- The two standalone simulation launchers activate the current project's installed Kit ROS environment when running with its Python from a shell without ROS, or with ROS 2 and a missing cv_bridge. The process restarts with the native library paths in effect. An explicitly selected ROS domain is retained.
+- Backend lookup distinguishes an absent simulator module from an import or construction failure inside that backend. Isaac argument parsing now reports its errors on stderr.
+- Running the default command from a plain project Python on an isolated localhost ROS domain reached node and joint interface initialization. The installed Isaac Lab 3.0 launcher then rejected the existing camera argument. The default textured USD is also absent from the pinned descriptions checkout. Isaac compatibility and model generation are separate work.
+- The factory and integrated launcher tests passed 11 cases and skipped seven cases that require user-supplied GLBs. Also verified partial ROS 2 activation and the original CLI error path.

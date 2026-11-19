@@ -39,37 +39,41 @@ class AstribotEnvsFactory:
 
         try:
             module = importlib.import_module(module_name)
-            _ = getattr(module, class_name)  # Trigger module registration
-            gym_env_name=f"astribot_envs/{class_name}-v0"
-            # Interactive loops have no Gym time limit; evaluator budgets remain explicit.
-            self.astribot_simu_env=gymnasium.make(gym_env_name,param=data,max_episode_steps=-1)
+        except ModuleNotFoundError as exc:
+            if exc.name != module_name:
+                raise
+            raise ValueError(f"Unknown simulator type: {data['simulator_type']}. Module: {module_name} not found.") from exc
+        try:
+            getattr(module, class_name)
+        except AttributeError as exc:
+            raise ValueError(f"Class {class_name} not found in {module_name}.") from exc
 
-            # Isaac/rclpy may install their own handlers while constructing the app.
-            if hasattr(self, 'install_stop_handlers'):
-                self.install_stop_handlers()
+        gym_env_name=f"astribot_envs/{class_name}-v0"
+        # Interactive loops have no Gym time limit; evaluator budgets remain explicit.
+        self.astribot_simu_env=gymnasium.make(gym_env_name,param=data,max_episode_steps=-1)
 
-            # Check if this is Isaac Lab - it must run in main thread
-            is_isaaclab = hasattr(self.astribot_simu_env.unwrapped, 'simulation_app')
+        # Isaac/rclpy may install their own handlers while constructing the app.
+        if hasattr(self, 'install_stop_handlers'):
+            self.install_stop_handlers()
 
-            if is_isaaclab:
-                from src.simu_utils.simu_common_tools import astribot_simu_log
-                astribot_simu_log("Isaac Lab detected - will run in main thread (GUI requires main thread)")
-                # Don't start background thread for Isaac Lab
-                # Main thread will be blocked in simu_env_loop()
-                self.simu_thread = None
-                # Run directly in main thread (this will block)
-                self.simu_env_loop()
-                return None  # Won't return until simulation ends
-            else:
-                # Other simulators can run in background thread
-                self.simu_thread = threading.Thread(target=self.simu_env_loop, args=())
-                self.simu_thread.start()
-                return self.simu_thread
-        except ModuleNotFoundError:
-            raise ValueError(f"Unknown simulator type: {data['simulator_type']}. Module: {module_name} not found.")
-        except AttributeError:
-            raise ValueError(f"Class {class_name} not found in {module_name}.")
-    
+        # Check if this is Isaac Lab - it must run in main thread
+        is_isaaclab = hasattr(self.astribot_simu_env.unwrapped, 'simulation_app')
+
+        if is_isaaclab:
+            from src.simu_utils.simu_common_tools import astribot_simu_log
+            astribot_simu_log("Isaac Lab detected - will run in main thread (GUI requires main thread)")
+            # Don't start background thread for Isaac Lab
+            # Main thread will be blocked in simu_env_loop()
+            self.simu_thread = None
+            # Run directly in main thread (this will block)
+            self.simu_env_loop()
+            return None  # Won't return until simulation ends
+        else:
+            # Other simulators can run in background thread
+            self.simu_thread = threading.Thread(target=self.simu_env_loop, args=())
+            self.simu_thread.start()
+            return self.simu_thread
+
     @staticmethod
     def load_yaml_file(yaml_file_path):
         with open(yaml_file_path, 'r') as yaml_file:

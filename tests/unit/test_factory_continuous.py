@@ -63,3 +63,18 @@ def test_factory_runs_past_registered_limit_and_still_stops(monkeypatch, stop_ki
     finally:
         if factory.astribot_simu_env is not None:
             factory.astribot_simu_env.close()
+
+
+@pytest.mark.parametrize("missing, expected", [
+    ("src.astribot_envs.astribot_isaaclab_env", ValueError),
+    ("cv_bridge", ModuleNotFoundError),
+])
+def test_factory_preserves_backend_dependency_errors(monkeypatch, missing, expected):
+    from src.astribot_envs import astribot_envs_factory as module
+
+    def fail_import(_name):
+        raise ModuleNotFoundError(f"No module named '{missing}'", name=missing)
+
+    monkeypatch.setattr(module.importlib, 'import_module', fail_import)
+    with pytest.raises(expected, match=missing):
+        module.AstribotEnvsFactory().create_simulation_env({'simulator_type': 'IsaacLab'})
