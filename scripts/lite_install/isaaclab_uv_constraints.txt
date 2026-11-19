@@ -1,0 +1,4 @@
+# Keep the released Isaac Sim wheel pins that fit Isaac Lab's upstream overrides.
+numpy==2.3.1
+newton-usd-schemas==0.5.0
+packaging>=23.2,<=26.0

@@ -1227,3 +1227,9 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
 - Added a uv-managed Python 3.12 installation for the Astribot Humble container, with the project's common dependencies and the released Isaac Lab 3.0.0 / Isaac Sim 6.2.0.0 wheels. Both lite installers use the same NVIDIA overrides, asset preparation and post-install checks.
 - The uv environment loads Humble from the Isaac Sim ROS wheel and the prebuilt CPython 3.12 Astribot overlay. SDK processes continue to load system Humble under Python 3.10.
 - Verified a fresh uv interpreter and dependency resolution, script syntax and argument errors. Using the real ROS wheel and overlay, verified custom message and service serialization, RGB/BGR conversion, and a localhost-only topic and service exchange with system Python 3.10. The complete simulator wheel installation, asset download and GPU startup were not exercised.
+
+## 2026-11-19 — Project-local Isaac uv environment
+
+- The uv installer supports installing the Isaac runtime before fetching the robot asset submodules. It copies the compiled Humble overlay into the virtualenv and configures the shell, uv and Kit to load the same project installation. README documents optional directory-scoped activation.
+- Installed 278 packages and verified module origins and loaded library paths. Ran the project backend import, ROS message serialization and camera conversion, the press_button configuration check, and one headless Kit update on an RTX 4090. Verified that Zsh selects the project environment on entry and restores the container environment on exit.
+- Constrained NumPy, packaging and Newton USD schemas within the upstream override ranges. The two remaining `uv pip check` conflicts are Isaac Sim's exact fsspec and urllib3 pins versus the Isaac Lab release overrides. The asset submodules were uninitialized, so the full robot scene was not exercised.

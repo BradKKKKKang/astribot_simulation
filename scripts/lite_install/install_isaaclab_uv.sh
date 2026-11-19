@@ -6,16 +6,19 @@ SIM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$SIM_ROOT/scripts/lite_install/isaaclab_common.bash"
 IL_SKIP_SYSTEM_DEPS=0
 IL_SKIP_SUBMODULES=0
+environment_only=0
 for arg in "$@"; do
     case "$arg" in
         --skip-system-deps) IL_SKIP_SYSTEM_DEPS=1 ;;
         --skip-submodules) IL_SKIP_SUBMODULES=1 ;;
+        --env-only) environment_only=1 ;;
         -h|--help)
             cat <<'HELP'
-Usage: bash scripts/lite_install/install_isaaclab_uv.sh [--skip-system-deps] [--skip-submodules]
+Usage: bash scripts/lite_install/install_isaaclab_uv.sh [--env-only] [--skip-system-deps] [--skip-submodules]
 Install Python 3.12, Isaac Lab 3.0.0, Isaac Sim 6.2.0.0 and common simulation dependencies.
 IL_UV_ENV selects the virtualenv (default: .venv in the repository).
 IL_KIT_ROS_PREFIX selects the compiled Python 3.12 Astribot Kit ROS overlay (default: /opt/astribot-kit-ros).
+--env-only installs and checks the Python/ROS environment without fetching robot assets.
 --skip-system-deps skips installing git-lfs. --skip-submodules uses existing assets.
 HELP
             exit 0 ;;
@@ -45,19 +48,41 @@ else
     UV_PYTHON_PREFERENCE=only-managed uv venv --python 3.12 "$venv"
 fi
 
-prepare_isaaclab_assets
-# Detect a stale prebuilt overlay before downloading the simulator.
-for interface in "$SIM_ROOT"/astribot_msgs/{msg/*.msg,srv/*.srv,action/*.action}; do
-    cmp -s "$interface" "$overlay/share/astribot_msgs/${interface#"$SIM_ROOT/astribot_msgs/"}" || {
-        echo "Kit ROS overlay does not match the repository interface $interface" >&2; exit 1;
-    }
-done
-install_isaaclab_wheels uv "$venv/bin/python" -r "$SIM_ROOT/pyproject.toml"
+if [[ "$environment_only" == 0 ]]; then
+    prepare_isaaclab_assets
+fi
+# Compare interfaces whenever their sources are available.
+if [[ "$environment_only" == 0 || -d "$SIM_ROOT/astribot_msgs/msg" ]]; then
+    for interface in "$SIM_ROOT"/astribot_msgs/{msg/*.msg,srv/*.srv,action/*.action}; do
+        cmp -s "$interface" "$overlay/share/astribot_msgs/${interface#"$SIM_ROOT/astribot_msgs/"}" || {
+            echo "Kit ROS overlay does not match the repository interface $interface" >&2; exit 1;
+        }
+    done
+fi
+install_isaaclab_wheels uv "$venv/bin/python" -e "$SIM_ROOT" \
+    --constraints "$SIM_ROOT/scripts/lite_install/isaaclab_uv_constraints.txt"
 
-# Save the paths used for this install, including any custom overlay or venv.
+# Materialize native ROS modules and libraries alongside the Python wheels.
+mkdir -p "$venv/share"
+local_overlay="$venv/share/astribot-kit-ros"
+if ! diff -qr --exclude=__pycache__ "$overlay" "$local_overlay" >/dev/null 2>&1; then
+    staging=$(mktemp -d "$venv/share/.kit-ros.XXXXXXXX")
+    trap 'rm -rf -- "$staging"' EXIT
+    cp -RL "$overlay/." "$staging/new"
+    if [[ -e "$local_overlay" ]]; then
+        mv -T "$local_overlay" "$staging/previous"
+    fi
+    if ! mv -T "$staging/new" "$local_overlay"; then
+        [[ ! -d "$staging/previous" ]] || mv -T "$staging/previous" "$local_overlay"
+        exit 1
+    fi
+fi
+
 {
     printf 'source %q || return 1\n' "$venv/bin/activate"
-    printf 'export ASTRIBOT_MSGS_INSTALL=%q ROS_VERSION=2\n' "$overlay"
+    printf 'export UV_PROJECT_ENVIRONMENT=%q UV_PYTHON=%q\n' "$venv" "$venv/bin/python"
+    printf 'export UV_NO_SYNC=1\nunset ISAACLAB_PATH UV_PYTHON_PREFERENCE\n'
+    printf 'export ASTRIBOT_MSGS_INSTALL=%q ROS_VERSION=2\n' "$local_overlay"
     printf 'source %q\n' "$SIM_ROOT/env.sh"
 } > "$venv/activate-astribot.bash"
 source "$venv/activate-astribot.bash"

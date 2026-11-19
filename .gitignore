@@ -69,3 +69,7 @@ outputs/
 .placement-artifacts/
 .placement-catalog.json
 .placement-catalog.lock
+
+# Local shell activation and editable Python installation
+.envrc
+*.egg-info/

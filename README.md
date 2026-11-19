@@ -125,10 +125,30 @@ The installer creates a Python 3.12 virtualenv, installs the common dependencies
 from `pyproject.toml`, Isaac Lab 3.0.0, Isaac Sim 6.2.0.0 and CUDA 13.0 PyTorch
 wheels. The first Isaac Sim import prompts for NVIDIA’s license. It prepares
 the USD assets and checks the installed versions, ROS serialization and camera
-conversion. Use `IL_UV_ENV` to select a different virtualenv.
+conversion. Use `IL_UV_ENV` to select a different virtualenv. To install the
+Python and ROS packages before the asset submodules are available, run
+`bash scripts/lite_install/install_isaaclab_uv.sh --env-only`.
+The activation script works in Bash and Zsh. It sets `python`, `uv pip` and
+`uv run` to the same environment. It sets `UV_NO_SYNC=1` for this wheel-based
+installation so that `uv run` preserves the NVIDIA solver overrides.
+Install additional packages with `uv pip install PACKAGE`. With Isaac Lab
+3.0.0 and Isaac Sim 6.2.0.0, `uv pip check` reports two metadata conflicts.
+The Isaac Lab release overrides require newer `fsspec` and `urllib3` than
+the Isaac Sim wheels specify.
+
+For automatic activation with direnv, enable its hook in your shell, then run
+the following once from the repository root:
+
+```bash
+echo 'VIRTUAL_ENV_DISABLE_PROMPT=1 source .venv/activate-astribot.bash' > .envrc
+direnv allow
+```
+
+Direnv restores the previous environment when you leave the repository.
 
 The container supplies `/opt/astribot-kit-ros`, a native Python 3.12 Humble
-overlay with `astribot_msgs`, `cv_bridge` and `tf_transformations`. On another
+overlay with `astribot_msgs`, `cv_bridge` and `tf_transformations`. The installer
+copies this overlay into the virtualenv for use at runtime. On another
 machine, provide an equivalent Kit overlay built from the same message
 definitions via `IL_KIT_ROS_PREFIX`, or use the Conda installer below to build
 the messages locally. The activation script loads the wheel’s Humble libraries
