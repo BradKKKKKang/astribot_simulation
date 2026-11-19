@@ -91,7 +91,7 @@ astribot_simulation/
 │   ├── install.sh                     # Full environment setup
 │   ├── build.sh                       # Build astribot_msgs
 │   ├── depends/                       # Miniconda installer
-│   ├── lite_install/                  # MuJoCo-only installers
+│   ├── lite_install/                  # Backend-specific installers
 │   └── bugfix/                        # GLIBCXX / LIBFFI patches
 │
 ├── tests/                         # Test suite
@@ -108,6 +108,34 @@ astribot_simulation/
 You can install the simulation either inside a Docker container or directly on your host machine.
 
 ### Isaac Lab 3.0 lite install
+
+#### uv on the Astribot Humble container
+
+From a fresh Bash shell on Ubuntu 22.04 x86_64 with GPU access, run:
+
+```bash
+bash scripts/lite_install/install_isaaclab_uv.sh
+source .venv/activate-astribot.bash
+python astribot_simulation_integrate.py --config config/experiments/evaluation/penholder.json --check-config
+```
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) first.
+Use a writable checkout with access to the Astribot Git submodules and Git LFS assets.
+The installer creates a Python 3.12 virtualenv, installs the common dependencies
+from `pyproject.toml`, Isaac Lab 3.0.0, Isaac Sim 6.2.0.0 and CUDA 13.0 PyTorch
+wheels. The first Isaac Sim import prompts for NVIDIA’s license. It prepares
+the USD assets and checks the installed versions, ROS serialization and camera
+conversion. Use `IL_UV_ENV` to select a different virtualenv.
+
+The container supplies `/opt/astribot-kit-ros`, a native Python 3.12 Humble
+overlay with `astribot_msgs`, `cv_bridge` and `tf_transformations`. On another
+machine, provide an equivalent Kit overlay built from the same message
+definitions via `IL_KIT_ROS_PREFIX`, or use the Conda installer below to build
+the messages locally. The activation script loads the wheel’s Humble libraries
+and sets the project ROS domain to 25. Run the Python 3.10 SDK in a separate
+shell with its system Humble environment and the same domain.
+
+#### Conda with RoboStack Humble
 
 Use an Ubuntu 22.04 x86_64 container with Conda and access to the Astribot
 submodules. The simulator uses ROS 2 Humble built for Python 3.12 from

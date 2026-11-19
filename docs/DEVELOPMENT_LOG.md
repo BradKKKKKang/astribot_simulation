@@ -1221,3 +1221,9 @@ Validation: managed evaluation tests 39 passed; empty-scene configuration check 
 
 - 根据部署环境，将 Isaac Lab 3.0.0 / Isaac Sim 6.2.0 的安装目标调整为 Ubuntu 22.04 x86_64 和 ROS 2 Humble。Conda 从 conda-forge 与 RoboStack 安装同一 Python 3.12 环境的 rclpy、cv_bridge 和消息工具链，并在该环境的独立目录构建 Astribot 消息。系统 Python 3.10 的 Humble 节点使用各自的终端与消息工作区。
 - 在临时目录用 micromamba 对安装器的全部 Conda 依赖做 linux-64、glibc 2.35 的 dry-run。求解成功，包含 Python 3.12.16、NumPy 2.5.5、Humble rclpy 3.3.21、cv_bridge 3.2.1 及 rosidl-default-generators 1.2.1 的 Python 3.12 构建。通过 Bash 语法和帮助检查、内嵌 Python 语法检查，以及四种系统 ROS 路径混入和未知参数的提前退出检查。未在目标容器安装软件、编译消息或启动 GPU 仿真。
+
+## 2026-11-19 — Isaac Lab uv lite install
+
+- Added a uv-managed Python 3.12 installation for the Astribot Humble container, with the project's common dependencies and the released Isaac Lab 3.0.0 / Isaac Sim 6.2.0.0 wheels. Both lite installers use the same NVIDIA overrides, asset preparation and post-install checks.
+- The uv environment loads Humble from the Isaac Sim ROS wheel and the prebuilt CPython 3.12 Astribot overlay. SDK processes continue to load system Humble under Python 3.10.
+- Verified a fresh uv interpreter and dependency resolution, script syntax and argument errors. Using the real ROS wheel and overlay, verified custom message and service serialization, RGB/BGR conversion, and a localhost-only topic and service exchange with system Python 3.10. The complete simulator wheel installation, asset download and GPU startup were not exercised.

@@ -5,7 +5,7 @@ set -euo pipefail
 
 SIM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 IL_ENV_NAME="${IL_ENV_NAME:-astribot_simu_il3}"
-LAB_OVERRIDES="https://raw.githubusercontent.com/isaac-sim/IsaacLab/v3.0.0/tools/wheel_builder/uv-overrides.txt"
+source "$SIM_ROOT/scripts/lite_install/isaaclab_common.bash"
 IL_CONDA_EXE="${IL_CONDA_EXE:-${CONDA_EXE:-$(type -P conda || echo "$HOME/miniconda3/bin/conda")}}"
 IL_CONDA_CHANNEL="${IL_CONDA_CHANNEL:-conda-forge}"
 IL_SKIP_SYSTEM_DEPS=0
@@ -77,34 +77,8 @@ export UV_CACHE_DIR="${UV_CACHE_DIR:-$SIM_ROOT/.tmp/isaaclab3/uv-cache}"
 export PIP_DISABLE_PIP_VERSION_CHECK=1
 export PIP_NO_INPUT=1
 
-if [[ "$IL_SKIP_SYSTEM_DEPS" == 0 ]] && ! command -v git-lfs >/dev/null; then
-    apt_cmd=(apt-get)
-    if (( EUID != 0 )); then apt_cmd=(sudo apt-get); fi
-    "${apt_cmd[@]}" update
-    "${apt_cmd[@]}" install -y git-lfs
-fi
-
-if [[ "$IL_SKIP_SUBMODULES" == 0 ]]; then
-    echo "Downloading Astribot submodules and LFS assets..."
-    command -v git-lfs >/dev/null
-    GIT_LFS_SKIP_SMUDGE=1 git -C "$SIM_ROOT" submodule update --init --recursive
-    # Fetch the USD assets needed by Isaac Lab, leaving unrelated LFS meshes alone.
-    git -C "$SIM_ROOT/astribot_descriptions" lfs pull --include='usd/**' --exclude=''
-fi
-[[ -f "$SIM_ROOT/astribot_descriptions/usd/astribot_s1_usd/astribot_s1.usda" ]] || {
-    echo "S1 USD model is missing. Initialize astribot_descriptions, including Git LFS." >&2; exit 1;
-}
-[[ -f "$SIM_ROOT/astribot_msgs/CMakeLists_ros2.txt" ]] || {
-    echo "astribot_msgs sources are missing." >&2; exit 1;
-}
-
-echo "Installing the Isaac Lab 3.0 wheel and its Isaac Sim 6.2 extra into $CONDA_PREFIX..."
-# The tagged NVIDIA overrides reconcile conflicting Lab and Sim package metadata.
-"$CONDA_PREFIX/bin/uv" pip install --python "$CONDA_PREFIX/bin/python" \
-    'isaaclab[isaacsim]==3.0.0' 'isaacsim==6.2.0.0' \
-    --overrides "$LAB_OVERRIDES" --extra-index-url https://pypi.nvidia.com \
-    --torch-backend cu130 --index-strategy unsafe-best-match \
-    'transforms3d>=0.4.2' pytz pyyaml
+prepare_isaaclab_assets
+install_isaaclab_wheels "$CONDA_PREFIX/bin/uv" "$CONDA_PREFIX/bin/python"
 
 # Allow the interactive first-use license prompt before running checks on stdin.
 python -c 'from isaacsim import SimulationApp'
@@ -125,47 +99,7 @@ set +u
 export ASTRIBOT_MSGS_INSTALL="$ros_workspace/install"
 source "$SIM_ROOT/env.sh"
 set -u
-python - <<'PYTHON'
-import sys
-from importlib.metadata import version
-
-import numpy as np
-import open3d
-import torch
-import tf_transformations
-from cv_bridge import CvBridge
-from isaaclab.app import AppLauncher
-from packaging.version import Version
-from astribot_msgs.msg import RobotJointController, RobotJointState
-from astribot_msgs.srv import RawRequest
-from rclpy.serialization import serialize_message, deserialize_message
-
-expected_versions = {
-    "isaaclab": "3.0.0",
-    "isaacsim": "6.2.0.0",
-    "torch": "2.11.0",
-    "torchvision": "0.26.0",
-    "warp-lang": "1.17.0",
-    "newton": "1.6.1",
-}
-for name, expected in expected_versions.items():
-    installed = Version(version(name))
-    assert Version(installed.public) == Version(expected), f"{name}: expected {expected}, found {installed}"
-    print(f"{name}: {installed}")
-assert torch.version.cuda == "13.0", torch.version.cuda
-assert Version(np.__version__).major == 2, np.__version__
-
-bridge = CvBridge()
-rgb = np.array([[[1, 2, 3]]], dtype=np.uint8)
-image = bridge.cv2_to_imgmsg(rgb, "rgb8")
-np.testing.assert_array_equal(bridge.imgmsg_to_cv2(image, "bgr8"), rgb[:, :, ::-1])
-command = RobotJointController()
-command.mode = 1
-command.command = [0.1, 0.0]
-restored = deserialize_message(serialize_message(command), RobotJointController)
-assert restored.mode == 1 and list(restored.command) == [0.1, 0.0]
-print(f"ROS 2, camera conversion and Astribot messages OK: {sys.executable}")
-PYTHON
+python "$SIM_ROOT/scripts/lite_install/check_isaaclab.py"
 
 echo "Installation complete. In a new Bash shell:"
 printf '  source %q\n' "$("$IL_CONDA_EXE" info --base)/etc/profile.d/conda.sh"
