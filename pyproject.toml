@@ -7,7 +7,7 @@ name = "astribot-simulation"
 version = "1.1.0"
 description = "Unified robot simulation platform for MuJoCo, Genesis, ManiSkill, and Isaac Lab"
 readme = "README.md"
-requires-python = ">=3.8,<3.12"
+requires-python = ">=3.8,<3.13"
 license = {text = "BSD-3-Clause"}
 authors = [
     {name = "Tony Wang", email = "tonywang@astribot.com"}
@@ -18,14 +18,18 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Robotics",
 ]
 
 dependencies = [
-    "numpy>=1.26.4,<2.0",
+    "numpy>=1.26.4,<2.0; python_version < '3.12'",
+    "numpy>=2,<3; python_version == '3.12'",
     "gymnasium>=1.1.1",
-    "opencv-python>=4.8.0",
+    "opencv-python>=4.8.0; python_version < '3.12'",
+    # The Python 3.12 Isaac Sim stack supplies cv2 from NVIDIA's wheel.
+    "opencv-python-headless-noffmpeg; python_version == '3.12'",
     "open3d>=0.18.0",
     "pyyaml>=6.0",
     "tqdm>=4.66",
@@ -46,7 +50,8 @@ maniskill = [
     "sapien>=3.0.0",
 ]
 isaaclab = [
-    "isaacsim>=4.0.0",
+    "isaacsim>=4.0.0; python_version < '3.12'",
+    "isaaclab[isaacsim]==3.0.0; python_version == '3.12'",
 ]
 ros1 = [
     # Note: rospy must be installed via ROS (apt install ros-noetic-rospy)
