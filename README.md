@@ -109,35 +109,40 @@ You can install the simulation either inside a Docker container or directly on y
 
 ### Isaac Lab 3.0 lite install
 
-For this installer, use an Ubuntu 24.04 x86_64 container with ROS 2 Jazzy
-(`ros-jazzy-ros-base`), Conda, and access to the Astribot submodules. Isaac Lab
-3.0.0 and Isaac Sim 6.2.0 use Python 3.12. On the host, check the GPU and
-driver against the [Isaac Sim 6.2 requirements](https://docs.isaacsim.omniverse.nvidia.com/6.2.0/installation/requirements.html).
+Use an Ubuntu 22.04 x86_64 container with Conda and access to the Astribot
+submodules. The simulator uses ROS 2 Humble built for Python 3.12 from
+RoboStack. Other Humble nodes can use Ubuntu’s system Python 3.10 in their
+own terminals. Check the host GPU and driver against the
+[Isaac Sim 6.2 requirements](https://docs.isaacsim.omniverse.nvidia.com/6.2.0/installation/requirements.html).
 
-From the Astribot repository root inside the container, run:
+Open a fresh Bash shell with `docker exec -it astribot-dev bash --norc`.
+Reserve `source /opt/ros/humble/setup.bash` for terminals running system ROS
+nodes. From the Astribot repository root in the fresh shell, run:
 
 ```bash
 bash scripts/lite_install/install_isaaclab.sh
 ```
 
 The installer creates `astribot_simu_il3`, installs the CUDA 13.0 PyTorch
-build, and builds Jazzy messages and `cv_bridge` for that environment. The
-first Isaac Sim import prompts for the NVIDIA license. For unattended installs,
+build and Humble’s `rclpy` and `cv_bridge`, then builds the Astribot messages
+with the environment’s Python 3.12 interpreter. The first Isaac Sim import
+prompts for the NVIDIA license. For unattended installs,
 set `OMNI_KIT_ACCEPT_EULA=YES` after accepting the terms.
 
-In a new Bash shell in the container, from the repository root:
+In a fresh container shell opened the same way, run from the repository root:
 
 ```bash
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate astribot_simu_il3
-source /opt/ros/jazzy/setup.bash
-export ASTRIBOT_MSGS_INSTALL="$CONDA_PREFIX/astribot_ros/install"
+# Conda activation also loads ROS 2 Humble.
+export ASTRIBOT_MSGS_INSTALL="$CONDA_PREFIX/astribot_ros_humble/install"
 source ./env.sh
+echo "$ROS_DISTRO"
 python -c 'from importlib.metadata import version; print(version("isaaclab"), version("isaacsim"))'
 ```
 
 Use the activation path printed by the installer for a custom Conda location.
-The expected versions are `3.0.0` and `6.2.0.0`. The installer follows the
+The expected output is `humble` followed by `3.0.0 6.2.0.0`. The installer follows the
 published wheel procedure in the [Isaac Lab 3.0 installation guide](https://docs.nvidia.com/isaaclab/3.0/isaac-lab/installation).
 
 ### Option 1: Docker Installation

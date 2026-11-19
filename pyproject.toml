@@ -33,7 +33,7 @@ dependencies = [
     "open3d>=0.18.0",
     "pyyaml>=6.0",
     "tqdm>=4.66",
-    # Note: cv_bridge must be installed via ROS (apt install ros-*-cv-bridge)
+    # The ROS distribution supplies cv_bridge (RoboStack for the Isaac lite environment).
 ]
 
 [project.optional-dependencies]
@@ -57,7 +57,7 @@ ros1 = [
     # Note: rospy must be installed via ROS (apt install ros-noetic-rospy)
 ]
 ros2 = [
-    # Note: rclpy must be installed via ROS (apt install ros-humble-rclpy)
+    # Humble supplies rclpy for the matching Python interpreter.
 ]
 all = [
     "mujoco>=3.2.5",
